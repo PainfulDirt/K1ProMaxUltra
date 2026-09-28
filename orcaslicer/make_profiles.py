@@ -73,6 +73,30 @@ TIERS = {
 MAX_SPEED = 800
 MAX_ACCEL = 20000
 
+def tier_makes_sense(n, h, tier, nozzle):
+    """Keep a tier only where it changes something after Orca's flow cap
+    (speed <= max volumetric speed / line width / layer height). Judged with
+    the fastest filament, so a tier is only dropped if it can't help at all."""
+    if tier == "Balanced":
+        return True
+    flow = max(m["vol"] for m in MATERIALS.values())
+    outer, inner, sparse = nozzle["speed"][:3]
+    fine = h / n <= 0.3
+    def capped(speed, width):
+        return min(speed, MAX_SPEED, flow / (width * h))
+    def main(t):  # inner walls + sparse infill
+        f = TIERS[t]["speed"]
+        return (capped(inner * f, n * 1.125) + capped(sparse * f, n * 1.125)) / 2
+    def outer_wall(t):
+        return capped(outer * (0.75 if fine else 1) * TIERS[t]["outer"], n * 1.05)
+    if tier == "Precision":
+        return outer_wall("Precision") <= 0.8 * outer_wall("Balanced")
+    if tier == "Sport":
+        return main("Sport") >= 1.15 * main("Balanced")
+    if tier == "Ludicrous":
+        return main("Ludicrous") >= 1.15 * main("Sport")
+    return True
+
 def process_name(h, n, tier="Balanced"):
     t = "" if tier == "Balanced" else f" {tier}"
     return f"{h:.2f}mm {label(h, n)}{t} @{BRAND} {n:.1f}"
@@ -129,8 +153,41 @@ for n, p in NOZZLES.items():
         "default_filament_profile": [f"PETG @{BRAND}"],
     })
 
+# ---------------------------------------------------------------- filaments
+MATERIALS = {
+    # Kalico MPC feed-forward uses density/heat capacity; M141 sets the
+    # temperature at which the chamber fan starts (pellcorp temperature_fan)
+    "PLA":  dict(parent="Creality Generic PLA @K1-all", nozzle=220, bed=60, density=1.25, heat=1.8,
+                 vol=20, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
+    "PETG": dict(parent="Creality Generic PETG @K1-all", nozzle=250, bed=70, density=1.27, heat=1.8,
+                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
+    # PLA variants
+    "PLA Rapid": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=225, bed=60, density=1.24, heat=1.8,
+                 vol=23, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
+    "PLA Silk": dict(parent="Creality Generic PLA Silk @K1-all", nozzle=220, bed=60, density=1.24, heat=1.8,
+                 vol=8, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
+    "PLA+":     dict(parent="Creality Generic PLA @K1-all", nozzle=225, bed=60, density=1.24, heat=1.8,
+                 vol=18, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
+    "PLA Matte": dict(parent="Creality Generic PLA Matte @K1-all", nozzle=220, bed=60, density=1.24, heat=1.8,
+                 vol=18, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
+    # PETG variants (Creality has none; Rapid = the Elegoo Rapid PETG that printed the Benchy)
+    # PA 0.046: Orca PA test on PETG Rapid, 0.4 nozzle, 2026-09-28 (0.040-0.052 all looked good)
+    "PETG Rapid": dict(parent="Creality Generic PETG @K1-all", nozzle=250, bed=70, density=1.27, heat=1.8,
+                 vol=18, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
+    "PETG Silk": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
+                 vol=8, pa=0.046, chamber=40, aux=0, fan=(30, 60), flow=0.99),
+    "PETG+":    dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
+                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
+    "PETG Matte": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
+                 vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
+    "ABS":  dict(parent="Creality Generic ABS @K1-all", nozzle=260, bed=100, density=1.04, heat=1.6,
+                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
+    "ASA":  dict(parent="Creality Generic ASA @K1-all", nozzle=260, bed=100, density=1.07, heat=1.6,
+                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
+}
 # ---------------------------------------------------------------- processes
-for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layers"] for t in TIERS]:
+for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layers"] for t in TIERS
+                      if tier_makes_sense(n, h, t, p)]:
         T = TIERS[tier]
         sp = lambda v, f=T["speed"]: str(min(MAX_SPEED, round(v * f)))
         ac = lambda v, f: str(min(MAX_ACCEL, int(round(v * f / 100.0) * 100)))
@@ -212,38 +269,6 @@ for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layer
             "filename_format": "{input_filename_base}_" + f"{n:.1f}" + "n_{layer_height}mm_{filament_type[initial_tool]}_{print_time}.gcode",
         })
 
-# ---------------------------------------------------------------- filaments
-MATERIALS = {
-    # Kalico MPC feed-forward uses density/heat capacity; M141 sets the
-    # temperature at which the chamber fan starts (pellcorp temperature_fan)
-    "PLA":  dict(parent="Creality Generic PLA @K1-all", nozzle=220, bed=60, density=1.25, heat=1.8,
-                 vol=20, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
-    "PETG": dict(parent="Creality Generic PETG @K1-all", nozzle=250, bed=70, density=1.27, heat=1.8,
-                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
-    # PLA variants
-    "PLA Rapid": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=225, bed=60, density=1.24, heat=1.8,
-                 vol=23, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
-    "PLA Silk": dict(parent="Creality Generic PLA Silk @K1-all", nozzle=220, bed=60, density=1.24, heat=1.8,
-                 vol=8, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
-    "PLA+":     dict(parent="Creality Generic PLA @K1-all", nozzle=225, bed=60, density=1.24, heat=1.8,
-                 vol=18, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
-    "PLA Matte": dict(parent="Creality Generic PLA Matte @K1-all", nozzle=220, bed=60, density=1.24, heat=1.8,
-                 vol=18, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
-    # PETG variants (Creality has none; Rapid = the Elegoo Rapid PETG that printed the Benchy)
-    # PA 0.046: Orca PA test on PETG Rapid, 0.4 nozzle, 2026-09-28 (0.040-0.052 all looked good)
-    "PETG Rapid": dict(parent="Creality Generic PETG @K1-all", nozzle=250, bed=70, density=1.27, heat=1.8,
-                 vol=18, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
-    "PETG Silk": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
-                 vol=8, pa=0.046, chamber=40, aux=0, fan=(30, 60), flow=0.99),
-    "PETG+":    dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
-                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
-    "PETG Matte": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
-                 vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
-    "ABS":  dict(parent="Creality Generic ABS @K1-all", nozzle=260, bed=100, density=1.04, heat=1.6,
-                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
-    "ASA":  dict(parent="Creality Generic ASA @K1-all", nozzle=260, bed=100, density=1.07, heat=1.6,
-                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
-}
 all_printers = [printer_name(n) for n in NOZZLES]
 for mat, m in MATERIALS.items():
     name = f"{mat} @{BRAND}"

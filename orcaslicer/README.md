@@ -41,7 +41,7 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 
 ## Speed tiers
 
-Every layer height comes in four speed tiers, 128 processes in total. The *Balanced* tier keeps the original names (`0.20mm Standard @K1 Max Tuned 0.4`); the others have the tier in the name (`0.20mm Standard Sport @K1 Max Tuned 0.4`).
+Layer heights come in up to four speed tiers, **74 processes** in total. A tier is only included where it changes something: with Orca capping every speed at the filament's max flow, a faster tier on a coarse layer or a big nozzle would be identical to Balanced. The generator checks this for each profile against the fastest filament (`tier_makes_sense()` in `make_profiles.py`). So Sport and Ludicrous exist for the 0.2 nozzle and fine layers on the 0.4/0.6, Precision wherever it really slows the outer wall, and Balanced for every layer height. The *Balanced* tier keeps the original names (`0.20mm Standard @K1 Max Tuned 0.4`); the others have the tier in the name (`0.20mm Standard Sport @K1 Max Tuned 0.4`).
 
 | Tier | Speeds | Outer wall accel | Infill / travel accel | For |
 |---|---|---|---|---|
