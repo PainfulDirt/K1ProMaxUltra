@@ -89,7 +89,7 @@ def tier_makes_sense(n, h, tier, nozzle):
         return True
     if tier == "Precision":
         return n in (0.4, 0.6, 0.8, 1.0) and h / n <= 0.5
-    flow = max(m["vol"] for m in MATERIALS.values())
+    flow = max(m["vol"] for k, m in MATERIALS.items() if k != "PLA Speed Benchy")
     inner, sparse = nozzle["speed"][1:3]
     def main(t):
         f = TIERS[t]["speed"]
@@ -180,6 +180,13 @@ MATERIALS = {
                  vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
     "PETG Matte": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
                  vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
+    # for the Speed Benchy processes: fast PLA pushed to the stock hotend's
+    # sustained limit (~27mm3/s at 240C), every fan flat out, 1s layer time
+    "PLA Speed Benchy": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=240, bed=60, density=1.24, heat=1.8,
+                 vol=27, pa=0.03, chamber=35, aux=100, fan=(100, 100), flow=0.98,
+                 printers=[printer_name(0.8), printer_name(1.0)],
+                 extra={"nozzle_temperature_initial_layer": ["235"], "slow_down_layer_time": ["1"],
+                        "slow_down_min_speed": ["20"], "close_fan_the_first_x_layers": ["1"]}),
     "ABS":  dict(parent="Creality Generic ABS @K1-all", nozzle=260, bed=100, density=1.04, heat=1.6,
                  vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
     "ASA":  dict(parent="Creality Generic ASA @K1-all", nozzle=260, bed=100, density=1.07, heat=1.6,
@@ -273,6 +280,33 @@ for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layer
             "filename_format": "{input_filename_base}_" + f"{n:.1f}" + "n_{layer_height}mm_{filament_type[initial_tool]}_{print_time}.gcode",
         })
 
+# ---------------------------------------------------------------- speed benchy
+# ~10 minute 3DBenchy (Orca estimate 9:59 on 0.8 / 9:38 on 1.0 with the
+# "PLA Speed Benchy" filament). Needs the matching filament for its flow limit.
+SPEED_BENCHY = {0.8: 0.48, 1.0: 0.60}
+for n, h in SPEED_BENCHY.items():
+    base = json.load(open(os.path.join(OUT, "process",
+                      process_name(h, n) + ".json")))
+    name = f"{h:.2f}mm Speed Benchy @{BRAND} {n:.1f}"
+    v = "600"
+    base.update({
+        "name": name, "print_settings_id": name,
+        "outer_wall_speed": v, "inner_wall_speed": v, "sparse_infill_speed": v,
+        "internal_solid_infill_speed": v, "top_surface_speed": v, "gap_infill_speed": v,
+        "travel_speed": "800",
+        "default_acceleration": "20000", "outer_wall_acceleration": "20000",
+        "inner_wall_acceleration": "20000", "top_surface_acceleration": "20000",
+        "travel_acceleration": "20000",
+        "wall_loops": "2", "sparse_infill_density": "10%", "sparse_infill_pattern": "lightning",
+        "top_shell_layers": "3", "top_shell_thickness": "0",
+        "bottom_shell_layers": "2", "bottom_shell_thickness": "0",
+        # the first layer stays gentle so it sticks
+        "initial_layer_speed": "80", "initial_layer_infill_speed": "120",
+        "initial_layer_acceleration": "5000",
+        "brim_type": "no_brim", "skirt_loops": "0", "only_one_wall_top": "1",
+    })
+    write("process", name, base)
+
 all_printers = [printer_name(n) for n in NOZZLES]
 for mat, m in MATERIALS.items():
     name = f"{mat} @{BRAND}"
@@ -285,7 +319,7 @@ for mat, m in MATERIALS.items():
         "instantiation": "true",
         "version": VERSION,
         "filament_settings_id": [name],
-        "compatible_printers": all_printers,
+        "compatible_printers": m.get("printers", all_printers),
         "compatible_printers_condition": "",
         "nozzle_temperature": [str(m["nozzle"])],
         "nozzle_temperature_initial_layer": [str(m["nozzle"])],
@@ -304,6 +338,7 @@ for mat, m in MATERIALS.items():
         "additional_cooling_fan_speed": [str(m["aux"])],
         # Chamber Heat Soak on the printer waits for this (0 = no wait)
         "chamber_temperature": [str(m.get("chamber_soak", 0))],
+        **m.get("extra", {}),
         "filament_start_gcode": ["; filament start gcode\n"
                                  f"MPC_SET HEATER=extruder FILAMENT_DENSITY={fmt(m['density'])} FILAMENT_HEAT_CAPACITY={fmt(m['heat'])}\n"
                                  f"M141 S{m['chamber']}"],

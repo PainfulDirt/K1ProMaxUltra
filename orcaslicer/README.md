@@ -41,7 +41,7 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 
 ## Speed tiers
 
-**59 profiles.** Every layer height has **Balanced**, and the other two tiers exist only where they change the print (`tier_makes_sense()` in `make_profiles.py`).
+**59 profiles** (plus the two Speed Benchy ones below). Every layer height has **Balanced**, and the other two tiers exist only where they change the print (`tier_makes_sense()` in `make_profiles.py`).
 
 | Tier | Where | What |
 |---|---|---|
@@ -50,6 +50,16 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 | **Fast** | 0.2 nozzle (all), 0.4 nozzle 0.06–0.12 mm, 0.6 nozzle 0.12 mm | infill, inner walls and travel at full speed (×2, 20000 mm/s²), outer wall kept gentle (×1.2, shaper-limit acceleration) |
 
 Why Fast only there: the stock K1 Max hotend melts ~23 mm³/s of fast PLA, and Orca caps every speed at the filament's max flow, so on standard/coarse layers Balanced is already at that limit. On a 120×120×30 mm block Fast saved 29–41% where it's included (0.2 nozzle at 0.10 mm: 10.0 h → 5.9 h; 0.4 at 0.12 mm: 2.7 h → 1.9 h) and under 11% where it isn't. The 0.2 nozzle has no Precision because it never gets near 10 mm³/s. With a high-flow hotend, raise the filaments' `vol` in `MATERIALS` and re-run the generator: Fast then appears on more layer heights by itself.
+
+## Speed Benchy (~10 minutes)
+
+For fun and bragging rights: **`0.48mm Speed Benchy @K1 Max Tuned 0.8`** (Orca estimate **9:59**) and **`0.60mm Speed Benchy @K1 Max Tuned 1.0`** (**9:38**), with the **`PLA Speed Benchy @K1 Max Tuned`** filament (shown only for the 0.8/1.0 printers).
+
+- **Process:** 2 walls, 10% lightning infill, 3 top / 2 bottom layers, 600 mm/s and 20000 mm/s² everywhere, and a gentle first layer (80 mm/s, 5000 mm/s²) so it sticks.
+- **Filament:** fast PLA at 240 °C (235 °C first layer) and 27 mm³/s, which is the stock hotend's realistic sustained limit. All fans run at 100% from layer 2, and the minimum layer time is 1 s.
+- **Where the time goes:** at this speed, time is limited by the hotend's melting on the hull, and by cooling and acceleration on the small top layers. More flow barely helps: 30 mm³/s would only reach 9:46 on the 0.8.
+- **Not counted:** the times are print time only. START_PRINT's soak, mesh and nozzle touch come on top, but they're short for a small print in the middle of a hot bed.
+- **Use a high-speed PLA.** Normal PLA won't melt fast enough at 27 mm³/s.
 
 ## Why the settings are what they are
 
