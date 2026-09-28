@@ -1,0 +1,82 @@
+{
+    "type": "filament",
+    "name": "PLA Matte @K1 Max Tuned",
+    "inherits": "Creality Generic PLA Matte @K1-all",
+    "from": "User",
+    "instantiation": "true",
+    "version": "2.3.2.75",
+    "filament_settings_id": [
+        "PLA Matte @K1 Max Tuned"
+    ],
+    "compatible_printers": [
+        "K1 Max Tuned (0.2 nozzle)",
+        "K1 Max Tuned (0.4 nozzle)",
+        "K1 Max Tuned (0.6 nozzle)",
+        "K1 Max Tuned (0.8 nozzle)",
+        "K1 Max Tuned (1.0 nozzle)"
+    ],
+    "compatible_printers_condition": "",
+    "nozzle_temperature": [
+        "220"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "220"
+    ],
+    "hot_plate_temp": [
+        "60"
+    ],
+    "hot_plate_temp_initial_layer": [
+        "60"
+    ],
+    "textured_plate_temp": [
+        "60"
+    ],
+    "textured_plate_temp_initial_layer": [
+        "60"
+    ],
+    "eng_plate_temp": [
+        "60"
+    ],
+    "eng_plate_temp_initial_layer": [
+        "60"
+    ],
+    "cool_plate_temp": [
+        "60"
+    ],
+    "cool_plate_temp_initial_layer": [
+        "60"
+    ],
+    "supertack_plate_temp": [
+        "60"
+    ],
+    "supertack_plate_temp_initial_layer": [
+        "60"
+    ],
+    "filament_density": [
+        "1.24"
+    ],
+    "filament_max_volumetric_speed": [
+        "18"
+    ],
+    "filament_flow_ratio": [
+        "0.98"
+    ],
+    "enable_pressure_advance": [
+        "1"
+    ],
+    "pressure_advance": [
+        "0.04"
+    ],
+    "fan_min_speed": [
+        "100"
+    ],
+    "fan_max_speed": [
+        "100"
+    ],
+    "additional_cooling_fan_speed": [
+        "70"
+    ],
+    "filament_start_gcode": [
+        "; filament start gcode\nMPC_SET HEATER=extruder FILAMENT_DENSITY=1.24 FILAMENT_HEAT_CAPACITY=1.8\nM141 S35"
+    ]
+}

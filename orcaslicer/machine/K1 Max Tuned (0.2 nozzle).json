@@ -1,0 +1,52 @@
+{
+    "type": "machine",
+    "name": "K1 Max Tuned (0.2 nozzle)",
+    "inherits": "Creality K1 Max (0.4 nozzle)",
+    "from": "User",
+    "instantiation": "true",
+    "version": "2.3.2.75",
+    "printer_settings_id": "K1 Max Tuned (0.2 nozzle)",
+    "print_host": "",
+    "printer_agent": "moonraker",
+    "printer_extruder_id": [
+        "1"
+    ],
+    "printer_extruder_variant": [
+        "Direct Drive Standard"
+    ],
+    "nozzle_diameter": [
+        "0.2"
+    ],
+    "min_layer_height": [
+        "0.04"
+    ],
+    "max_layer_height": [
+        "0.14"
+    ],
+    "retraction_length": [
+        "0.8"
+    ],
+    "retraction_speed": [
+        "40"
+    ],
+    "deretraction_speed": [
+        "40"
+    ],
+    "z_hop": [
+        "0.2"
+    ],
+    "machine_start_gcode": "; START_PRINT: glass soak, hot Z re-home, adaptive mesh, nozzle wipe,\n; load-cell nozzle touch (Z=0), line purge - see tuning.cfg on the printer\nSET_PRINT_STATS_INFO TOTAL_LAYER=[total_layer_count]\nSTART_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single]\nM83\nG92 E0",
+    "machine_end_gcode": "END_PRINT",
+    "layer_change_gcode": ";AFTER_LAYER_CHANGE\n;[layer_z]\nG92 E0\nSET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}",
+    "change_filament_gcode": "M600",
+    "machine_pause_gcode": "PAUSE",
+    "thumbnails": [
+        "96x96",
+        "300x300"
+    ],
+    "thumbnails_format": "PNG",
+    "default_print_profile": "0.10mm Standard @K1 Max Tuned 0.2",
+    "default_filament_profile": [
+        "PETG @K1 Max Tuned"
+    ]
+}

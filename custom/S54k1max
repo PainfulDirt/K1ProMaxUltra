@@ -1,0 +1,6 @@
+#!/bin/sh
+# K1 Max customisations (source: /usr/data/pellcorp-overrides/custom)
+case "$1" in
+    start|restart|"") [ -x /usr/data/pellcorp-overrides/custom/k1max-boot.sh ] && /usr/data/pellcorp-overrides/custom/k1max-boot.sh ;;
+esac
+exit 0

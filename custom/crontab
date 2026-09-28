@@ -1,0 +1,2 @@
+# m h dom mon dow  -- nightly Pellcorp / Kalico update check
+0 4 * * * /usr/data/pellcorp-overrides/custom/check-updates.sh > /dev/null 2>&1
