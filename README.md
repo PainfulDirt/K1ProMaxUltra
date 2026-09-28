@@ -18,9 +18,10 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | ABS/ASA warping in a cold chamber | **Chamber Heat Soak**: the ABS/ASA Orca profiles pass `CHAMBER_TEMP=45`. With the bed at temperature and the chamber fan held off, START_PRINT waits until the chamber air reaches that. It gives up after 30 minutes so a cold room never blocks a print. PLA/PETG pass 0 and skip it. |
 | Printing with filament that was unloaded | **Filament check**: the K1 filament sensor sits before the extruder, so it still reports filament after `UNLOAD_FILAMENT`. `LOAD_FILAMENT`/`UNLOAD_FILAMENT` remember the state, and START_PRINT refuses to start (before heating or homing) until the filament is loaded again. |
 | Homing and mesh probes triggering at different heights | The Z homing speed now matches the probe speed. At 1 mm/s vs 5 mm/s they triggered 0.03 mm apart. |
-| X-rail wobble | **Axis twist compensation**, measured with nozzle touch against the Microprobe at 7 spots over 4 passes. No paper test. The profile is ±0.035 mm. |
+| X-rail wobble | **Axis twist compensation**, measured with nozzle touch against the Microprobe at 7 spots. No paper test. The profile is ±0.035 mm. `AXIS_TWIST_TOUCH_CALIBRATE` repeats it inside Klipper (forced every 300 h). |
 | Hotend temperature dips when the fan changes speed | **MPC** (Kalico) instead of PID: 0.5 °C overshoot, ±1.5 °C on a 0→100% fan step. |
 | The glass changes how the bed heats | Bed PID retuned at 80 °C with the glass on. The input shaper was re-run too (X 3hump_ei 77.6 Hz, Y ei 52 Hz). |
+| Calibrations go stale | **Forced calibration intervals**: print hours are counted, and when a calibration is due it runs automatically before the next print. Input shaper + belt data every 200 h, axis twist (load-cell method, [custom/twist_touch.py](custom/twist_touch.py)) every 300 h, hotend MPC + bed PID every 500 h. Results are used right away where Klipper allows it, and saved (SAVE_CONFIG) automatically ~5 minutes after the print ends. |
 | Updates | A **nightly check** writes `UPDATES.md` to the config folder, and there are one-click update macros. See below. |
 
 ## Layout
@@ -30,7 +31,8 @@ tuning.cfg               all the printer-side changes above (included from print
 printer.cfg, *.cfg       Pellcorp overrides: only the lines that differ from Pellcorp's files
 printer.cfg.save_config  SAVE_CONFIG block: probe offset, input shaper, PID/MPC, meshes
 custom/
-  mesh_edge_extend.py    Kalico plugin, linked into klipper/klippy/plugins
+  mesh_edge_extend.py    Kalico plugin: BED_MESH_EXTEND (Adaptive Mesh Extend)
+  twist_touch.py         Kalico plugin: AXIS_TWIST_TOUCH_CALIBRATE (load-cell twist calibration)
   k1max-boot.sh          recreates the plugin link and starts cron (runs at boot via S54k1max)
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
@@ -48,6 +50,7 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 32
 | `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 1.21) |
 | `Adaptive_Mesh_Extend` | off | when on, the mesh is extended for prints that reach past X 273 |
 | `Chamber_Heat_Soak` | on | ABS/ASA prints start without waiting for the chamber to warm up |
+| `Forced_Calibration` | on | due calibrations are not run before prints |
 
 Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches temperature) is retired: Adaptive Glass Soak replaces it. `k1max-boot.sh` renames it to `_Bed_Warp_Stabilisation`, which hides it in Fluidd, and keeps it off. It does this at every boot and after every update, because Pellcorp updates restore it.
 
@@ -60,6 +63,8 @@ Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches
 | `TRUE_ZERO_TOUCH` | Nozzle Deep Clean, then set Z=0 by touching the bed with the nozzle |
 | `ADAPTIVE_MESH_EXTEND` | extends the loaded mesh to X 300 with nozzle taps |
 | `CHAMBER_HEAT_SOAK` | heats the bed (`BED_TEMP=`, default 100 °C) until the chamber air reaches `TEMP=` (default 45 °C) |
+| `CALIBRATION_STATUS` | print hours counted and when each forced calibration is due |
+| `CALIBRATE_NEXT_PRINT` | `WHAT=shaper\|twist\|heaters\|all`: marks a calibration as due, so it runs before the next print |
 | `BACKUP_TO_GITHUB` | saves the config overrides and pushes them here |
 | `PRINTER_CHECK_UPDATES`, `PRINTER_UPDATE_PELLCORP`, `PRINTER_UPDATE_KALICO` | see *Updates* |
 
@@ -98,7 +103,7 @@ This is one specific printer, so read `tuning.cfg` before copying anything. The 
 
 - `[probe]` / Microprobe: `x_offset -33`, `z_offset` (SAVE_CONFIG), and `zero_reference_position` (the probe position while homing Z)
 - `[load_cell_probe]`: the load-cell settings. The leveling board needs Pellcorp's Kalico **bed MCU firmware with HX711 support** (bed0_121 or newer). The pins are the stock K1 ones. `reference_tare_counts` must be measured on your printer (read `force_g` with the bed empty). `counts_per_gram` is Pellcorp's K1 value.
-- `[axis_twist_compensation]` values, Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, Y 298), and the `[mesh_edge_extend]` edge positions
+- `[axis_twist_compensation]` values (SAVE_CONFIG block), Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, Y 298), and the `[mesh_edge_extend]` edge positions
 
 Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmware:
 

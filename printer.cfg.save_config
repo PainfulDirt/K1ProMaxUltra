@@ -24,6 +24,11 @@
 #*# ambient_transfer = 0.0800096
 #*# fan_ambient_transfer = 0.0800096, 0.0892158, 0.0994589, 0.106224, 0.114825, 0.114877, 0.116572
 #*#
+#*# [axis_twist_compensation]
+#*# z_compensations = 0.038761, -0.019187, -0.008176, -0.010624, 0.024967, 0.005910, -0.031651
+#*# compensation_start_x = 43.0
+#*# compensation_end_x = 306.0
+#*#
 #*# [bed_mesh default]
 #*# version = 1
 #*# points =

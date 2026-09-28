@@ -5,10 +5,12 @@
 #   k1max-boot.sh links   links only
 C=/usr/data/pellcorp-overrides/custom
 
-# Kalico loads mesh_edge_extend from klippy/plugins; a Kalico reinstall
-# deletes the link, and Klipper will not start without it
+# Kalico loads the plugins (mesh_edge_extend, twist_touch) from klippy/plugins;
+# a Kalico reinstall deletes the links, and Klipper will not start without them
 if [ -d /usr/data/klipper/klippy/plugins ]; then
-    ln -sf $C/mesh_edge_extend.py /usr/data/klipper/klippy/plugins/mesh_edge_extend.py
+    for f in $C/*.py; do
+        ln -sf $f /usr/data/klipper/klippy/plugins/$(basename $f)
+    done
 fi
 
 # retire Pellcorp's time-based Bed_Warp_Stabilisation (Adaptive Glass Soak

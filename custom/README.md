@@ -7,7 +7,8 @@ after every update):
 | File | What it does |
 |---|---|
 | `mesh_edge_extend.py` | Kalico plugin providing `BED_MESH_EXTEND`; linked into `klipper/klippy/plugins/` |
-| `k1max-boot.sh` | recreates the plugin link and `/etc/init.d/S54k1max`, retires Pellcorp's Bed_Warp_Stabilisation, installs the crontab, starts `crond` |
+| `twist_touch.py` | Kalico plugin providing `AXIS_TWIST_TOUCH_CALIBRATE` (axis twist with the load cells); linked into `klipper/klippy/plugins/` |
+| `k1max-boot.sh` | recreates the plugin links and `/etc/init.d/S54k1max`, retires Pellcorp's Bed_Warp_Stabilisation, installs the crontab, starts `crond` |
 | `S54k1max` | the init script itself (copied to `/etc/init.d/`) |
 | `crontab` | runs `check-updates.sh` every night at 4:00 |
 | `check-updates.sh` | checks Pellcorp and Kalico for new commits and writes `UPDATES.md` to the config folder (installs nothing) |
