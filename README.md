@@ -14,7 +14,7 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | The mesh seemed to be ignored on the glass bed | **Adaptive glass soak** (`_GLASS_SOAK`): when the bed reaches 80 °C, the middle of the glass is 0.16 mm low. It then rises 0.25 mm over ~6.5 minutes, and the edges keep moving for 10+ minutes after that, so a mesh taken right away doesn't match the bed by the first layer. Every 40 s, START_PRINT probes the Z-home spot plus the corners of the print's own footprint (from the object outlines, like the adaptive mesh) until none of them moves. A small print in the middle watches 2 spots; a full-bed print watches 5. |
 | Z homing cold, meshing hot | **Hot Z re-home** after the soak, then a mesh with `zero_reference_position` at the Z-home spot. |
 | First-layer height depends on the probe offset | **Load-cell nozzle touch**: first the nozzle is cleaned on the rear edge of the bed (stock-style: slow hot scrub at 200 °C on fresh lines, then it stays pressed into the PEI while the fan cools it to 160 °C so the residue sets on the bed, then a slow 2 mm/s drag with Z rising that peels the residue off the tip). Then it taps the bed at the mesh zero point with the load cells, and that contact becomes Z=0. The Microprobe checks the result, and if the touch reads early (dirty nozzle) it falls back to Microprobe Z instead of trusting it. |
-| The Microprobe can't reach the right 27 mm of the bed (33 mm X offset) | The mesh is taken out to X 273, the probe's full reach (Pellcorp stops at 262). **`BED_MESH_EXTEND`** ([custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)), a Kalico plugin, taps with the nozzle near the mesh edge and near the bed edge on 5 rows and extends the mesh to X 300 using the measured slope. **Status: available, off by default** (`variable_mesh_extend` in `_LOAD_CELL_TOUCH_Z`). Repeat taps are precise (±0.005 mm, median of 3). But on this bed the strip past X 273 isn't a slope: it dips ~0.02 mm around X 285, comes back up, and has a lip at the front-right corner. So holding the X 273 value flat is about as accurate as a two-tap straight extension, and saves 2–3 minutes on wide prints. The real fix for the right edge was measuring out to X 273. |
+| The Microprobe can't reach the right 27 mm of the bed (33 mm X offset) | The mesh is taken out to X 273, the probe's full reach (Pellcorp stops at 262). **`BED_MESH_EXTEND`** ([custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)), a Kalico plugin, taps with the nozzle near the mesh edge and near the bed edge on 5 rows and extends the mesh to X 300 using the measured slope. **Status: available, off by default** (the `Mesh_Extend` switch). Repeat taps are precise (±0.005 mm, median of 3). But on this bed the strip past X 273 isn't a slope: it dips ~0.02 mm around X 285, comes back up, and has a lip at the front-right corner. So holding the X 273 value flat is about as accurate as a two-tap straight extension, and saves 2–3 minutes on wide prints. The real fix for the right edge was measuring out to X 273. |
 | Homing and mesh probes triggering at different heights | The Z homing speed now matches the probe speed. At 1 mm/s vs 5 mm/s they triggered 0.03 mm apart. |
 | X-rail wobble | **Axis twist compensation**, measured with nozzle touch against the Microprobe at 7 spots over 4 passes. No paper test. The profile is ±0.035 mm. |
 | Hotend temperature dips when the fan changes speed | **MPC** (Kalico) instead of PID: 0.5 °C overshoot, ±1.5 °C on a 0→100% fan step. |
@@ -34,6 +34,28 @@ custom/
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
 orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 32 processes, 12 filaments)
 ```
+
+## Switches and buttons
+
+**Switches** are in Fluidd's *Outputs* panel. They decide what START_PRINT does and are remembered across restarts (`variables.cfg`).
+
+| Switch | Default | Off means |
+|---|---|---|
+| `Glass_Soak` | on | no waiting for the glass to settle before the mesh |
+| `Nozzle_Wipe` | on | the nozzle touch happens without cleaning the nozzle first |
+| `Nozzle_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 1.21) |
+| `Mesh_Extend` | off | when on, `BED_MESH_EXTEND` runs for prints that reach past X 273 |
+
+**Buttons** are in Fluidd's *Macros* panel and on the screen. They always run, whatever the switches say.
+
+| Button | Does |
+|---|---|
+| `GLASS_SOAK` | heats the bed (`BED_TEMP=`, default the current target or 70 °C) and waits until the glass stops moving |
+| `NOZZLE_CLEAN` | the nozzle clean on its own |
+| `NOZZLE_TOUCH_Z` | clean, then set Z=0 by touching the bed with the nozzle |
+| `MESH_EDGE_EXTEND` | extends the loaded mesh to X 300 with nozzle taps |
+| `BACKUP_TO_GITHUB` | saves the config overrides and pushes them here |
+| `PRINTER_CHECK_UPDATES`, `PRINTER_UPDATE_PELLCORP`, `PRINTER_UPDATE_KALICO` | see *Updates* |
 
 ## Updates
 
