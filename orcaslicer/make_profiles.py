@@ -180,12 +180,12 @@ MATERIALS = {
                  vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
     "PETG Matte": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
                  vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
-    # for the Speed Benchy processes: fast PLA pushed to the stock hotend's
-    # sustained limit (~27mm3/s at 240C), every fan flat out, 1s layer time
-    "PLA Speed Benchy": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=240, bed=60, density=1.24, heat=1.8,
-                 vol=27, pa=0.03, chamber=35, aux=100, fan=(100, 100), flow=0.98,
-                 printers=[printer_name(0.8), printer_name(1.0)],
-                 extra={"nozzle_temperature_initial_layer": ["235"], "slow_down_layer_time": ["1"],
+    # for the Speed Benchy processes: fast PLA pushed to the stock K1 hotend's
+    # rated maximum (32mm3/s, needs 255C), every fan flat out, 1s layer time
+    "PLA Speed Benchy": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=255, bed=60, density=1.24, heat=1.8,
+                 vol=32, pa=0.03, chamber=35, aux=100, fan=(100, 100), flow=0.98,
+                 printers=[printer_name(0.4), printer_name(0.8), printer_name(1.0)],
+                 extra={"nozzle_temperature_initial_layer": ["250"], "slow_down_layer_time": ["1"],
                         "slow_down_min_speed": ["20"], "close_fan_the_first_x_layers": ["1"]}),
     "ABS":  dict(parent="Creality Generic ABS @K1-all", nozzle=260, bed=100, density=1.04, heat=1.6,
                  vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
@@ -281,9 +281,9 @@ for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layer
         })
 
 # ---------------------------------------------------------------- speed benchy
-# ~10 minute 3DBenchy (Orca estimate 9:59 on 0.8 / 9:38 on 1.0 with the
-# "PLA Speed Benchy" filament). Needs the matching filament for its flow limit.
-SPEED_BENCHY = {0.8: 0.48, 1.0: 0.60}
+# Speed 3DBenchy with the "PLA Speed Benchy" filament. On the 0.4 the path
+# length (not the flow) is the limit, so it prints extra-wide 0.55mm lines.
+SPEED_BENCHY = {0.4: 0.32, 0.8: 0.48, 1.0: 0.60}
 for n, h in SPEED_BENCHY.items():
     base = json.load(open(os.path.join(OUT, "process",
                       process_name(h, n) + ".json")))
@@ -305,6 +305,15 @@ for n, h in SPEED_BENCHY.items():
         "initial_layer_acceleration": "5000",
         "brim_type": "no_brim", "skirt_loops": "0", "only_one_wall_top": "1",
     })
+    if n == 0.4:
+        # wider lines = fewer passes; the curvy hull never reaches 600mm/s anyway
+        for k in ("line_width", "outer_wall_line_width", "inner_wall_line_width",
+                  "sparse_infill_line_width", "internal_solid_infill_line_width",
+                  "top_surface_line_width"):
+            base[k] = "0.55"
+        for k in ("outer_wall_speed", "inner_wall_speed", "sparse_infill_speed",
+                  "internal_solid_infill_speed", "top_surface_speed", "gap_infill_speed"):
+            base[k] = "800"
     write("process", name, base)
 
 all_printers = [printer_name(n) for n in NOZZLES]
