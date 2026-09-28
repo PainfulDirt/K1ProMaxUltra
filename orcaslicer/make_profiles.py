@@ -287,7 +287,8 @@ SPEED_BENCHY = {0.4: 0.32, 0.8: 0.48, 1.0: 0.60}
 for n, h in SPEED_BENCHY.items():
     base = json.load(open(os.path.join(OUT, "process",
                       process_name(h, n) + ".json")))
-    name = f"{h:.2f}mm Speed Benchy @{BRAND} {n:.1f}"
+    # name starts with letters so Orca sorts these below all the layer heights
+    name = f"Speed Benchy {h:.2f}mm @{BRAND} {n:.1f}"
     v = "600"
     base.update({
         "name": name, "print_settings_id": name,

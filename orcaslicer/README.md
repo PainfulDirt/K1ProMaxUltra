@@ -57,9 +57,9 @@ For fun and bragging rights. Use them with the **`PLA Speed Benchy @K1 Max Tuned
 
 | Profile | Orca estimate |
 |---|---|
-| `0.32mm Speed Benchy @K1 Max Tuned 0.4` | **12:28** |
-| `0.48mm Speed Benchy @K1 Max Tuned 0.8` | **9:14** |
-| `0.60mm Speed Benchy @K1 Max Tuned 1.0` | **8:45** |
+| `Speed Benchy 0.32mm @K1 Max Tuned 0.4` | **12:28** |
+| `Speed Benchy 0.48mm @K1 Max Tuned 0.8` | **9:14** |
+| `Speed Benchy 0.60mm @K1 Max Tuned 1.0` | **8:45** |
 
 - **Process:** 2 walls, 10% lightning infill, 3 top / 2 bottom layers, 600 mm/s (800 on the 0.4) and 20000 mm/s² everywhere, with a gentle first layer (80 mm/s, 5000 mm/s²) so it sticks.
 - **Filament:** fast PLA at 255 °C (250 °C first layer) and 32 mm³/s, which is the stock K1 hotend's rated maximum. All fans run at 100% from layer 2, and the minimum layer time is 1 s. Use a **high-speed PLA**; normal PLA won't melt that fast. If it under-extrudes, run Orca's max volumetric speed test and lower `vol` for this filament.

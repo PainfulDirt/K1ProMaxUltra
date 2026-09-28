@@ -1,11 +1,11 @@
 {
     "type": "process",
-    "name": "0.60mm Speed Benchy @K1 Max Tuned 1.0",
+    "name": "Speed Benchy 0.60mm @K1 Max Tuned 1.0",
     "inherits": "0.20mm Standard @Creality K1Max (0.4 nozzle)",
     "from": "User",
     "instantiation": "true",
     "version": "2.3.2.75",
-    "print_settings_id": "0.60mm Speed Benchy @K1 Max Tuned 1.0",
+    "print_settings_id": "Speed Benchy 0.60mm @K1 Max Tuned 1.0",
     "compatible_printers": [
         "K1 Max Tuned (1.0 nozzle)"
     ],
