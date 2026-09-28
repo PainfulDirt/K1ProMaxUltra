@@ -39,6 +39,21 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 
   Temperatures vary by brand, so check the range printed on the spool. PETG Rapid is the only row that's been proven on this printer: its PA of 0.046 comes from an Orca PA test on the 0.4 nozzle (0.040–0.052 all looked good). The other PETG variants use the same PA as a starting point, and everything else in the table is a starting point too.
 
+## Speed tiers
+
+Every layer height comes in four speed tiers, 128 processes in total. The *Balanced* tier keeps the original names (`0.20mm Standard @K1 Max Tuned 0.4`); the others have the tier in the name (`0.20mm Standard Sport @K1 Max Tuned 0.4`).
+
+| Tier | Speeds | Outer wall accel | Infill / travel accel | For |
+|---|---|---|---|---|
+| Precision | ×0.6 (outer ×0.5) | ×0.5 (2500 on 0.4) | 5000 / 8000 | visible parts, fine detail, tall thin prints |
+| Balanced | ×1 | 5000 | 10000 / 12000 | everyday printing |
+| Sport | ×1.4 (outer ×1.2) | 5000 (input shaper limit) | 14000 / 16000 | functional parts |
+| Ludicrous | ×2 (outer ×1.5), travel 800 | 7000 | 20000 / 20000 | drafts and prototypes; ringing traded for time |
+
+The first layer and bridges are the same in every tier.
+
+**The hotend is the real limit above Balanced.** The stock K1 Max hotend melts ~23 mm³/s of fast PLA, and Orca caps every speed at the filament's max volumetric speed. So Sport and Ludicrous mostly gain on travel and acceleration, and on fine layers and the 0.2 nozzle, where the flow limit isn't reached. A 3DBenchy in PLA Rapid takes 1h43 → 1h31 on the 0.2 nozzle at 0.10 mm (Balanced → Ludicrous), but only 38 → 37 minutes on the 0.4. With a high-flow hotend, the same profiles get faster once the filaments' max volumetric speed is raised.
+
 ## Why the settings are what they are
 
 - **Start G-code** is just `START_PRINT`. The printer does the rest itself: glass soak, hot Z re-home, adaptive mesh, nozzle wipe, load-cell nozzle touch and purge. The stock `T0`, which Klipper doesn't know, and the extra Z moves are removed.
@@ -61,7 +76,7 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 
 ## Testing
 
-Every process was sliced on a 3DBenchy with the Orca 2.4.2 command-line slicer, using the full inherited settings: 32 processes, each on its matching nozzle, plus all 12 filaments. All sliced with the correct layer heights, line widths, first layers, temperatures and object labels. The GUI import itself hasn't been tried.
+Every Balanced process, plus all four tiers on every nozzle and the extreme layer heights in Precision and Ludicrous, was sliced on a 3DBenchy with the Orca 2.4.2 command-line slicer, using the full inherited settings, as were all 12 filaments. All sliced with the correct layer heights, line widths, first layers, temperatures and object labels. The GUI import itself hasn't been tried.
 
 ## Changing things
 

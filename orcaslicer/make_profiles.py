@@ -59,8 +59,23 @@ def label(h, n):
     if r < 0.75:  return "Extra Draft"
     return "Max"
 
-def process_name(h, n):
-    return f"{h:.2f}mm {label(h, n)} @{BRAND} {n:.1f}"
+# speed tiers: multipliers on each nozzle's speeds / accelerations.
+# Balanced keeps the original profile names, so existing selections still work.
+TIERS = {
+    # name:      outer, other speeds, travel, accel: outer, inner, top, default, travel
+    "Precision": dict(outer=0.5, speed=0.6, travel=400, acc=(0.5, 0.5, 0.5, 0.5, 0.67)),
+    "Balanced":  dict(outer=1.0, speed=1.0, travel=500, acc=(1.0, 1.0, 1.0, 1.0, 1.0)),
+    # outer wall acceleration stays at the input shaper limit
+    "Sport":     dict(outer=1.2, speed=1.4, travel=600, acc=(1.0, 1.25, 1.0, 1.4, 1.33)),
+    # machine limits; ringing traded for time
+    "Ludicrous": dict(outer=1.5, speed=2.0, travel=800, acc=(1.4, 1.75, 1.33, 2.0, 1.67)),
+}
+MAX_SPEED = 800
+MAX_ACCEL = 20000
+
+def process_name(h, n, tier="Balanced"):
+    t = "" if tier == "Balanced" else f" {tier}"
+    return f"{h:.2f}mm {label(h, n)}{t} @{BRAND} {n:.1f}"
 
 START_GCODE = (
     "; START_PRINT: chamber heat soak (ABS/ASA), adaptive glass soak, hot Z\n"
@@ -115,12 +130,14 @@ for n, p in NOZZLES.items():
     })
 
 # ---------------------------------------------------------------- processes
-for n, p in NOZZLES.items():
-    outer, inner, sparse, solid, top_s, gap, bridge, support, first = p["speed"]
-    a = p["accel"]
-    for h in p["layers"]:
+for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layers"] for t in TIERS]:
+        T = TIERS[tier]
+        sp = lambda v, f=T["speed"]: str(min(MAX_SPEED, round(v * f)))
+        ac = lambda v, f: str(min(MAX_ACCEL, int(round(v * f / 100.0) * 100)))
+        outer, inner, sparse, solid, top_s, gap, bridge, support, first = p["speed"]
+        a = p["accel"]
         fine = h / n <= 0.3
-        name = process_name(h, n)
+        name = process_name(h, n, tier)
         write("process", name, {
             "type": "process",
             "name": name,
@@ -154,25 +171,25 @@ for n, p in NOZZLES.items():
             "bottom_shell_thickness": fmt(p["bottom"]),
             "elefant_foot_compensation": fmt(p["efc"]),
             # speeds; the filament's max volumetric speed caps the big nozzles
-            "outer_wall_speed": str(round(outer * (0.75 if fine else 1))),
-            "inner_wall_speed": str(inner),
-            "sparse_infill_speed": str(sparse),
-            "internal_solid_infill_speed": str(solid),
-            "top_surface_speed": str(top_s),
-            "gap_infill_speed": str(gap),
+            "outer_wall_speed": sp(outer * (0.75 if fine else 1), T["outer"]),
+            "inner_wall_speed": sp(inner),
+            "sparse_infill_speed": sp(sparse),
+            "internal_solid_infill_speed": sp(solid),
+            "top_surface_speed": sp(top_s),
+            "gap_infill_speed": sp(gap),
             "bridge_speed": str(bridge),
-            "support_speed": str(support),
-            "support_interface_speed": str(round(support * 0.6)),
+            "support_speed": sp(support),
+            "support_interface_speed": sp(support * 0.6),
             "initial_layer_speed": str(first),
             "initial_layer_infill_speed": str(first),
-            "travel_speed": "500",
+            "travel_speed": str(T["travel"]),
             # input shaper: X 3hump_ei 77.6Hz, Y ei 52Hz -> Klipper suggests
             # <= ~4400-5800 mm/s^2 for crisp corners, so keep walls around there
-            "default_acceleration": str(a["default"]),
-            "outer_wall_acceleration": str(a["outer"]),
-            "inner_wall_acceleration": str(a["inner"]),
-            "top_surface_acceleration": str(a["top"]),
-            "travel_acceleration": str(a["travel"]),
+            "default_acceleration": ac(a["default"], T["acc"][3]),
+            "outer_wall_acceleration": ac(a["outer"], T["acc"][0]),
+            "inner_wall_acceleration": ac(a["inner"], T["acc"][1]),
+            "top_surface_acceleration": ac(a["top"], T["acc"][2]),
+            "travel_acceleration": ac(a["travel"], T["acc"][4]),
             "initial_layer_acceleration": "1000",
             "bridge_acceleration": "50%",
             # jerk 0 = Orca emits no SQUARE_CORNER_VELOCITY, so the printer's 5
