@@ -108,6 +108,16 @@ class BedMeshExtend:
         )
         # never abort the print over this: on any problem keep the normal mesh
         slopes = []
+        try:
+            # the first tap after the nozzle wipe reads off (0.02-0.04mm in
+            # testing), so make one that is not used
+            self._tap(old_max, tap_ys[0])
+        except self.printer.command_error as e:
+            gcmd.respond_info(
+                "BED_MESH_EXTEND: tap failed (%s), keeping the original"
+                " mesh" % (e,)
+            )
+            return
         for y in tap_ys:
             try:
                 z_in = self._tap(old_max, y)
