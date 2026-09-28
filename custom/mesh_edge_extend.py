@@ -183,7 +183,7 @@ class BedMeshExtend:
             )
             return
         logging.info(
-            "bed_mesh_extend: X%.1f -> X%.1f, %d -> %d columns, slopes %s"
+            "mesh_edge_extend: X%.1f -> X%.1f, %d -> %d columns, slopes %s"
             % (old_max, target, x_cnt, new_cnt, slopes)
         )
         gcmd.respond_info(

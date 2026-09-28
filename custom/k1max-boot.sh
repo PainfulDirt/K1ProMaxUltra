@@ -5,10 +5,10 @@
 #   k1max-boot.sh links   links only
 C=/usr/data/pellcorp-overrides/custom
 
-# Kalico loads bed_mesh_extend from klippy/plugins; a Kalico reinstall
+# Kalico loads mesh_edge_extend from klippy/plugins; a Kalico reinstall
 # deletes the link, and Klipper will not start without it
 if [ -d /usr/data/klipper/klippy/plugins ]; then
-    ln -sf $C/bed_mesh_extend.py /usr/data/klipper/klippy/plugins/bed_mesh_extend.py
+    ln -sf $C/mesh_edge_extend.py /usr/data/klipper/klippy/plugins/mesh_edge_extend.py
 fi
 
 # the boot script itself, in case the root filesystem was reset

@@ -1,8 +1,8 @@
 #!/bin/sh
 # Check Pellcorp (Simple AF) and Kalico for updates. Nothing is installed:
 # the result goes to UPDATES.md in the Fluidd config folder, and a message
-# is shown on the printer when it is idle. Update with K1_UPDATE_PELLCORP /
-# K1_UPDATE_KALICO.
+# is shown on the printer when it is idle. Update with PRINTER_UPDATE_PELLCORP /
+# PRINTER_UPDATE_KALICO.
 OUT=/usr/data/printer_data/config/UPDATES.md
 TMP=$OUT.tmp
 
@@ -31,7 +31,7 @@ git diff --name-only HEAD $kl_up -- fw/K1 2> /dev/null | grep -q . && kl_fw=yes
     echo "## Pellcorp Simple AF: $pc_count new commit(s)"
     echo
     if [ "$pc_count" != "0" ]; then
-        echo "Install with the **K1_UPDATE_PELLCORP** macro (backs up your changes first)."
+        echo "Install with the **PRINTER_UPDATE_PELLCORP** macro (backs up your changes first)."
         echo
         echo "$pc_log"
     else
@@ -41,7 +41,7 @@ git diff --name-only HEAD $kl_up -- fw/K1 2> /dev/null | grep -q . && kl_fw=yes
     echo "## Kalico ($kl_branch): $kl_count new commit(s)"
     echo
     if [ "$kl_count" != "0" ]; then
-        echo "Install with the **K1_UPDATE_KALICO** macro."
+        echo "Install with the **PRINTER_UPDATE_KALICO** macro."
         if [ "$kl_fw" = "yes" ]; then
             echo
             echo "**Includes new MCU firmware**: after the update the printer must be"

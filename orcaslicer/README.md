@@ -8,7 +8,7 @@ In OrcaSlicer: **File → Import → Import Configs…**, then choose `K1Max-Tun
 
 Then select the printer **K1 Max Tuned (0.4 nozzle)** (or the nozzle you have fitted). Only the processes and filaments that match that nozzle are shown.
 
-The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape, thumbnails, limits and the Moonraker upload to `10.0.1.129:7125` all carry over.
+The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape, thumbnails, limits and and the Moonraker upload all carry over (set your printer's address in the printer profile).
 
 ## What's inside
 
