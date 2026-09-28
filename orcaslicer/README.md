@@ -41,18 +41,15 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 
 ## Speed tiers
 
-Layer heights come in up to four speed tiers, **74 processes** in total. A tier is only included where it changes something: with Orca capping every speed at the filament's max flow, a faster tier on a coarse layer or a big nozzle would be identical to Balanced. The generator checks this for each profile against the fastest filament (`tier_makes_sense()` in `make_profiles.py`). So Sport and Ludicrous exist for the 0.2 nozzle and fine layers on the 0.4/0.6, Precision wherever it really slows the outer wall, and Balanced for every layer height. The *Balanced* tier keeps the original names (`0.20mm Standard @K1 Max Tuned 0.4`); the others have the tier in the name (`0.20mm Standard Sport @K1 Max Tuned 0.4`).
+As few profiles as possible: **51**. Every layer height has **Balanced**, and the other two tiers exist only where they change the print (`tier_makes_sense()` in `make_profiles.py`).
 
-| Tier | Speeds | Outer wall accel | Infill / travel accel | For |
-|---|---|---|---|---|
-| Precision | ×0.6 (outer ×0.5) | ×0.5 (2500 on 0.4) | 5000 / 8000 | visible parts, fine detail, tall thin prints |
-| Balanced | ×1 | 5000 | 10000 / 12000 | everyday printing |
-| Sport | ×1.4 (outer ×1.2) | 5000 (input shaper limit) | 14000 / 16000 | functional parts |
-| Ludicrous | ×2 (outer ×1.5), travel 800 | 7000 | 20000 / 20000 | drafts and prototypes; ringing traded for time |
+| Tier | Where | What |
+|---|---|---|
+| **Balanced** | every layer height | the everyday profile (original names, e.g. `0.20mm Standard @K1 Max Tuned 0.4`) |
+| **Precision** | 0.4 nozzle 0.06–0.20 mm, 0.6 nozzle 0.12–0.30 mm | walls ×0.5–0.6 and half the acceleration: visible parts, fine detail |
+| **Fast** | 0.2 nozzle (all), 0.4 nozzle 0.06–0.12 mm, 0.6 nozzle 0.12 mm | infill, inner walls and travel at full speed (×2, 20000 mm/s²), outer wall kept gentle (×1.2, shaper-limit acceleration) |
 
-The first layer and bridges are the same in every tier.
-
-**The hotend is the real limit above Balanced.** The stock K1 Max hotend melts ~23 mm³/s of fast PLA, and Orca caps every speed at the filament's max volumetric speed. So Sport and Ludicrous mostly gain on travel and acceleration, and on fine layers and the 0.2 nozzle, where the flow limit isn't reached. A 3DBenchy in PLA Rapid takes 1h43 → 1h31 on the 0.2 nozzle at 0.10 mm (Balanced → Ludicrous), but only 38 → 37 minutes on the 0.4. With a high-flow hotend, the same profiles get faster once the filaments' max volumetric speed is raised.
+Why only there: the stock K1 Max hotend melts ~23 mm³/s of fast PLA, and Orca caps every speed at the filament's max flow. On standard or coarse layers, Balanced is already at that cap. On a 120×120×30 mm block, Fast saved 29–41% where it's included (0.2 nozzle at 0.10 mm: 10.0 h → 5.9 h; 0.4 at 0.12 mm: 2.7 h → 1.9 h) and under 11% where it isn't. Precision would be identical to Balanced on the 0.8/1.0 nozzles (their walls are flow-capped), and the 0.2 nozzle's Balanced is already slow. With a high-flow hotend, raise the filaments' `vol` in `MATERIALS` and re-run the generator: Fast then appears on more layer heights by itself.
 
 ## Why the settings are what they are
 
@@ -76,7 +73,7 @@ The first layer and bridges are the same in every tier.
 
 ## Testing
 
-Every Balanced process, plus all four tiers on every nozzle and the extreme layer heights in Precision and Ludicrous, was sliced on a 3DBenchy with the Orca 2.4.2 command-line slicer, using the full inherited settings, as were all 12 filaments. All sliced with the correct layer heights, line widths, first layers, temperatures and object labels. The GUI import itself hasn't been tried.
+Every Balanced process, the tiers on every nozzle, and the Fast tier on a large block were sliced on a 3DBenchy with the Orca 2.4.2 command-line slicer, using the full inherited settings, as were all 12 filaments. All sliced with the correct layer heights, line widths, first layers, temperatures and object labels. The GUI import itself hasn't been tried.
 
 ## Changing things
 

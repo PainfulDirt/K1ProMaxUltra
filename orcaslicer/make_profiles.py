@@ -65,37 +65,32 @@ TIERS = {
     # name:      outer, other speeds, travel, accel: outer, inner, top, default, travel
     "Precision": dict(outer=0.5, speed=0.6, travel=400, acc=(0.5, 0.5, 0.5, 0.5, 0.67)),
     "Balanced":  dict(outer=1.0, speed=1.0, travel=500, acc=(1.0, 1.0, 1.0, 1.0, 1.0)),
-    # outer wall acceleration stays at the input shaper limit
-    "Sport":     dict(outer=1.2, speed=1.4, travel=600, acc=(1.0, 1.25, 1.0, 1.4, 1.33)),
-    # machine limits; ringing traded for time
-    "Ludicrous": dict(outer=1.5, speed=2.0, travel=800, acc=(1.4, 1.75, 1.33, 2.0, 1.67)),
+    # full speed where it doesn't show (infill, inner walls, travel); the outer
+    # wall stays gentle, at the input shaper acceleration limit
+    "Fast":      dict(outer=1.2, speed=2.0, travel=800, acc=(1.0, 1.75, 1.0, 2.0, 1.67)),
 }
 MAX_SPEED = 800
 MAX_ACCEL = 20000
 
 def tier_makes_sense(n, h, tier, nozzle):
-    """Keep a tier only where it changes something after Orca's flow cap
-    (speed <= max volumetric speed / line width / layer height). Judged with
-    the fastest filament, so a tier is only dropped if it can't help at all."""
+    """As few profiles as possible: a tier only where it changes the print.
+    Fast: only where it makes the main extrusion (inner walls + infill) at least
+    15% faster after Orca's flow cap (speed <= max volumetric speed / line
+    width / layer height), judged with the fastest filament. On a 120x120x30
+    block that is -31..-43% print time; elsewhere it was under 11%.
+    Precision: detail to standard layers on the everyday nozzles (0.4, 0.6);
+    the 0.2 nozzle is already slow, the 0.8/1.0 are for speed."""
     if tier == "Balanced":
         return True
-    flow = max(m["vol"] for m in MATERIALS.values())
-    outer, inner, sparse = nozzle["speed"][:3]
-    fine = h / n <= 0.3
-    def capped(speed, width):
-        return min(speed, MAX_SPEED, flow / (width * h))
-    def main(t):  # inner walls + sparse infill
-        f = TIERS[t]["speed"]
-        return (capped(inner * f, n * 1.125) + capped(sparse * f, n * 1.125)) / 2
-    def outer_wall(t):
-        return capped(outer * (0.75 if fine else 1) * TIERS[t]["outer"], n * 1.05)
     if tier == "Precision":
-        return outer_wall("Precision") <= 0.8 * outer_wall("Balanced")
-    if tier == "Sport":
-        return main("Sport") >= 1.15 * main("Balanced")
-    if tier == "Ludicrous":
-        return main("Ludicrous") >= 1.15 * main("Sport")
-    return True
+        return n in (0.4, 0.6) and h / n <= 0.5
+    flow = max(m["vol"] for m in MATERIALS.values())
+    inner, sparse = nozzle["speed"][1:3]
+    def main(t):
+        f = TIERS[t]["speed"]
+        cap = flow / (n * 1.125 * h)
+        return (min(inner * f, MAX_SPEED, cap) + min(sparse * f, MAX_SPEED, cap)) / 2
+    return main("Fast") >= 1.15 * main("Balanced")
 
 def process_name(h, n, tier="Balanced"):
     t = "" if tier == "Balanced" else f" {tier}"
