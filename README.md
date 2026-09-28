@@ -46,6 +46,8 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 32
 | `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 1.21) |
 | `Adaptive_Mesh_Extend` | off | when on, the mesh is extended for prints that reach past X 273 |
 
+Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches temperature) is retired: Adaptive Glass Soak replaces it. `k1max-boot.sh` renames it to `_Bed_Warp_Stabilisation`, which hides it in Fluidd, and keeps it off. It does this at every boot and after every update, because Pellcorp updates restore it.
+
 **Buttons** are in Fluidd's *Macros* panel and on the screen. They always run, whatever the switches say.
 
 | Button | Does |
