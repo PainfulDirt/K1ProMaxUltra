@@ -111,6 +111,32 @@ START_GCODE = (
 )
 LAYER_GCODE = ";AFTER_LAYER_CHANGE\n;[layer_z]\nG92 E0\nSET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}"
 
+SYSTEM = os.path.expanduser("~/.config/OrcaSlicer/system/Creality/machine")
+
+def resolved_machine(parent):
+    """Full settings of a Creality system printer (its whole inherits chain), so
+    our printers can be standalone: then Creality's own process presets don't
+    show up in their dropdowns (the 0.2 printer offered 0.4-nozzle presets)."""
+    import glob
+    presets = {}
+    for f in glob.glob(os.path.join(SYSTEM, "*.json")):
+        try:
+            j = json.load(open(f))
+        except ValueError:
+            continue
+        presets[j.get("name")] = j
+    chain, name = [], parent
+    while name:
+        j = presets[name]
+        chain.append(j)
+        name = j.get("inherits")
+    out = {}
+    for j in reversed(chain):
+        out.update(j)
+    for k in ("inherits", "setting_id", "from", "type", "name", "instantiation"):
+        out.pop(k, None)
+    return out
+
 def write(kind, name, data):
     d = os.path.join(OUT, kind)
     os.makedirs(d, exist_ok=True)
@@ -127,9 +153,10 @@ user_host = {
 for n, p in NOZZLES.items():
     name = printer_name(n)
     write("machine", name, {
+        **resolved_machine(p["parent"]),
         "type": "machine",
         "name": name,
-        "inherits": p["parent"],
+        "inherits": "",
         "from": "User",
         "instantiation": "true",
         "version": VERSION,
