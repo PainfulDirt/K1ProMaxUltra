@@ -41,6 +41,19 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 32
 - **`PRINTER_UPDATE_PELLCORP`** / **`PRINTER_UPDATE_KALICO`**: these refuse to run while printing. Otherwise they save the overrides (committing and pushing them here), update, restore the plugin link, and report whether Klipper came back `ready`. The log is `logs/k1max_update.log`.
 - **`PRINTER_CHECK_UPDATES`** runs the check on demand.
 
+## Backups to this repo (from the printer itself)
+
+`/usr/data/pellcorp-overrides` on the printer is a git checkout of this repo. Pellcorp's `CONFIG_OVERRIDES` (also run by the update macros) commits and pushes whenever something changed, so this repo always matches the printer.
+
+The printer pushes with its own **deploy key**, which works for this repo only. K1 firmware ships an old dropbear (2019.78), which has two quirks:
+
+- RSA keys sign with SHA-1, which GitHub rejects for git operations (though `ssh -T` still says hello). Use an **ECDSA** key: `dropbearkey -t ecdsa -s 256 -f /usr/data/.ssh/k1max_github_ecdsa`, then add the public part (`dropbearkey -y -f ...`) under *Settings → Deploy keys* with write access.
+- git assumes OpenSSH options that dropbear doesn't understand, so set:
+  ```
+  git config core.sshCommand "dbclient -i /usr/data/.ssh/k1max_github_ecdsa -y"
+  git config ssh.variant simple
+  ```
+
 ## Using this on your own K1 / K1 Max
 
 This is one specific printer, so read `tuning.cfg` before copying anything. The values **tied to this hardware** are:
