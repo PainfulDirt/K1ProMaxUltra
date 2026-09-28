@@ -35,7 +35,7 @@
     "z_hop": [
         "0.6"
     ],
-    "machine_start_gcode": "; START_PRINT: glass soak, hot Z re-home, adaptive mesh, nozzle wipe,\n; load-cell nozzle touch (Z=0), line purge - see tuning.cfg on the printer\nSET_PRINT_STATS_INFO TOTAL_LAYER=[total_layer_count]\nSTART_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single]\nM83\nG92 E0",
+    "machine_start_gcode": "; START_PRINT: chamber heat soak (ABS/ASA), adaptive glass soak, hot Z\n; re-home, adaptive mesh, nozzle deep clean, true zero touch, line purge\nSET_PRINT_STATS_INFO TOTAL_LAYER=[total_layer_count]\nSTART_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single] CHAMBER_TEMP=[overall_chamber_temperature]\nM83\nG92 E0",
     "machine_end_gcode": "END_PRINT",
     "layer_change_gcode": ";AFTER_LAYER_CHANGE\n;[layer_z]\nG92 E0\nSET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}",
     "change_filament_gcode": "M600",

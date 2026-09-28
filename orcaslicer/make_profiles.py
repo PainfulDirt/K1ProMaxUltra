@@ -63,10 +63,10 @@ def process_name(h, n):
     return f"{h:.2f}mm {label(h, n)} @{BRAND} {n:.1f}"
 
 START_GCODE = (
-    "; START_PRINT: glass soak, hot Z re-home, adaptive mesh, nozzle wipe,\n"
-    "; load-cell nozzle touch (Z=0), line purge - see tuning.cfg on the printer\n"
+    "; START_PRINT: chamber heat soak (ABS/ASA), adaptive glass soak, hot Z\n"
+    "; re-home, adaptive mesh, nozzle deep clean, true zero touch, line purge\n"
     "SET_PRINT_STATS_INFO TOTAL_LAYER=[total_layer_count]\n"
-    "START_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single]\n"
+    "START_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single] CHAMBER_TEMP=[overall_chamber_temperature]\n"
     "M83\n"
     "G92 E0"
 )
@@ -223,9 +223,9 @@ MATERIALS = {
     "PETG Matte": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
                  vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
     "ABS":  dict(parent="Creality Generic ABS @K1-all", nozzle=260, bed=100, density=1.04, heat=1.6,
-                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98),
+                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
     "ASA":  dict(parent="Creality Generic ASA @K1-all", nozzle=260, bed=100, density=1.07, heat=1.6,
-                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98),
+                 vol=16, pa=0.04, chamber=60, aux=0, fan=(0, 30), flow=0.98, chamber_soak=45),
 }
 all_printers = [printer_name(n) for n in NOZZLES]
 for mat, m in MATERIALS.items():
@@ -256,6 +256,8 @@ for mat, m in MATERIALS.items():
         "fan_min_speed": [str(m["fan"][0])],
         "fan_max_speed": [str(m["fan"][1])],
         "additional_cooling_fan_speed": [str(m["aux"])],
+        # Chamber Heat Soak on the printer waits for this (0 = no wait)
+        "chamber_temperature": [str(m.get("chamber_soak", 0))],
         "filament_start_gcode": ["; filament start gcode\n"
                                  f"MPC_SET HEATER=extruder FILAMENT_DENSITY={fmt(m['density'])} FILAMENT_HEAT_CAPACITY={fmt(m['heat'])}\n"
                                  f"M141 S{m['chamber']}"],

@@ -76,6 +76,9 @@
     "additional_cooling_fan_speed": [
         "0"
     ],
+    "chamber_temperature": [
+        "45"
+    ],
     "filament_start_gcode": [
         "; filament start gcode\nMPC_SET HEATER=extruder FILAMENT_DENSITY=1.07 FILAMENT_HEAT_CAPACITY=1.6\nM141 S60"
     ]
