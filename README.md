@@ -18,7 +18,7 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | Homing and mesh probes triggering at different heights | The Z homing speed now matches the probe speed. At 1 mm/s vs 5 mm/s they triggered 0.03 mm apart. |
 | X-rail wobble | **Axis twist compensation**, measured with nozzle touch against the Microprobe at 7 spots over 4 passes. No paper test. The profile is ±0.035 mm. |
 | Hotend temperature dips when the fan changes speed | **MPC** (Kalico) instead of PID: 0.5 °C overshoot, ±1.5 °C on a 0→100% fan step. |
-| Bed warmed by the glass | Bed PID retuned at 80 °C. The input shaper was re-run (X 3hump_ei 77.6 Hz, Y ei 52 Hz). |
+| The glass changes how the bed heats | Bed PID retuned at 80 °C with the glass on. The input shaper was re-run too (X 3hump_ei 77.6 Hz, Y ei 52 Hz). |
 | Updates | A **nightly check** writes `UPDATES.md` to the config folder, and there are one-click update macros. See below. |
 
 ## Layout
@@ -54,6 +54,16 @@ The printer pushes with its own **deploy key**, which works for this repo only. 
   git config ssh.variant simple
   ```
 
+## What you need
+
+- **Simple AF** (Pellcorp) from September 2026 or later, installed with the Microprobe option. This build's `S13mcu_update` can also flash the bed MCU.
+- **Kalico instead of Klipper**, on Pellcorp's `aug2026` branch, which has the multi-chip `hx711s` load-cell driver and `register_as_probe: False`:
+  ```
+  cd /usr/data/pellcorp && sh ./installer.sh --klipper-repo kalico aug2026
+  ```
+  Then **switch the printer off and on**. That flashes the main, nozzle and bed MCUs (bed firmware `bed0_121` or newer has the HX711 support). Check `/usr/data/mcu.versions` afterwards.
+- A **Microprobe V2**. The stock load cells stay in place; they're only used for the nozzle touch.
+
 ## Using this on your own K1 / K1 Max
 
 This is one specific printer, so read `tuning.cfg` before copying anything. The values **tied to this hardware** are:
@@ -64,9 +74,15 @@ This is one specific printer, so read `tuning.cfg` before copying anything. The 
 
 Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmware:
 
-1. Copy `tuning.cfg` to `printer_data/config/` and add `[include tuning.cfg]` to `printer.cfg`, after the probe includes.
-2. Copy `custom/` to `/usr/data/pellcorp-overrides/custom/` and run `custom/k1max-boot.sh`.
+1. Copy `custom/` to `/usr/data/pellcorp-overrides/custom/` and run `custom/k1max-boot.sh`. This has to come **first**: `tuning.cfg` has a `[mesh_edge_extend]` section, and Klipper won't start until the plugin is linked in.
+2. Copy `tuning.cfg` to `printer_data/config/` and add `[include tuning.cfg]` to `printer.cfg`, after the probe includes.
 3. Change the hardware-specific values above, restart, then run `CONFIG_OVERRIDES` so updates keep your changes.
+
+## Known limitations
+
+- The nozzle wipe can still leave a thin string hanging off the side of the nozzle. It doesn't affect the touch (the Microprobe check shows a clean contact), and the purge line picks it up. A silicone brush at the back edge would be the proper fix.
+- `BED_MESH_EXTEND` is experimental (see above).
+- `counts_per_gram` was not weighed on this printer, so load-cell forces in grams are approximate. The touch height doesn't depend on it.
 
 ## OrcaSlicer profiles
 
