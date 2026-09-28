@@ -36,7 +36,7 @@ custom/
   k1max-boot.sh          recreates the plugin link and starts cron (runs at boot via S54k1max)
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
-orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 51 processes: Balanced everywhere, Precision and Fast where they make a difference, 12 filaments)
+orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59 processes: Balanced everywhere, Precision (10 mm3/s quality cap) and Fast where they make a difference, 12 filaments)
 ```
 
 ## Switches and buttons

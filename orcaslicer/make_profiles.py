@@ -70,6 +70,9 @@ TIERS = {
     "Fast":      dict(outer=1.2, speed=2.0, travel=800, acc=(1.0, 1.75, 1.0, 2.0, 1.67)),
 }
 MAX_SPEED = 800
+# Precision caps every feature at this melt rate (mm3/s): fully melted plastic
+# and good layer bonding, which matters most on big nozzles
+QUALITY_FLOW = 10
 MAX_ACCEL = 20000
 
 def tier_makes_sense(n, h, tier, nozzle):
@@ -78,12 +81,14 @@ def tier_makes_sense(n, h, tier, nozzle):
     15% faster after Orca's flow cap (speed <= max volumetric speed / line
     width / layer height), judged with the fastest filament. On a 120x120x30
     block that is -31..-43% print time; elsewhere it was under 11%.
-    Precision: detail to standard layers on the everyday nozzles (0.4, 0.6);
-    the 0.2 nozzle is already slow, the 0.8/1.0 are for speed."""
+    Precision: detail to standard layers (up to half the nozzle size) on the
+    0.4-1.0 nozzles; it caps the melt rate at QUALITY_FLOW, so on big nozzles
+    it is much slower than Balanced (which runs at the hotend's limit). The 0.2
+    nozzle never gets near that flow, its Balanced is already slow."""
     if tier == "Balanced":
         return True
     if tier == "Precision":
-        return n in (0.4, 0.6) and h / n <= 0.5
+        return n in (0.4, 0.6, 0.8, 1.0) and h / n <= 0.5
     flow = max(m["vol"] for m in MATERIALS.values())
     inner, sparse = nozzle["speed"][1:3]
     def main(t):
@@ -184,7 +189,11 @@ MATERIALS = {
 for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layers"] for t in TIERS
                       if tier_makes_sense(n, h, t, p)]:
         T = TIERS[tier]
-        sp = lambda v, f=T["speed"]: str(min(MAX_SPEED, round(v * f)))
+        def sp(v, f=T["speed"], width=n * 1.125):
+            v = min(MAX_SPEED, v * f)
+            if tier == "Precision":
+                v = min(v, QUALITY_FLOW / (width * h))
+            return str(max(10, round(v)))
         ac = lambda v, f: str(min(MAX_ACCEL, int(round(v * f / 100.0) * 100)))
         outer, inner, sparse, solid, top_s, gap, bridge, support, first = p["speed"]
         a = p["accel"]
@@ -223,12 +232,12 @@ for n, p, h, tier in [(n, p, h, t) for n, p in NOZZLES.items() for h in p["layer
             "bottom_shell_thickness": fmt(p["bottom"]),
             "elefant_foot_compensation": fmt(p["efc"]),
             # speeds; the filament's max volumetric speed caps the big nozzles
-            "outer_wall_speed": sp(outer * (0.75 if fine else 1), T["outer"]),
+            "outer_wall_speed": sp(outer * (0.75 if fine else 1), T["outer"], n * 1.05),
             "inner_wall_speed": sp(inner),
             "sparse_infill_speed": sp(sparse),
-            "internal_solid_infill_speed": sp(solid),
-            "top_surface_speed": sp(top_s),
-            "gap_infill_speed": sp(gap),
+            "internal_solid_infill_speed": sp(solid, width=n * 1.05),
+            "top_surface_speed": sp(top_s, width=n * 1.0),
+            "gap_infill_speed": sp(gap, width=n * 1.0),
             "bridge_speed": str(bridge),
             "support_speed": sp(support),
             "support_interface_speed": sp(support * 0.6),

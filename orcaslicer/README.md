@@ -41,15 +41,15 @@ The printers inherit from Orca's own *Creality K1 Max* presets, so the bed shape
 
 ## Speed tiers
 
-As few profiles as possible: **51**. Every layer height has **Balanced**, and the other two tiers exist only where they change the print (`tier_makes_sense()` in `make_profiles.py`).
+**59 profiles.** Every layer height has **Balanced**, and the other two tiers exist only where they change the print (`tier_makes_sense()` in `make_profiles.py`).
 
 | Tier | Where | What |
 |---|---|---|
 | **Balanced** | every layer height | the everyday profile (original names, e.g. `0.20mm Standard @K1 Max Tuned 0.4`) |
-| **Precision** | 0.4 nozzle 0.06–0.20 mm, 0.6 nozzle 0.12–0.30 mm | walls ×0.5–0.6 and half the acceleration: visible parts, fine detail |
+| **Precision** | 0.4, 0.6, 0.8, 1.0 nozzles, fine to standard layers (up to half the nozzle size) | real quality: every feature is capped at **10 mm³/s** melt rate (fully melted plastic, good layer bonding) and accelerations are halved. On big nozzles that is much slower than Balanced: 0.8 at 0.40 mm walls ~30 mm/s, 1.0 at 0.50 mm ~19 mm/s. |
 | **Fast** | 0.2 nozzle (all), 0.4 nozzle 0.06–0.12 mm, 0.6 nozzle 0.12 mm | infill, inner walls and travel at full speed (×2, 20000 mm/s²), outer wall kept gentle (×1.2, shaper-limit acceleration) |
 
-Why only there: the stock K1 Max hotend melts ~23 mm³/s of fast PLA, and Orca caps every speed at the filament's max flow. On standard or coarse layers, Balanced is already at that cap. On a 120×120×30 mm block, Fast saved 29–41% where it's included (0.2 nozzle at 0.10 mm: 10.0 h → 5.9 h; 0.4 at 0.12 mm: 2.7 h → 1.9 h) and under 11% where it isn't. Precision would be identical to Balanced on the 0.8/1.0 nozzles (their walls are flow-capped), and the 0.2 nozzle's Balanced is already slow. With a high-flow hotend, raise the filaments' `vol` in `MATERIALS` and re-run the generator: Fast then appears on more layer heights by itself.
+Why Fast only there: the stock K1 Max hotend melts ~23 mm³/s of fast PLA, and Orca caps every speed at the filament's max flow, so on standard/coarse layers Balanced is already at that limit. On a 120×120×30 mm block Fast saved 29–41% where it's included (0.2 nozzle at 0.10 mm: 10.0 h → 5.9 h; 0.4 at 0.12 mm: 2.7 h → 1.9 h) and under 11% where it isn't. The 0.2 nozzle has no Precision because it never gets near 10 mm³/s. With a high-flow hotend, raise the filaments' `vol` in `MATERIALS` and re-run the generator: Fast then appears on more layer heights by itself.
 
 ## Why the settings are what they are
 
