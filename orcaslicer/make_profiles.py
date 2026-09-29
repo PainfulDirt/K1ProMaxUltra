@@ -187,7 +187,7 @@ MATERIALS = {
     "PLA":  dict(parent="Creality Generic PLA @K1-all", nozzle=220, bed=60, density=1.25, heat=1.8,
                  vol=20, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
     "PETG": dict(parent="Creality Generic PETG @K1-all", nozzle=250, bed=70, density=1.27, heat=1.8,
-                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
+                 vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
     # PLA variants
     "PLA Rapid": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=225, bed=60, density=1.24, heat=1.8,
                  vol=23, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
@@ -197,16 +197,19 @@ MATERIALS = {
                  vol=18, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
     "PLA Matte": dict(parent="Creality Generic PLA Matte @K1-all", nozzle=220, bed=60, density=1.24, heat=1.8,
                  vol=18, pa=0.04, chamber=35, aux=70, fan=(100, 100), flow=0.98),
-    # PETG variants (Creality has none; Rapid = the Elegoo Rapid PETG that printed the Benchy)
+    # PETG variants (Creality has none; Rapid = the Elegoo Rapid PETG that printed the Benchy).
+    # Max flow: the stock hotend can't melt PETG at 18mm3/s (large solid layers
+    # got gaps on layer 2, 2026-09-29), so these are safe values; measure yours
+    # with Orca's max volumetric speed test
     # PA 0.046: Orca PA test on PETG Rapid, 0.4 nozzle, 2026-09-28 (0.040-0.052 all looked good)
     "PETG Rapid": dict(parent="Creality Generic PETG @K1-all", nozzle=250, bed=70, density=1.27, heat=1.8,
-                 vol=18, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
+                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
     "PETG Silk": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
                  vol=8, pa=0.046, chamber=40, aux=0, fan=(30, 60), flow=0.99),
     "PETG+":    dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
-                 vol=14, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
+                 vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 80), flow=0.99),
     "PETG Matte": dict(parent="Creality Generic PETG @K1-all", nozzle=245, bed=70, density=1.27, heat=1.8,
-                 vol=12, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
+                 vol=11, pa=0.046, chamber=40, aux=0, fan=(30, 70), flow=0.99),
     # for the Speed Benchy processes: fast PLA pushed to the stock K1 hotend's
     # rated maximum (32mm3/s, needs 255C), every fan flat out, 1s layer time
     "PLA Speed Benchy": dict(parent="Creality Generic PLA High Speed @K1-all", nozzle=255, bed=60, density=1.24, heat=1.8,

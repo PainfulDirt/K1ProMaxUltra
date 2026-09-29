@@ -30,11 +30,11 @@ The printers are **standalone**: they contain the full *Creality K1 Max* base se
 | PLA Silk | 220 / 60 | 8 | 0.04 | low flow keeps the shine |
 | PLA+ | 225 / 60 | 18 | 0.04 | tougher blend, a bit hotter |
 | PLA Matte | 220 / 60 | 18 | 0.04 | |
-| PETG | 250 / 70 | 14 | 0.046 | |
-| PETG Rapid | 250 / 70 | 18 | 0.046 | the Elegoo Rapid PETG settings that printed the Benchy |
+| PETG | 250 / 70 | 12 | 0.046 | |
+| PETG Rapid | 250 / 70 | 14 | 0.046 | the Elegoo Rapid PETG settings that printed the Benchy |
 | PETG Silk | 245 / 70 | 8 | 0.046 | low flow keeps the shine |
-| PETG+ | 245 / 70 | 14 | 0.046 | |
-| PETG Matte | 245 / 70 | 12 | 0.046 | |
+| PETG+ | 245 / 70 | 12 | 0.046 | |
+| PETG Matte | 245 / 70 | 11 | 0.046 | |
 | ABS / ASA | 260 / 100 | 16 | 0.04 | chamber fan waits for 60 °C |
 
   Temperatures vary by brand, so check the range printed on the spool. PETG Rapid is the only row that's been proven on this printer: its PA of 0.046 comes from an Orca PA test on the 0.4 nozzle (0.040–0.052 all looked good). The other PETG variants use the same PA as a starting point, and everything else in the table is a starting point too.
@@ -83,7 +83,7 @@ For fun and bragging rights. Use them with the **`PLA Speed Benchy @K1 Max Tuned
 ## Still needs calibrating (Orca → Calibration menu)
 
 - **Pressure advance for each nozzle size.** The PA values are for the 0.4 nozzle. The other nozzles need their own values.
-- **Max volumetric speed.** The starting values are PLA 20, PETG 14, ABS/ASA 16 mm³/s. These, not the speed settings, are what limit the 0.8 and 1.0 nozzles, so the Orca max-flow test is worth doing if you use those nozzles a lot.
+- **Max volumetric speed.** The starting values are PLA 20, PETG 12 (Rapid 14), ABS/ASA 16 mm³/s. PETG Rapid at 18 mm³/s left gaps on the second layer of big flat parts (the first layer is slow, so it looks perfect), so PETG was lowered to safe values. These, not the speed settings, are what limit the 0.8 and 1.0 nozzles, so the Orca max-flow test is worth doing if you use those nozzles a lot.
 - **Flow ratio** for each filament brand.
 
 ## Testing
