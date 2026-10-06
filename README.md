@@ -119,9 +119,17 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 
 ## Roadmap
 
-- **Open LiDAR driver.** Today the LiDAR is driven by Creality's closed `cx_ai_middleware`. The plan is to record its serial traffic (strace), document the protocol (frames are `AF FF | len16 | src | cmd | payload | checksum16`), and write a plain Python driver. Open question: the `cx_ai_crypto` handshake that udev runs when the LiDAR is plugged in.
-- **LiDAR first-layer check.** The same bare-plate subtraction on a real first layer, which gives the true first-layer thickness and checks True Zero Touch with numbers.
+**LiDAR** (done: LiDAR PA calibration)
+- **True first-layer thickness.** Scan the bare plate, print the first layer, scan again: the difference is the real thickness across the part. Checks True Zero Touch and the mesh with numbers.
+- **Flow / extrusion multiplier.** Measure single-line cross-sections (height × width) against what was commanded, per filament. The PA test already measures these areas.
+- **Bed mesh check.** Scan points at the same Z and compare them with the Microprobe mesh: an independent check of the mesh and the glass.
+- **Strings and blobs before a print.** A quick scan of the print area after the purge; warn or stop if something is lying where the part goes.
+- **Axis twist check.** The LiDAR measures plate height without touching it, so it gives a second opinion on the Microprobe twist.
+- **LiDAR offset self-check.** Print a small cross and let the scan find it, which measures where the laser line sits relative to the nozzle (done by hand on 2026-10-06). For after a plate swap or moving the LiDAR.
+- **Open LiDAR driver.** Today Creality's closed `cx_ai_middleware` drives the LiDAR. The plan: record its serial traffic (strace), document the protocol (frames are `AF FF | len16 | src | cmd | payload | checksum16`), and write a plain Python driver. Open question: the `cx_ai_crypto` handshake that udev runs when the LiDAR is plugged in.
 - **LiDAR reports on a helper computer.** A Raspberry Pi (a 4B with 1 GB is enough) could fetch the scans from the printer and draw height maps and history, which is too heavy for the K1 itself.
+
+**Other**
 - **Silicone wipe pads** (K2 Plus) for the Nozzle Deep Clean.
 
 ## Known limitations
