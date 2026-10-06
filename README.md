@@ -14,7 +14,7 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | The mesh seemed to be ignored on the glass bed | **Adaptive Glass Soak**: when the bed reaches 80 °C, the middle of the glass is 0.16 mm low. It then rises 0.25 mm over ~6.5 minutes, and the edges keep moving for 10+ minutes after that, so a mesh taken right away doesn't match the bed by the first layer. Every 40 s, START_PRINT probes the Z-home spot plus the corners of the print's own footprint (from the object outlines, like the adaptive mesh) until none of them moves. A small print in the middle watches 2 spots; a full-bed print watches 5. |
 | Z homing cold, meshing hot | **Hot Z re-home** after the soak, then a mesh with `zero_reference_position` at the Z-home spot. |
 | First-layer height depends on the probe offset | **True Zero Touch**: first a **Nozzle Deep Clean** on the rear edge of the bed (stock-style: slow hot scrub at 200 °C on fresh lines, then it stays pressed into the PEI while the fan cools it to 160 °C so the residue sets on the bed, then a slow 2 mm/s drag with Z rising that peels the residue off the tip). Then it taps the bed at the mesh zero point with the load cells, and that contact becomes Z=0. The Microprobe checks the result, and if the touch reads early (dirty nozzle) it falls back to Microprobe Z instead of trusting it. |
-| The Microprobe can't reach the right 27 mm of the bed (33 mm X offset) | The mesh is taken out to X 273, the probe's full reach (Pellcorp stops at 262). **Adaptive Mesh Extend** (`BED_MESH_EXTEND`) ([custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)), a Kalico plugin, taps with the nozzle near the mesh edge and near the bed edge on 5 rows and extends the mesh to X 300 using the measured slope. **Status: available, off by default** (the `Adaptive_Mesh_Extend` switch). Repeat taps are precise (±0.005 mm, median of 3). But on this bed the strip past X 273 isn't a slope: it dips ~0.02 mm around X 285, comes back up, and has a lip at the front-right corner. So holding the X 273 value flat is about as accurate as a two-tap straight extension, and saves 2–3 minutes on wide prints. The real fix for the right edge was measuring out to X 273. |
+| Where the Microprobe can reach | The Microprobe sits **20.3 mm behind the nozzle, in line on X** (moved 2026-10-06; it used to be 33 mm to the left). The mesh covers the full width, X 5–295 × Y 20–295. Only the front ~20 mm can't be probed, and Klipper holds the front row flat there. **Adaptive Mesh Extend** (`BED_MESH_EXTEND`, [custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)) was written for the old left-side mount, when the right 27 mm was out of reach, and is off. |
 | ABS/ASA warping in a cold chamber | **Chamber Heat Soak**: the ABS/ASA Orca profiles pass `CHAMBER_TEMP=45`. With the bed at temperature and the chamber fan held off, START_PRINT waits until the chamber air reaches that. It gives up after 30 minutes so a cold room never blocks a print. PLA/PETG pass 0 and skip it. |
 | Printing with filament that was unloaded | **Filament check**: the K1 filament sensor sits before the extruder, so it still reports filament after `UNLOAD_FILAMENT`. `LOAD_FILAMENT`/`UNLOAD_FILAMENT` remember the state, and START_PRINT refuses to start (before heating or homing) until the filament is loaded again. |
 | Homing and mesh probes triggering at different heights | The Z homing speed now matches the probe speed. At 1 mm/s vs 5 mm/s they triggered 0.03 mm apart. |
@@ -47,8 +47,8 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59
 |---|---|---|
 | `Adaptive_Glass_Soak` | on | no waiting for the glass to settle before the mesh |
 | `Nozzle_Deep_Clean` | on | True Zero Touch happens without cleaning the nozzle first |
-| `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 1.21) |
-| `Adaptive_Mesh_Extend` | off | when on, the mesh is extended for prints that reach past X 273 |
+| `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 0.876, measured with the load cells) |
+| `Adaptive_Mesh_Extend` | off | (for the old left-side probe mount) extends the mesh to the right bed edge |
 | `Chamber_Heat_Soak` | on | ABS/ASA prints start without waiting for the chamber to warm up |
 | `Forced_Calibration` | on | due calibrations are not run before prints |
 
@@ -101,7 +101,7 @@ The printer pushes with its own **deploy key**, which works for this repo only. 
 
 This is one specific printer, so read `tuning.cfg` before copying anything. The values **tied to this hardware** are:
 
-- `[probe]` / Microprobe: `x_offset -33`, `z_offset` (SAVE_CONFIG), and `zero_reference_position` (the probe position while homing Z)
+- `[probe]` / Microprobe: `x_offset 0`, `y_offset 20.3`, `z_offset` (SAVE_CONFIG, measure it with the load cells: nozzle contact vs Microprobe at the same spot), `zero_reference_position` (the probe position while homing Z: nozzle 153,153 → 153,173.3), and `mesh_min`/`mesh_max` (the probe's reach)
 - `[load_cell_probe]`: the load-cell settings. The leveling board needs Pellcorp's Kalico **bed MCU firmware with HX711 support** (bed0_121 or newer). The pins are the stock K1 ones. `reference_tare_counts` must be measured on your printer (read `force_g` with the bed empty). `counts_per_gram` is Pellcorp's K1 value.
 - `[axis_twist_compensation]` values (SAVE_CONFIG block), Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, Y 298), and the `[mesh_edge_extend]` edge positions
 
