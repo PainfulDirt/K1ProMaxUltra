@@ -33,4 +33,7 @@ fi
 mkdir -p /etc/crontabs
 cp $C/crontab /etc/crontabs/root
 pidof crond > /dev/null || crond -c /etc/crontabs
+
+# LiDAR: keep it powered and start Creality's driver for lidar.py
+$C/lidar-start.sh > /dev/null 2>&1 &
 exit 0

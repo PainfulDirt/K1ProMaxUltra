@@ -16,6 +16,7 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | First-layer height depends on the probe offset | **True Zero Touch**: first a **Nozzle Deep Clean** on the rear edge of the bed (stock-style: slow hot scrub at 200 °C on fresh lines, then it stays pressed into the PEI while the fan cools it to 160 °C so the residue sets on the bed, then a slow 2 mm/s drag with Z rising that peels the residue off the tip). Then it taps the bed at the mesh zero point with the load cells, and that contact becomes Z=0. The Microprobe checks the result, and if the touch reads early (dirty nozzle) it falls back to Microprobe Z instead of trusting it. |
 | Where the Microprobe can reach | The Microprobe sits **20.3 mm behind the nozzle, in line on X** (moved 2026-10-06; it used to be 33 mm to the left). The mesh covers the full width, X 5–295 × Y 20–295. Only the front ~20 mm can't be probed, and Klipper holds the front row flat there. **Adaptive Mesh Extend** (`BED_MESH_EXTEND`, [custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)) was written for the old left-side mount, when the right 27 mm was out of reach, and is off. |
 | The probe behind the nozzle hits the Z rod housings at the back | **Keep-out zones** ([custom/keep_out.py](custom/keep_out.py)): measured by stepping the toolhead back until ~3 mm were left. Blocked for the nozzle: back-left corner X 0–19 beyond Y 292, middle X 130–170 beyond Y 293, back-right X 266–286 beyond Y 302 and X 286+ beyond Y 287. Klipper checks every move: travel moves that would cross a zone are routed in front of it, anything else is refused before it moves. The Orca printers have the same zones (the corners are cut out of the bed shape, the middle is the excluded area), so nothing gets sliced there. The end-of-print park is at Y 270, and the Nozzle Deep Clean strip is at the back-left (X 40–100), where the probe clears the frame. |
+| The stock LiDAR is dead under Simple AF (Creality's hotplug script switches it off) | **LiDAR** ([custom/lidar.py](custom/lidar.py), [custom/lidar-start.sh](custom/lidar-start.sh)): at boot the LiDAR is kept powered and Creality's `cx_ai_middleware`, still on the printer, is started to drive it. The plugin moves the toolhead and collects height profiles, about 1500 points across a 29 mm laser line, repeatable to 1–2 µm. Because the plate's texture doesn't move, a bare-plate scan is subtracted from every measurement. **LiDAR PA calibration** (`LIDAR_PA_CALIBRATION`) prints a test as a real print, measures it, and sets the pressure advance it finds. Everything is reduced while scanning (580 bins per profile, plain Python a row at a time), because the K1 has ~200 MB of RAM and a heavy job stalls Klipper. |
 | ABS/ASA warping in a cold chamber | **Chamber Heat Soak**: the ABS/ASA Orca profiles pass `CHAMBER_TEMP=45`. With the bed at temperature and the chamber fan held off, START_PRINT waits until the chamber air reaches that. It gives up after 30 minutes so a cold room never blocks a print. PLA/PETG pass 0 and skip it. |
 | Printing with filament that was unloaded | **Filament check**: the K1 filament sensor sits before the extruder, so it still reports filament after `UNLOAD_FILAMENT`. `LOAD_FILAMENT`/`UNLOAD_FILAMENT` remember the state, and START_PRINT refuses to start (before heating or homing) until the filament is loaded again. |
 | Homing and mesh probes triggering at different heights | The Z homing speed now matches the probe speed. At 1 mm/s vs 5 mm/s they triggered 0.03 mm apart. |
@@ -35,6 +36,8 @@ custom/
   mesh_edge_extend.py    Kalico plugin: BED_MESH_EXTEND (Adaptive Mesh Extend)
   twist_touch.py         Kalico plugin: AXIS_TWIST_TOUCH_CALIBRATE (load-cell twist calibration)
   keep_out.py            Kalico plugin: keep-out zones (moves around / refuses moves into them)
+  lidar.py               Kalico plugin: LiDAR scans and LiDAR PA calibration
+  lidar-start.sh         keeps the LiDAR powered and starts Creality's driver (from k1max-boot.sh)
   k1max-boot.sh          recreates the plugin link and starts cron (runs at boot via S54k1max)
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
@@ -69,6 +72,7 @@ Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches
 | `CALIBRATE_NEXT_PRINT` | `WHAT=shaper\|twist\|heaters\|all`: marks a calibration as due, so it runs before the next print |
 | `BACKUP_TO_GITHUB` | saves the config overrides and pushes them here |
 | `PRINTER_CHECK_UPDATES`, `PRINTER_UPDATE_PELLCORP`, `PRINTER_UPDATE_KALICO` | see *Updates* |
+| `LIDAR_PA_CALIBRATION` | `EXTRUDER_TEMP=`, `BED_TEMP=` (default 250/70, PETG): prints 9 lines at PA 0.00–0.08 around X 130–154, Y 100–220 (keep that area clear) as a normal print with START_PRINT, scans them with the LiDAR, and applies the PA it measures. Put the result in the filament profile. |
 
 ## Updates
 
@@ -113,10 +117,18 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 2. Copy `tuning.cfg` to `printer_data/config/` and add `[include tuning.cfg]` to `printer.cfg`, after the probe includes.
 3. Change the hardware-specific values above, restart, then run `CONFIG_OVERRIDES` so updates keep your changes.
 
+## Roadmap
+
+- **Open LiDAR driver.** Today the LiDAR is driven by Creality's closed `cx_ai_middleware`. The plan is to record its serial traffic (strace), document the protocol (frames are `AF FF | len16 | src | cmd | payload | checksum16`), and write a plain Python driver. Open question: the `cx_ai_crypto` handshake that udev runs when the LiDAR is plugged in.
+- **LiDAR first-layer check.** The same bare-plate subtraction on a real first layer, which gives the true first-layer thickness and checks True Zero Touch with numbers.
+- **LiDAR reports on a helper computer.** A Raspberry Pi (a 4B with 1 GB is enough) could fetch the scans from the printer and draw height maps and history, which is too heavy for the K1 itself.
+- **Silicone wipe pads** (K2 Plus) for the Nozzle Deep Clean.
+
 ## Known limitations
 
 - The nozzle wipe can still leave a thin string hanging off the side of the nozzle. It doesn't affect the touch (the Microprobe check shows a clean contact), and the purge line picks it up. A silicone brush at the back edge would be the proper fix.
 - Adaptive Mesh Extend is off by default (see above).
+- The LiDAR position (`[lidar]` x/y offset) was measured with a printed cross for this glass + PEI stack; a different plate height moves the laser spot in Y.
 - `counts_per_gram` was not weighed on this printer, so load-cell forces in grams are approximate. The touch height doesn't depend on it.
 
 ## OrcaSlicer profiles
