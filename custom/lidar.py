@@ -24,8 +24,9 @@
 #       compares the scan of the printed PA test with the bare-plate scan
 #   LIDAR_PA_CALIBRATE EXTRUDER_TEMP= BED_TEMP= [PA_START=0] [PA_STEP=0.01]
 #       [LINES=9] [X=130] [Y=100]
-#       writes the PA test as a print and starts it: START_PRINT, bare-plate
-#       scan, the test lines, scan, analysis, END_PRINT
+#       writes the PA test as a print and starts it: START_PRINT (with the
+#       bare-plate scan after the nozzle touch, before the purge), the test
+#       lines, cool down, scan, analysis, END_PRINT
 #
 # Lives in pellcorp-overrides/custom and is symlinked into klippy/plugins.
 #
@@ -468,14 +469,18 @@ class Lidar:
              " POLYGON=[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]" % (
                  cx, (y0 + y1) / 2, x0 - 2, y0 - 2, x1 + 2, y0 - 2,
                  x1 + 2, y1 + 2, x0 - 2, y1 + 2),
+             # the bare plate is scanned inside START_PRINT, after the nozzle
+             # touch and before heating up and purging (_LIDAR_PRINT_SCAN)
+             "SET_GCODE_VARIABLE MACRO=_LIDAR_PRINT_SCAN VARIABLE=x VALUE=%.2f"
+             % (cx,),
+             "SET_GCODE_VARIABLE MACRO=_LIDAR_PRINT_SCAN VARIABLE=y0 VALUE=%.2f"
+             % (y0 - 3,),
+             "SET_GCODE_VARIABLE MACRO=_LIDAR_PRINT_SCAN VARIABLE=y1 VALUE=%.2f"
+             % (y1 + 3,),
              "START_PRINT EXTRUDER_TEMP=%.0f BED_TEMP=%.0f CHAMBER_TEMP=%.0f"
              % (temp, bed, chamber),
              "SET_PRINT_STATS_INFO CURRENT_LAYER=1",
              "M83", "G90",
-             # no drips on the plate while it is scanned bare
-             "M104 S%.0f" % (min(temp, 170.0),),
-             "LIDAR_SCAN NAME=pa_base " + scan,
-             "M109 S%.0f" % (temp,),
              "SET_VELOCITY_LIMIT ACCEL=%.0f" % (accel,),
              "M106 S%d" % (fan,),
              "EXCLUDE_OBJECT_START NAME=lidar_pa_test",
@@ -501,8 +506,13 @@ class Lidar:
               "EXCLUDE_OBJECT_END NAME=lidar_pa_test",
               "M106 S0",
               "SET_VELOCITY_LIMIT ACCEL=%.0f" % (toolhead.max_accel,),
-              # cooler nozzle: no drips onto the lines while scanning
+              # cool down over the purge line, in front of the test, so
+              # nothing drips onto the lines while they are scanned
+              "G0 X%.3f Y%.3f F9000" % (cx, y0 - 12),
               "M104 S150",
+              "M106 S255",
+              "TEMPERATURE_WAIT SENSOR=extruder MAXIMUM=155",
+              "M106 S0",
               "LIDAR_SCAN NAME=pa_scan " + scan,
               "LIDAR_PA_ANALYZE BASE=pa_base SCAN=pa_scan",
               "END_PRINT"]
