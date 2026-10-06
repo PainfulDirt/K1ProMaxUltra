@@ -111,6 +111,9 @@ START_GCODE = (
 )
 LAYER_GCODE = ";AFTER_LAYER_CHANGE\n;[layer_z]\nG92 E0\nSET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}"
 
+BED_AREA = ["0x0", "300x0", "300x287", "286x287", "286x300", "19x300", "19x292", "0x292"]
+BED_EXCLUDE = ["130x293", "170x293", "170x300", "130x300"]
+
 SYSTEM = os.path.expanduser("~/.config/OrcaSlicer/system/Creality/machine")
 
 def resolved_machine(parent):
@@ -145,7 +148,7 @@ def write(kind, name, data):
 
 # ---------------------------------------------------------------- machines
 user_host = {
-    "print_host": "",
+    "print_host": "10.0.1.129:7125",
     "printer_agent": "moonraker",
     "printer_extruder_id": ["1"],
     "printer_extruder_variant": ["Direct Drive Standard"],
@@ -169,6 +172,12 @@ for n, p in NOZZLES.items():
         "retraction_speed": ["40"],
         "deretraction_speed": ["40"],
         "z_hop": [fmt(p["zhop"])],
+        # keep-out: the Microprobe (20.3mm behind the nozzle) hits the Z rod
+        # housings at the back. Corners cut from the bed (Orca checks the
+        # outline), the middle notch as the excluded area. Same zones as
+        # [keep_out] in tuning.cfg.
+        "printable_area": BED_AREA,
+        "bed_exclude_area": BED_EXCLUDE,
         "machine_start_gcode": START_GCODE,
         "machine_end_gcode": "END_PRINT",
         "layer_change_gcode": LAYER_GCODE,

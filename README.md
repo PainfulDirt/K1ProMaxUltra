@@ -15,6 +15,7 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | Z homing cold, meshing hot | **Hot Z re-home** after the soak, then a mesh with `zero_reference_position` at the Z-home spot. |
 | First-layer height depends on the probe offset | **True Zero Touch**: first a **Nozzle Deep Clean** on the rear edge of the bed (stock-style: slow hot scrub at 200 °C on fresh lines, then it stays pressed into the PEI while the fan cools it to 160 °C so the residue sets on the bed, then a slow 2 mm/s drag with Z rising that peels the residue off the tip). Then it taps the bed at the mesh zero point with the load cells, and that contact becomes Z=0. The Microprobe checks the result, and if the touch reads early (dirty nozzle) it falls back to Microprobe Z instead of trusting it. |
 | Where the Microprobe can reach | The Microprobe sits **20.3 mm behind the nozzle, in line on X** (moved 2026-10-06; it used to be 33 mm to the left). The mesh covers the full width, X 5–295 × Y 20–295. Only the front ~20 mm can't be probed, and Klipper holds the front row flat there. **Adaptive Mesh Extend** (`BED_MESH_EXTEND`, [custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)) was written for the old left-side mount, when the right 27 mm was out of reach, and is off. |
+| The probe behind the nozzle hits the Z rod housings at the back | **Keep-out zones** ([custom/keep_out.py](custom/keep_out.py)): measured by stepping the toolhead back until ~3 mm were left. Blocked for the nozzle: back-left corner X 0–19 beyond Y 292, middle X 130–170 beyond Y 293, back-right X 266–286 beyond Y 302 and X 286+ beyond Y 287. Klipper checks every move: travel moves that would cross a zone are routed in front of it, anything else is refused before it moves. The Orca printers have the same zones (the corners are cut out of the bed shape, the middle is the excluded area), so nothing gets sliced there. The end-of-print park is at Y 270, and the Nozzle Deep Clean strip is at the back-left (X 40–100), where the probe clears the frame. |
 | ABS/ASA warping in a cold chamber | **Chamber Heat Soak**: the ABS/ASA Orca profiles pass `CHAMBER_TEMP=45`. With the bed at temperature and the chamber fan held off, START_PRINT waits until the chamber air reaches that. It gives up after 30 minutes so a cold room never blocks a print. PLA/PETG pass 0 and skip it. |
 | Printing with filament that was unloaded | **Filament check**: the K1 filament sensor sits before the extruder, so it still reports filament after `UNLOAD_FILAMENT`. `LOAD_FILAMENT`/`UNLOAD_FILAMENT` remember the state, and START_PRINT refuses to start (before heating or homing) until the filament is loaded again. |
 | Homing and mesh probes triggering at different heights | The Z homing speed now matches the probe speed. At 1 mm/s vs 5 mm/s they triggered 0.03 mm apart. |
@@ -33,6 +34,7 @@ printer.cfg.save_config  SAVE_CONFIG block: probe offset, input shaper, PID/MPC,
 custom/
   mesh_edge_extend.py    Kalico plugin: BED_MESH_EXTEND (Adaptive Mesh Extend)
   twist_touch.py         Kalico plugin: AXIS_TWIST_TOUCH_CALIBRATE (load-cell twist calibration)
+  keep_out.py            Kalico plugin: keep-out zones (moves around / refuses moves into them)
   k1max-boot.sh          recreates the plugin link and starts cron (runs at boot via S54k1max)
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
@@ -103,11 +105,11 @@ This is one specific printer, so read `tuning.cfg` before copying anything. The 
 
 - `[probe]` / Microprobe: `x_offset 0`, `y_offset 20.3`, `z_offset` (SAVE_CONFIG, measure it with the load cells: nozzle contact vs Microprobe at the same spot), `zero_reference_position` (the probe position while homing Z: nozzle 153,153 → 153,173.3), and `mesh_min`/`mesh_max` (the probe's reach)
 - `[load_cell_probe]`: the load-cell settings. The leveling board needs Pellcorp's Kalico **bed MCU firmware with HX711 support** (bed0_121 or newer). The pins are the stock K1 ones. `reference_tare_counts` must be measured on your printer (read `force_g` with the bed empty). `counts_per_gram` is Pellcorp's K1 value.
-- `[axis_twist_compensation]` values (SAVE_CONFIG block), Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, Y 298), and the `[mesh_edge_extend]` edge positions
+- `[axis_twist_compensation]` values (SAVE_CONFIG block), Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, X 40–100 at Y 298), the `[mesh_edge_extend]` edge positions, and the `[keep_out]` zones (measure your own: they depend on the probe mount)
 
 Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmware:
 
-1. Copy `custom/` to `/usr/data/pellcorp-overrides/custom/` and run `custom/k1max-boot.sh`. This has to come **first**: `tuning.cfg` has a `[mesh_edge_extend]` section, and Klipper won't start until the plugin is linked in.
+1. Copy `custom/` to `/usr/data/pellcorp-overrides/custom/` and run `custom/k1max-boot.sh`. This has to come **first**: `tuning.cfg` has `[mesh_edge_extend]` and `[keep_out]` sections, and Klipper won't start until the plugin is linked in.
 2. Copy `tuning.cfg` to `printer_data/config/` and add `[include tuning.cfg]` to `printer.cfg`, after the probe includes.
 3. Change the hardware-specific values above, restart, then run `CONFIG_OVERRIDES` so updates keep your changes.
 
@@ -124,6 +126,6 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Credits
 
 - [Pellcorp / Simple AF](https://github.com/pellcorp/creality), [Kalico](https://github.com/KalicoCrew/kalico), and Pellcorp's [load-cell work](https://github.com/pellcorp/creality/issues/1500) built on OpenCentauri's hx711s driver
-- `mesh_edge_extend.py` is GPLv3, like Klipper and Kalico
+- `mesh_edge_extend.py`, `twist_touch.py` and `keep_out.py` are GPLv3, like Klipper and Kalico
 
 Use at your own risk. This drives a hot nozzle into the bed on purpose.

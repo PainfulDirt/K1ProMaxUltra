@@ -8,7 +8,19 @@ In OrcaSlicer: **File → Import → Import Configs…**, then choose `K1Max-Tun
 
 Then select the printer **K1 Max Tuned (0.4 nozzle)** (or the nozzle you have fitted). Only the processes and filaments that match that nozzle are shown.
 
-The printers are **standalone**: they contain the full *Creality K1 Max* base settings (bed shape, thumbnails, limits) and the Moonraker upload (set your printer's address in the printer profile), but don't link to Creality's presets. So only these profiles appear in their dropdowns, not Creality's own ones (the 0.2 printer used to offer Creality's 0.4-nozzle presets).
+The printers are **standalone**: they contain the full *Creality K1 Max* base settings (bed shape, thumbnails, limits) and the Moonraker upload to `10.0.1.129:7125`, but don't link to Creality's presets. So only these profiles appear in their dropdowns, not Creality's own ones (the 0.2 printer used to offer Creality's 0.4-nozzle presets).
+
+## Bed keep-out zones
+
+The Microprobe sits 20.3 mm behind the nozzle and hits the Z rod housings at the back of the printer. So the printers' bed is not a plain 300 × 300:
+
+| Blocked area (nozzle) | Why |
+|---|---|
+| Back-left corner, X 0–19 beyond Y 292 | left Z rod housing |
+| Middle, X 130–170 beyond Y 293 | middle Z rod housing (3 cm + 1 cm each side) |
+| Back-right corner, X 286–300 beyond Y 287 | right Z rod housing |
+
+Orca won't slice a part placed there. The corners are cut out of the bed shape (`printable_area`), and the middle notch is the excluded area (`bed_exclude_area`, shown hatched). Orca checks a part against the outline of the bed shape, so an inward notch alone doesn't stop it, and it allows only one excluded area. The printer enforces the same zones itself (`[keep_out]`): travel moves are routed around them, and anything else is refused.
 
 ## What's inside
 
