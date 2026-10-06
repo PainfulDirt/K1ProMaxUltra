@@ -416,11 +416,14 @@ class Lidar:
             raise gcmd.error("LiDAR PA: %s" % (res.get("reason"),))
         pa = res["pa"]
         if gcmd.get_int("APPLY", 1):
+            # kept for the loaded filament: restored at boot, cleared by
+            # UNLOAD_FILAMENT (tuning.cfg)
             self.gcode.run_script_from_command(
-                "SET_PRESSURE_ADVANCE ADVANCE=%.4f" % (pa,))
+                "SET_PRESSURE_ADVANCE ADVANCE=%.4f\n"
+                "SAVE_VARIABLE VARIABLE=lidar_pa VALUE=%.4f" % (pa, pa))
         gcmd.respond_info(
-            "LiDAR pressure advance: %.4f (applied until restart; put it in"
-            " the filament profile)" % (pa,))
+            "LiDAR pressure advance: %.4f (kept until UNLOAD_FILAMENT)"
+            % (pa,))
 
     # ------------------------------------------------------- PA test print
     desc_LIDAR_PA_CALIBRATE = "Print and measure a pressure advance test"
