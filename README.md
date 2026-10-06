@@ -14,7 +14,7 @@ The repo is the printer's live **Pellcorp config overrides** folder. Pellcorp up
 | The mesh seemed to be ignored on the glass bed | **Adaptive Glass Soak**: when the bed reaches 80 °C, the middle of the glass is 0.16 mm low. It then rises 0.25 mm over ~6.5 minutes, and the edges keep moving for 10+ minutes after that, so a mesh taken right away doesn't match the bed by the first layer. Every 40 s, START_PRINT probes the Z-home spot plus the corners of the print's own footprint (from the object outlines, like the adaptive mesh) until none of them moves. A small print in the middle watches 2 spots; a full-bed print watches 5. |
 | Z homing cold, meshing hot | **Hot Z re-home** after the soak, then a mesh with `zero_reference_position` at the Z-home spot. |
 | First-layer height depends on the probe offset | **True Zero Touch**: first a **Nozzle Deep Clean** on the rear edge of the bed (stock-style: slow hot scrub at 200 °C on fresh lines, then it stays pressed into the PEI while the fan cools it to 160 °C so the residue sets on the bed, then a slow 2 mm/s drag with Z rising that peels the residue off the tip). Then it taps the bed at the mesh zero point with the load cells, and that contact becomes Z=0. The Microprobe checks the result, and if the touch reads early (dirty nozzle) it falls back to Microprobe Z instead of trusting it. |
-| Where the Microprobe can reach | The Microprobe sits **20.3 mm behind the nozzle, in line on X** (moved 2026-10-06; it used to be 33 mm to the left). The mesh covers the full width, X 5–295 × Y 20–295. Only the front ~20 mm can't be probed, and Klipper holds the front row flat there. **Adaptive Mesh Extend** (`BED_MESH_EXTEND`, [custom/mesh_edge_extend.py](custom/mesh_edge_extend.py)) was written for the old left-side mount, when the right 27 mm was out of reach, and is off. |
+| Where the Microprobe can reach | The Microprobe sits **20.3 mm behind the nozzle, in line on X** (moved 2026-10-06; it used to be 33 mm to the left). The mesh covers the full width, X 5–295 × Y 20–295. Only the front ~20 mm can't be probed, and Klipper holds the front row flat there. |
 | The probe behind the nozzle hits the Z rod housings at the back | **Keep-out zones** ([custom/keep_out.py](custom/keep_out.py)): measured by stepping the toolhead back until ~3 mm were left. Blocked for the nozzle: back-left corner X 0–19 beyond Y 292, middle X 130–170 beyond Y 293, back-right X 266–286 beyond Y 302 and X 286+ beyond Y 287. Klipper checks every move: travel moves that would cross a zone are routed in front of it, anything else is refused before it moves. The Orca printers have the same zones (the corners are cut out of the bed shape, the middle is the excluded area), so nothing gets sliced there. The end-of-print park is at Y 270, and the Nozzle Deep Clean strip is at the back-left (X 40–100), where the probe clears the frame. |
 | The stock LiDAR is dead under Simple AF (Creality's hotplug script switches it off) | **LiDAR** ([custom/lidar.py](custom/lidar.py), [custom/lidar-start.sh](custom/lidar-start.sh)): at boot the LiDAR is kept powered and Creality's `cx_ai_middleware`, still on the printer, is started to drive it. The plugin moves the toolhead and collects height profiles, about 1500 points across a 29 mm laser line, repeatable to 1–2 µm. Because the plate's texture doesn't move, a bare-plate scan is subtracted from every measurement. **LiDAR PA calibration** (`LIDAR_PA_CALIBRATION`) prints a test as a real print, measures it, and sets the pressure advance it finds. Everything is reduced while scanning (580 bins per profile, plain Python a row at a time), because the K1 has ~200 MB of RAM and a heavy job stalls Klipper. |
 | ABS/ASA warping in a cold chamber | **Chamber Heat Soak**: the ABS/ASA Orca profiles pass `CHAMBER_TEMP=45`. With the bed at temperature and the chamber fan held off, START_PRINT waits until the chamber air reaches that. It gives up after 30 minutes so a cold room never blocks a print. PLA/PETG pass 0 and skip it. |
@@ -33,7 +33,6 @@ tuning.cfg               all the printer-side changes above (included from print
 printer.cfg, *.cfg       Pellcorp overrides: only the lines that differ from Pellcorp's files
 printer.cfg.save_config  SAVE_CONFIG block: probe offset, input shaper, PID/MPC, meshes
 custom/
-  mesh_edge_extend.py    Kalico plugin: BED_MESH_EXTEND (Adaptive Mesh Extend)
   twist_touch.py         Kalico plugin: AXIS_TWIST_TOUCH_CALIBRATE (load-cell twist calibration)
   keep_out.py            Kalico plugin: keep-out zones (moves around / refuses moves into them)
   lidar.py               Kalico plugin: LiDAR scans and LiDAR PA calibration
@@ -53,7 +52,6 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59
 | `Adaptive_Glass_Soak` | on | no waiting for the glass to settle before the mesh |
 | `Nozzle_Deep_Clean` | on | True Zero Touch happens without cleaning the nozzle first |
 | `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 0.876, measured with the load cells) |
-| `Adaptive_Mesh_Extend` | off | (for the old left-side probe mount) extends the mesh to the right bed edge |
 | `Chamber_Heat_Soak` | on | ABS/ASA prints start without waiting for the chamber to warm up |
 | `Forced_Calibration` | on | due calibrations are not run before prints |
 
@@ -66,7 +64,6 @@ Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches
 | `ADAPTIVE_GLASS_SOAK` | heats the bed (`BED_TEMP=`, default the current target or 70 °C) and waits until the glass stops moving |
 | `NOZZLE_DEEP_CLEAN` | the nozzle clean on its own |
 | `TRUE_ZERO_TOUCH` | Nozzle Deep Clean, then set Z=0 by touching the bed with the nozzle |
-| `ADAPTIVE_MESH_EXTEND` | extends the loaded mesh to X 300 with nozzle taps |
 | `CHAMBER_HEAT_SOAK` | heats the bed (`BED_TEMP=`, default 100 °C) until the chamber air reaches `TEMP=` (default 45 °C) |
 | `CALIBRATION_STATUS` | print hours counted and when each forced calibration is due |
 | `CALIBRATE_NEXT_PRINT` | `WHAT=shaper\|twist\|heaters\|all`: marks a calibration as due, so it runs before the next print |
@@ -109,11 +106,11 @@ This is one specific printer, so read `tuning.cfg` before copying anything. The 
 
 - `[probe]` / Microprobe: `x_offset 0`, `y_offset 20.3`, `z_offset` (SAVE_CONFIG, measure it with the load cells: nozzle contact vs Microprobe at the same spot), `zero_reference_position` (the probe position while homing Z: nozzle 153,153 → 153,173.3), and `mesh_min`/`mesh_max` (the probe's reach)
 - `[load_cell_probe]`: the load-cell settings. The leveling board needs Pellcorp's Kalico **bed MCU firmware with HX711 support** (bed0_121 or newer). The pins are the stock K1 ones. `reference_tare_counts` must be measured on your printer (read `force_g` with the bed empty). `counts_per_gram` is Pellcorp's K1 value.
-- `[axis_twist_compensation]` values (SAVE_CONFIG block), Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, X 40–100 at Y 298), the `[mesh_edge_extend]` edge positions, and the `[keep_out]` zones (measure your own: they depend on the probe mount)
+- `[axis_twist_compensation]` values (SAVE_CONFIG block), Adaptive Glass Soak thresholds (`_GLASS_SOAK`), the Nozzle Deep Clean strip location (`_TOUCH_NOZZLE_WIPE`, X 40–100 at Y 298), and the `[keep_out]` zones (measure your own: they depend on the probe mount)
 
 Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmware:
 
-1. Copy `custom/` to `/usr/data/pellcorp-overrides/custom/` and run `custom/k1max-boot.sh`. This has to come **first**: `tuning.cfg` has `[mesh_edge_extend]` and `[keep_out]` sections, and Klipper won't start until the plugin is linked in.
+1. Copy `custom/` to `/usr/data/pellcorp-overrides/custom/` and run `custom/k1max-boot.sh`. This has to come **first**: `tuning.cfg` has `[twist_touch]`, `[keep_out]` and `[lidar]` sections, and Klipper won't start until the plugins are linked in.
 2. Copy `tuning.cfg` to `printer_data/config/` and add `[include tuning.cfg]` to `printer.cfg`, after the probe includes.
 3. Change the hardware-specific values above, restart, then run `CONFIG_OVERRIDES` so updates keep your changes.
 
@@ -135,7 +132,6 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Known limitations
 
 - The nozzle wipe can still leave a thin string hanging off the side of the nozzle. It doesn't affect the touch (the Microprobe check shows a clean contact), and the purge line picks it up. A silicone brush at the back edge would be the proper fix.
-- Adaptive Mesh Extend is off by default (see above).
 - The LiDAR position (`[lidar]` x/y offset) was measured with a printed cross for this glass + PEI stack; a different plate height moves the laser spot in Y.
 - `counts_per_gram` was not weighed on this printer, so load-cell forces in grams are approximate. The touch height doesn't depend on it.
 
@@ -146,6 +142,6 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Credits
 
 - [Pellcorp / Simple AF](https://github.com/pellcorp/creality), [Kalico](https://github.com/KalicoCrew/kalico), and Pellcorp's [load-cell work](https://github.com/pellcorp/creality/issues/1500) built on OpenCentauri's hx711s driver
-- `mesh_edge_extend.py`, `twist_touch.py` and `keep_out.py` are GPLv3, like Klipper and Kalico
+- `twist_touch.py`, `keep_out.py` and `lidar.py` are GPLv3, like Klipper and Kalico
 
 Use at your own risk. This drives a hot nozzle into the bed on purpose.

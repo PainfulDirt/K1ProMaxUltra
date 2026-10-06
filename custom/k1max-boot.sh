@@ -5,7 +5,7 @@
 #   k1max-boot.sh links   links only
 C=/usr/data/pellcorp-overrides/custom
 
-# Kalico loads the plugins (mesh_edge_extend, twist_touch) from klippy/plugins;
+# Kalico loads the plugins (twist_touch, keep_out, lidar) from klippy/plugins;
 # a Kalico reinstall deletes the links, and Klipper will not start without them
 if [ -d /usr/data/klipper/klippy/plugins ]; then
     for f in $C/*.py; do

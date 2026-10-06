@@ -6,7 +6,6 @@ after every update):
 
 | File | What it does |
 |---|---|
-| `mesh_edge_extend.py` | Kalico plugin providing `BED_MESH_EXTEND`; linked into `klipper/klippy/plugins/` |
 | `twist_touch.py` | Kalico plugin providing `AXIS_TWIST_TOUCH_CALIBRATE` (axis twist with the load cells); linked into `klipper/klippy/plugins/` |
 | `keep_out.py` | Kalico plugin for `[keep_out]`: keeps the toolhead out of zones where the probe hits the frame (travel goes around, anything else is refused); linked into `klipper/klippy/plugins/` |
 | `lidar.py` | Kalico plugin for `[lidar]`: LiDAR scans through Creality's `cx_ai_middleware` and the LiDAR PA calibration; linked into `klipper/klippy/plugins/` |
