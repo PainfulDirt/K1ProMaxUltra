@@ -33,6 +33,12 @@
 #       writes the PA test as a print and starts it: START_PRINT (with the
 #       bare-plate scan after the nozzle touch, before the purge), the test
 #       lines, cool down, scan, analysis, END_PRINT
+#   LIDAR_PA_CREALITY EXTRUDER_TEMP= BED_TEMP= [X=170] [Y=60]
+#       [PA_START=0.02] [PA_STEP=0.004]
+#       Creality's own PA test pattern (frame, flow boxes, four zig-zags,
+#       20 PA values), run directly: no file in gcodes, nothing in the job
+#       list. X/Y = front-left corner of the 27 x 139mm frame. Not scanned
+#       or analysed yet: read it by eye (sharpest corners)
 #
 # Lives in pellcorp-overrides/custom and is symlinked into klippy/plugins.
 #
@@ -252,7 +258,7 @@ class Lidar:
         self.pa_test = None
         self.last_result = {}
         for cmd in ("LIDAR_STATUS", "LIDAR_SCAN", "LIDAR_PA_ANALYZE",
-                    "LIDAR_PA_CALIBRATE"):
+                    "LIDAR_PA_CALIBRATE", "LIDAR_PA_CREALITY"):
             self.gcode.register_command(
                 cmd, getattr(self, "cmd_" + cmd),
                 desc=getattr(self, "desc_" + cmd))
@@ -741,6 +747,117 @@ class Lidar:
                               x1 + 2, y0 - 2, y1 + 2, fn))
         self.gcode.run_script_from_command(
             "SDCARD_PRINT_FILE FILENAME=%s" % (fn,))
+
+    # ------------------------------------------- Creality's PA test pattern
+    desc_LIDAR_PA_CREALITY = "Print Creality's pressure advance test pattern"
+
+    def cmd_LIDAR_PA_CREALITY(self, gcmd):
+        eventtime = self.reactor.monotonic()
+        state = self.printer.lookup_object("print_stats").get_status(
+            eventtime)["state"]
+        if state in ("printing", "paused"):
+            raise gcmd.error("LiDAR: not while a print is running")
+        temp = gcmd.get_float("EXTRUDER_TEMP", above=150.0)
+        bed = gcmd.get_float("BED_TEMP", minval=0.0)
+        chamber = gcmd.get_float("CHAMBER_TEMP", 0.0, minval=0.0)
+        ox = gcmd.get_float("X", 170.0, minval=0.0, maxval=266.0)
+        oy = gcmd.get_float("Y", 60.0, minval=0.0, maxval=140.0)
+        pa0 = gcmd.get_float("PA_START", 0.02, minval=0.0)
+        pas = gcmd.get_float("PA_STEP", 0.004, above=0.0)
+        g, grid = creality_pa_gcode(ox, oy, pa0, pas)
+        toolhead = self.printer.lookup_object("toolhead")
+        gcmd.respond_info(
+            "Creality PA test at X%.0f-%.0f Y%.0f-%.0f, PA %.3f-%.3f" % (
+                ox, ox + 27, oy, oy + 139, grid[0][0], grid[-1][-1]))
+        # the object makes START_PRINT's adaptive mesh cover the frame
+        self.gcode.run_script_from_command(
+            "EXCLUDE_OBJECT_DEFINE RESET=1\n"
+            "EXCLUDE_OBJECT_DEFINE NAME=creality_pa_test CENTER=%.1f,%.1f"
+            " POLYGON=[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]\n"
+            "START_PRINT EXTRUDER_TEMP=%.0f BED_TEMP=%.0f CHAMBER_TEMP=%.0f" % (
+                ox + 13.5, oy + 69.5, ox, oy, ox + 27, oy, ox + 27, oy + 139,
+                ox, oy + 139, temp, bed, chamber))
+        pa_was = toolhead.get_extruder().get_status(
+            self.reactor.monotonic()).get("pressure_advance", 0.0)
+        try:
+            self.gcode.run_script_from_command("\n".join(
+                ["M83", "G90", "SET_VELOCITY_LIMIT ACCEL=5000", "M106 S0"]
+                + g + ["SET_PRESSURE_ADVANCE ADVANCE=%.4f" % (pa_was,)]))
+        except Exception:
+            self.gcode.run_script_from_command(
+                "M221 S100\nSET_PRESSURE_ADVANCE ADVANCE=%.4f\n"
+                "TURN_OFF_HEATERS\nEXCLUDE_OBJECT_DEFINE RESET=1" % (pa_was,))
+            raise
+        self.gcode.run_script_from_command(
+            "END_PRINT\nEXCLUDE_OBJECT_DEFINE RESET=1")
+        gcmd.respond_info(
+            "Creality PA test done. PA per V (rows front to back, zig-zags"
+            " left to right):\n" + "\n".join(
+                "  " + "  ".join("%.3f" % v for v in row) for row in grid))
+
+
+def creality_pa_gcode(ox, oy, pa0, pas):
+    """Creality's PA test pattern, from Auto_pressure_advance_testpadvance.gcode
+    (/etc/sysConfig/defData, firmware 1.3.5) which their LiDAR app prints and
+    scans. Same moves, but absolute from the frame corner (ox, oy) instead of
+    the file's G92 shifts, a Z hop between the boxes and no M205.
+
+    Frame 27 x 139mm; five flow boxes at 140% flow; four zig-zags 2mm apart
+    at 180mm/s, each V at its own PA: zig-zag k (left to right), V i (front
+    to back) runs at pa0 + pas * (k + 4 * i). Returns (gcode lines, PA grid).
+    """
+    g = []
+
+    def mv(x, y, e=None, f=1200.0, bx=0.0, by=0.0):
+        cmd = "G1 X%.3f Y%.3f" % (ox + bx + x, oy + by + y)
+        if e is not None:
+            cmd += " E%.6f" % (e,)
+        g.append(cmd + " F%.0f" % (f,))
+
+    # frame
+    g += ["G0 Z3 F600"]
+    mv(0, 139, f=12000)
+    g += ["G1 Z0.2 F600", "G1 E0.8 F2400"]
+    for x, y, e in ((0, 0, 6.95), (27, 0, 1.35), (27, 0.4, 0.02),
+                    (0.4, 0.4, 1.33), (0.4, 4.4, 0.2), (27, 4.4, 1.33),
+                    (27, 139, 6.73), (0.4, 139, 1.33), (0.4, 10.4, 6.43),
+                    (13.5, 10.4, 0.66), (13.5, 6.4, 0.2), (27, 6.4, 0.675)):
+        mv(x, y, e)
+    g += ["G1 E-0.8 F2400", "G0 Z3 F600"]
+    # flow boxes (Creality's file moves its origin by X1 Y7 here)
+    g += ["M221 S140", "SET_PRESSURE_ADVANCE ADVANCE=0.04"]
+    # (start x, start y, opposite x, opposite y, E along x, E along y)
+    boxes = [(10, 130, 25, 125, 0.75, 0.25)] + [
+        (1, y, 12, y + 10, 0.5, 0.5) for y in (112.5, 87.5, 62.5, 37.5, 12.5)]
+    for xa, ya, xb, yb, ex, ey in boxes:
+        mv(xa, ya, f=18000, bx=1, by=7)
+        g += ["G1 Z0.2 F600", "G1 E0.8 F2400"]
+        mv(xb, ya, ex, bx=1, by=7)
+        mv(xb, yb, ey, bx=1, by=7)
+        mv(xa, yb, ex, bx=1, by=7)
+        mv(xa, ya, ey, bx=1, by=7)
+        g += ["G1 E-0.8 F2400", "G0 Z3 F600"]
+    # zig-zags
+    g += ["M221 S110"]
+    grid = [[round(pa0 + pas * (k + 4 * i), 4) for k in range(4)]
+            for i in range(5)]
+    for k in range(4):
+        bx = 1 + 2 * k
+        g += ["SET_PRESSURE_ADVANCE ADVANCE=0.04"]
+        mv(15, -7, f=18000, bx=bx, by=7)
+        g += ["G1 E0.8 F2400", "G1 Z0.2 F600"]
+        mv(15, 5, 0.6, bx=bx, by=7)
+        for i in range(5):
+            g.append("SET_PRESSURE_ADVANCE ADVANCE=%.4f" % (grid[i][k],))
+            mv(2.5, 17.5 + 25 * i, 0.883883, 10800, bx=bx, by=7)
+            mv(15.0, 30.0 + 25 * i, 0.883883, 10800, bx=bx, by=7)
+        g.append("SET_PRESSURE_ADVANCE ADVANCE=0")
+        mv(18, 130, 0.23, bx=bx, by=7)
+        g += ["G1 E-0.8 F2400", "G0 Z3 F600"]
+        mv(27, 130, f=18000, bx=bx, by=7)
+        mv(27, -7, f=18000, bx=bx, by=7)
+    g.append("M221 S100")
+    return g, grid
 
 
 def load_config(config):
