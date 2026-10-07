@@ -20,8 +20,12 @@
 #
 # Commands:
 #   LIDAR_STATUS
-#   LIDAR_SCAN NAME= X= Y0= Y1= [STEP=0.4] [Z=3] [CAPTURES=3]
-#       X/Y are where the laser looks (not the nozzle); one profile per Y
+#   LIDAR_SCAN NAME= X= Y0= Y1= [STEP=0.4] [Z=3] [MODE=dwell|stop]
+#       [CAPTURES=3]
+#       X/Y are where the laser looks (not the nozzle); one profile per Y.
+#       dwell (default with a service): the whole scan planned at once, one
+#       frame per row taken standing still; stop: stop at every row and
+#       average CAPTURES frames (slower, ~1.3s per row)
 #   LIDAR_PA_ANALYZE BASE= SCAN= [APPLY=1]
 #       compares the scan of the printed PA test with the bare-plate scan
 #   LIDAR_PA_CALIBRATE EXTRUDER_TEMP= BED_TEMP= [PA_START=0] [PA_STEP=0.01]
@@ -221,6 +225,17 @@ class Lidar:
         self.captures = config.getint("captures", 3, minval=1)
         self.settle = config.getfloat("settle_time", 0.15, minval=0.0)
         self.speed = config.getfloat("speed", 50.0, above=0.0)
+        # dwell scans (needs the service): the LiDAR delivers a new frame
+        # every ~0.235s, and a frame is ~0.19s old when it arrives
+        # (measured 2026-10-07: a 0.33mm lag at 1.7mm/s)
+        self.frame_period = config.getfloat("frame_period", 0.235,
+                                            above=0.05)
+        self.frame_latency = config.getfloat("frame_latency", 0.194,
+                                             minval=0.0)
+        self.dwell_settle = config.getfloat("dwell_settle", 0.05, minval=0.0)
+        self.dwell_margin = config.getfloat("dwell_margin", 0.06, minval=0.0)
+        self.mode = config.getchoice("mode", {"dwell": "dwell",
+                                              "stop": "stop"}, "dwell")
         self.data_dir = config.get(
             "data_dir", "/usr/data/printer_data/lidar")
         self.gcode_dir = config.get(
@@ -258,6 +273,14 @@ class Lidar:
         self.sock = None
 
     def _call(self, msg, timeout=10.0):
+        raw, t = self._call_raw(msg, timeout)
+        try:
+            return json.loads(raw.decode(errors="replace"))
+        except ValueError as e:
+            raise self.printer.command_error("LiDAR: bad reply (%s)" % (e,))
+
+    def _call_raw(self, msg, timeout=10.0):
+        """Reply bytes (without ETX) and the reactor time they arrived."""
         # one persistent connection: cx_ai_middleware leaks a descriptor per
         # connection and stops accepting after a few thousand
         err = None
@@ -285,9 +308,9 @@ class Lidar:
                     if now > end:
                         raise OSError("timeout")
                     # wait without blocking the reactor
-                    self.reactor.pause(now + 0.005)
-                return json.loads(buf[:-1].decode(errors="replace"))
-            except (OSError, ValueError) as e:
+                    self.reactor.pause(now + 0.002)
+                return buf[:-1], self.reactor.monotonic()
+            except OSError as e:
                 err = e
                 self._close()
         raise self.printer.command_error(
@@ -315,6 +338,25 @@ class Lidar:
                 pass
         self.svc_sock = None
         self.svc_buf = b""
+
+    def _svc_send(self, data, timeout=10.0):
+        # non-blocking send of a request that gets no reply (frames)
+        end = self.reactor.monotonic() + timeout
+        view = memoryview(data)
+        try:
+            while len(view):
+                try:
+                    n = self.svc_sock.send(view)
+                    view = view[n:]
+                except (BlockingIOError, InterruptedError):
+                    now = self.reactor.monotonic()
+                    if now > end:
+                        raise OSError("timeout")
+                    self.reactor.pause(now + 0.002)
+        except OSError as e:
+            self._svc_close()
+            raise self.printer.command_error(
+                "LiDAR: lost the lidar service (%s)" % (e,))
 
     def _svc(self, req, timeout=30.0):
         """One request to lidar_service.py, without blocking the reactor."""
@@ -422,6 +464,86 @@ class Lidar:
             self._save(name, scan)
         return len(ys), self.reactor.monotonic() - start
 
+    def _scan_dwell(self, name, x, y0, y1, step, z):
+        """Stop at every row, but plan the whole scan at once.
+
+        The toolhead never idles between rows (no restart delay); frames are
+        requested back-to-back and each one is matched to the row where the
+        toolhead was standing when the frame was taken (arrival time minus
+        frame_latency). So every row is measured standing still at exactly
+        its Y, like a stopped scan, with one frame.
+        """
+        toolhead = self.printer.lookup_object("toolhead")
+        mcu = self.printer.lookup_object("mcu")
+        n = int(round(abs(y1 - y0) / step))
+        d = step if y1 >= y0 else -step
+        ys = [round(y0 + i * d, 4) for i in range(n + 1)]
+        nozzle_x = x - self.x_offset
+        dwell = self.frame_period + self.dwell_settle + self.dwell_margin
+        start = self.reactor.monotonic()
+        self.gcode.run_script_from_command(
+            "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600\n"
+            "G0 X%.3f Y%.3f F%.0f" % (z, nozzle_x, ys[0] - self.y_offset,
+                                      self.speed * 60.0))
+        toolhead.wait_moves()
+        self._svc({"cmd": "begin", "name": name, "x": x, "z": z,
+                   "x_dir": self.x_dir, "x_offset": self.x_offset,
+                   "y_offset": self.y_offset, "captures": 1,
+                   "grid": [y0, y1, step]})
+        got = [0] * len(ys)
+        try:
+            # plan the rows just ahead of the toolhead (planning a row costs
+            # the K1 a noticeable time, so plan as we go): stand still at a
+            # row, short move to the next. windows = when each row is still
+            windows = []
+            head = '{"cmd": "frame", "name": %s, "row": %%d, "raw": ' % (
+                json.dumps(name),)
+
+            def plan_ahead(ahead=2.0):
+                now = mcu.estimated_print_time(self.reactor.monotonic())
+                while len(windows) < len(ys) and (
+                        not windows or windows[-1][1] - now < ahead):
+                    i = len(windows)
+                    if i:
+                        self.gcode.run_script_from_command(
+                            "G0 Y%.3f F%.0f" % (ys[i] - self.y_offset,
+                                                self.speed * 60.0))
+                    t_arrive = toolhead.get_last_move_time()
+                    self.gcode.run_script_from_command(
+                        "G4 P%.0f" % (dwell * 1000.0,))
+                    windows.append((t_arrive + self.dwell_settle,
+                                    toolhead.get_last_move_time()))
+
+            i = 0
+            plan_ahead()
+            while True:
+                raw, t = self._call_raw({"control": "get_point_cloud"})
+                pt = mcu.estimated_print_time(t) - self.frame_latency
+                plan_ahead()
+                if pt > windows[-1][1] and len(windows) == len(ys):
+                    break
+                while i < len(windows) - 1 and pt > windows[i][1]:
+                    i += 1
+                if not (windows[i][0] <= pt <= windows[i][1]) or got[i]:
+                    continue   # taken while moving, or row already done
+                got[i] = 1
+                # forwarded as is: the K1 doesn't decode the point cloud
+                self._svc_send((head % (i,)).encode()
+                               + raw.replace(b"\n", b" ") + b"}\n")
+            toolhead.wait_moves()
+        finally:
+            try:
+                self._svc({"cmd": "end", "name": name}, timeout=60.0)
+            except self.printer.command_error:
+                pass
+            self.gcode.run_script_from_command(
+                "RESTORE_GCODE_STATE NAME=_lidar_scan")
+        while len(self.scans) >= 3:
+            self.scans.pop(next(iter(self.scans)))
+        self.scans[name] = {"x": x, "z": z, "x_dir": self.x_dir, "ys": ys,
+                            "rows": []}
+        return len(ys), self.reactor.monotonic() - start, len(ys) - sum(got)
+
     def _save(self, name, scan):
         # compact copy for looking at on a PC: distances in um, -1 = empty
         try:
@@ -446,11 +568,17 @@ class Lidar:
 
     def cmd_LIDAR_SCAN(self, gcmd):
         name = gcmd.get("NAME")
+        args = (name, gcmd.get_float("X"), gcmd.get_float("Y0"),
+                gcmd.get_float("Y1"), gcmd.get_float("STEP", 0.4, above=0.05),
+                gcmd.get_float("Z", self.scan_z))
+        mode = gcmd.get("MODE", self.mode).lower()
+        if mode == "dwell" and self.service:
+            rows, secs, missed = self._scan_dwell(*args)
+            gcmd.respond_info("LiDAR scan %s: %d rows in %.0fs (%d filled in"
+                              " from neighbours)" % (name, rows, secs, missed))
+            return
         rows, secs = self._scan(
-            name, gcmd.get_float("X"), gcmd.get_float("Y0"),
-            gcmd.get_float("Y1"), gcmd.get_float("STEP", 0.4, above=0.05),
-            gcmd.get_float("Z", self.scan_z),
-            gcmd.get_int("CAPTURES", self.captures, minval=1))
+            *args, gcmd.get_int("CAPTURES", self.captures, minval=1))
         gcmd.respond_info("LiDAR scan %s: %d rows in %.0fs" % (
             name, rows, secs))
 

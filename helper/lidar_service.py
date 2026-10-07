@@ -103,8 +103,19 @@ class Service:
             self.scans[name] = {"x": req["x"], "z": req["z"],
                                 "x_dir": req["x_dir"], "ys": [], "rows": [],
                                 "captures": req.get("captures", 3),
+                                "grid": req.get("grid"), "frames": [],
                                 "raw": raw, "t0": time.time()}
             return {"ok": True}
+        if cmd == "frame":
+            # dwell scan: one frame for grid row "row", taken standing still
+            s = self.scans[req["name"]]
+            y0, y1, step = s["grid"]
+            y = y0 + req["row"] * (step if y1 >= y0 else -step)
+            pc = req["raw"].get("result", {}).get("point_cloud", [])
+            s["raw"].write(json.dumps({"y": round(y, 4), "caps": [pc]})
+                           + "\n")
+            s["frames"].append((req["row"], lidar.reduce_caps([pc])))
+            return None
         if cmd == "capture":
             s = self.scans[req["name"]]
             caps = []
@@ -120,8 +131,13 @@ class Service:
             self.laser(False)
             s["raw"].close()
             s["raw"] = None
+            if s["grid"]:
+                s["ys"], s["rows"] = fill_rows(s["frames"], *s["grid"])
+                s["n_frames"] = len(s["frames"])
+                s["frames"] = []
             self.save(req["name"], s)
             return {"ok": True, "rows": len(s["ys"]),
+                    "frames": s.get("n_frames"),
                     "seconds": round(time.time() - s["t0"], 1)}
         if cmd == "pa_analyze":
             base = self.scans.get(req["base"])
@@ -154,6 +170,35 @@ class Service:
                                 for r in s["rows"]]}, f)
 
 
+def fill_rows(frames, y0, y1, step):
+    """(row, profile) frames -> one profile per grid row; a row without a
+    frame is interpolated from its neighbours."""
+    n = int(round(abs(y1 - y0) / step))
+    d = step if y1 >= y0 else -step
+    ys = [round(y0 + i * d, 4) for i in range(n + 1)]
+    nan = float("nan")
+    by_row = {}
+    for r, prof in frames:
+        by_row.setdefault(r, []).append(prof)
+    have = sorted(by_row)
+    rows = []
+    for i in range(len(ys)):
+        if i in by_row:
+            ps = by_row[i]
+            rows.append([sum(v) / len(v) if all(x == x for x in v) else nan
+                         for v in zip(*ps)])
+            continue
+        lo = max([r for r in have if r < i], default=None)
+        hi = min([r for r in have if r > i], default=None)
+        if lo is None or hi is None:
+            rows.append([nan] * lidar.NBINS)
+            continue
+        w = (i - lo) / (hi - lo)
+        a, b = by_row[lo][0], by_row[hi][0]
+        rows.append([p + (q - p) * w for p, q in zip(a, b)])
+    return ys, rows
+
+
 class Handler(socketserver.StreamRequestHandler):
     def handle(self):
         if self.server.allow and self.client_address[0] not in \
@@ -170,6 +215,8 @@ class Handler(socketserver.StreamRequestHandler):
             except Exception as e:   # report, keep serving
                 rep = {"ok": False, "error": "%s: %s" % (
                     type(e).__name__, e)}
+            if rep is None:          # frames get no reply
+                continue
             self.wfile.write((json.dumps(rep) + "\n").encode())
             self.wfile.flush()
 
