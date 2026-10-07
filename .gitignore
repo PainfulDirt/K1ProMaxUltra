@@ -1,1 +1,6 @@
 moonraker.secrets
+
+# working folders on the PC (see CLAUDE.md there), never pushed
+k1-lidar/
+local/
+CLAUDE.md
