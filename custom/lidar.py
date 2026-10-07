@@ -15,6 +15,8 @@
 #   x_offset: -36       # laser line centre relative to the nozzle
 #   y_offset: -21.2
 #   x_dir: -1           # profile x runs towards printer -X
+#   #service: 10.0.1.34:7131   # optional: lidar_service.py on a helper
+#                              # computer does the captures and the analysis
 #
 # Commands:
 #   LIDAR_STATUS
@@ -224,6 +226,12 @@ class Lidar:
         self.gcode_dir = config.get(
             "gcode_dir", "/usr/data/printer_data/gcodes")
         self.sock = None
+        # optional helper computer running lidar_service.py ("host:port"):
+        # the LiDAR captures and the analysis happen there, the K1 only
+        # moves the toolhead and forwards bytes (lidar-bridge.py)
+        self.service = config.get("service", None)
+        self.svc_sock = None
+        self.svc_buf = b""
         # name -> {"x", "ys", "rows"}; only the last few scans are kept
         self.scans = {}
         self.pa_test = None
@@ -298,16 +306,68 @@ class Lidar:
                 except self.printer.command_error:
                     pass
 
+    # ------------------------------------------------------- helper service
+    def _svc_close(self):
+        if self.svc_sock is not None:
+            try:
+                self.svc_sock.close()
+            except OSError:
+                pass
+        self.svc_sock = None
+        self.svc_buf = b""
+
+    def _svc(self, req, timeout=30.0):
+        """One request to lidar_service.py, without blocking the reactor."""
+        host, port = self.service.rsplit(":", 1)
+        try:
+            if self.svc_sock is None:
+                s = socket.create_connection((host, int(port)), 3.0)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                s.setblocking(False)
+                self.svc_sock = s
+            self.svc_sock.sendall(json.dumps(req).encode() + b"\n")
+            end = self.reactor.monotonic() + timeout
+            while b"\n" not in self.svc_buf:
+                try:
+                    d = self.svc_sock.recv(65536)
+                    if not d:
+                        raise OSError("connection closed")
+                    self.svc_buf += d
+                    continue
+                except (BlockingIOError, InterruptedError):
+                    pass
+                now = self.reactor.monotonic()
+                if now > end:
+                    raise OSError("timeout")
+                self.reactor.pause(now + 0.005)
+            line, self.svc_buf = self.svc_buf.split(b"\n", 1)
+            rep = json.loads(line.decode(errors="replace"))
+        except (OSError, ValueError) as e:
+            self._svc_close()
+            raise self.printer.command_error(
+                "LiDAR: no answer from the lidar service at %s (%s)" % (
+                    self.service, e))
+        if not rep.get("ok"):
+            raise self.printer.command_error(
+                "LiDAR service: %s" % (rep.get("error"),))
+        return rep
+
     # ------------------------------------------------------------- scanning
     desc_LIDAR_STATUS = "Check that the LiDAR answers"
 
     def cmd_LIDAR_STATUS(self, gcmd):
-        r = self._call({"control": "get_laser_exposure"})
+        msg = {"control": "get_laser_exposure"}
+        if self.service:
+            r = self._svc({"cmd": "middleware", "msg": msg})["reply"]
+        else:
+            r = self._call(msg)
         gcmd.respond_info(
-            "LiDAR ok: exposure %s, offset X%.2f Y%.2f (x_dir %+d), scans in"
-            " memory: %s" % (
+            "LiDAR ok: exposure %s, offset X%.2f Y%.2f (x_dir %+d), %s,"
+            " scans: %s" % (
                 r.get("result", {}).get("exposure"), self.x_offset,
                 self.y_offset, self.x_dir,
+                "work done by the service at " + self.service
+                if self.service else "work done on this printer",
                 ", ".join(sorted(self.scans)) or "none"))
 
     def _scan(self, name, x, y0, y1, step, z, captures):
@@ -320,7 +380,12 @@ class Lidar:
         start = self.reactor.monotonic()
         self.gcode.run_script_from_command(
             "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600" % (z,))
-        self._laser(True)
+        if self.service:
+            self._svc({"cmd": "begin", "name": name, "x": x, "z": z,
+                       "x_dir": self.x_dir, "x_offset": self.x_offset,
+                       "y_offset": self.y_offset, "captures": captures})
+        else:
+            self._laser(True)
         try:
             for y in ys:
                 self.gcode.run_script_from_command(
@@ -328,6 +393,10 @@ class Lidar:
                         nozzle_x, y - self.y_offset, self.speed * 60.0))
                 toolhead.wait_moves()
                 self.reactor.pause(self.reactor.monotonic() + self.settle)
+                if self.service:
+                    # the service captures and keeps the data
+                    self._svc({"cmd": "capture", "name": name, "y": y})
+                    continue
                 caps = []
                 for i in range(captures):
                     r = self._call({"control": "get_point_cloud"})
@@ -335,7 +404,13 @@ class Lidar:
                 rows.append(reduce_caps(caps))
                 del caps
         finally:
-            self._laser(False)
+            if self.service:
+                try:
+                    self._svc({"cmd": "end", "name": name})
+                except self.printer.command_error:
+                    pass
+            else:
+                self._laser(False)
             self.gcode.run_script_from_command(
                 "RESTORE_GCODE_STATE NAME=_lidar_scan")
         scan = {"x": x, "z": z, "x_dir": self.x_dir, "ys": ys, "rows": rows}
@@ -343,7 +418,8 @@ class Lidar:
         while len(self.scans) >= 3:
             self.scans.pop(next(iter(self.scans)))
         self.scans[name] = scan
-        self._save(name, scan)
+        if not self.service:
+            self._save(name, scan)
         return len(ys), self.reactor.monotonic() - start
 
     def _save(self, name, scan):
@@ -382,11 +458,6 @@ class Lidar:
     desc_LIDAR_PA_ANALYZE = "Find pressure advance from a LiDAR PA test scan"
 
     def cmd_LIDAR_PA_ANALYZE(self, gcmd):
-        base = self.scans.get(gcmd.get("BASE"))
-        scan = self.scans.get(gcmd.get("SCAN"))
-        if base is None or scan is None:
-            raise gcmd.error("LiDAR: scan %s/%s not in memory" % (
-                gcmd.get("BASE"), gcmd.get("SCAN")))
         test = self.pa_test
         if test is None:
             tf = os.path.join(self.data_dir, "pa_test.json")
@@ -394,22 +465,13 @@ class Lidar:
                 raise gcmd.error("LiDAR: no PA test layout found")
             with open(tf) as f:
                 test = json.load(f)
-        if base["ys"] != scan["ys"] or base["x"] != scan["x"]:
-            raise gcmd.error("LiDAR: base and scan don't cover the same rows")
-        line_x = [test["x0"] + i * test["pitch"] for i in range(
-            len(test["pa"]))]
-        A = []
-        for r in range(len(scan["ys"])):
-            A.append(line_areas(base["rows"][r], scan["rows"][r], scan["x"],
-                                scan["x_dir"], line_x))
-            self._yield()   # one row at a time: never block the reactor long
-        res = pa_fit(scan["ys"], A, test)
+        if self.service:
+            res = self._svc({"cmd": "pa_analyze", "base": gcmd.get("BASE"),
+                             "scan": gcmd.get("SCAN"), "test": test},
+                            timeout=120.0)["result"]
+        else:
+            res = self._pa_local(gcmd, test)
         self.last_result = res
-        try:
-            with open(os.path.join(self.data_dir, "pa_result.json"), "w") as f:
-                json.dump(dict(res, areas=A, ys=scan["ys"]), f)
-        except OSError:
-            pass
         for line in res["report"]:
             gcmd.respond_info(line)
         if not res["ok"]:
@@ -424,6 +486,29 @@ class Lidar:
         gcmd.respond_info(
             "LiDAR pressure advance: %.4f (kept until UNLOAD_FILAMENT)"
             % (pa,))
+
+    def _pa_local(self, gcmd, test):
+        base = self.scans.get(gcmd.get("BASE"))
+        scan = self.scans.get(gcmd.get("SCAN"))
+        if base is None or scan is None:
+            raise gcmd.error("LiDAR: scan %s/%s not in memory" % (
+                gcmd.get("BASE"), gcmd.get("SCAN")))
+        if base["ys"] != scan["ys"] or base["x"] != scan["x"]:
+            raise gcmd.error("LiDAR: base and scan don't cover the same rows")
+        line_x = [test["x0"] + i * test["pitch"] for i in range(
+            len(test["pa"]))]
+        A = []
+        for r in range(len(scan["ys"])):
+            A.append(line_areas(base["rows"][r], scan["rows"][r], scan["x"],
+                                scan["x_dir"], line_x))
+            self._yield()   # one row at a time: never block the reactor long
+        res = pa_fit(scan["ys"], A, test)
+        try:
+            with open(os.path.join(self.data_dir, "pa_result.json"), "w") as f:
+                json.dump(dict(res, areas=A, ys=scan["ys"]), f)
+        except OSError:
+            pass
+        return res
 
     # ------------------------------------------------------- PA test print
     desc_LIDAR_PA_CALIBRATE = "Print and measure a pressure advance test"

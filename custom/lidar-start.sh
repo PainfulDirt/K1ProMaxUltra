@@ -1,6 +1,6 @@
 #!/bin/sh
 # Bring up the K1 Max LiDAR under Simple AF. Started in the background by
-# k1max-boot.sh.
+# k1max-boot.sh; safe to run again.
 #
 # The stock udev hook (laser_status.sh) switches the LiDAR off right after it
 # enumerates unless /tmp/load_done exists, which the Creality stack would
@@ -21,4 +21,10 @@ if [ ! -e /dev/serial/by-id/creality-laser ]; then
 fi
 sleep 2
 pidof cx_ai_middleware > /dev/null || cx_ai_middleware > /dev/null 2>&1 &
+# forward the middleware to the helper computer that runs lidar_service.py
+# (helper/): only that address may connect
+LIDAR_HELPER=10.0.1.34
+if ! ps | grep -v grep | grep -q lidar-bridge.py; then
+    python3 "$(dirname "$0")/lidar-bridge.py" 7130 $LIDAR_HELPER > /dev/null 2>&1 &
+fi
 echo "lidar-start: up" > /tmp/lidar-start.log

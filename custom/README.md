@@ -10,6 +10,7 @@ after every update):
 | `keep_out.py` | Kalico plugin for `[keep_out]`: keeps the toolhead out of zones where the probe hits the frame (travel goes around, anything else is refused); linked into `klipper/klippy/plugins/` |
 | `lidar.py` | Kalico plugin for `[lidar]`: LiDAR scans through Creality's `cx_ai_middleware` and the LiDAR PA calibration; linked into `klipper/klippy/plugins/` |
 | `lidar-start.sh` | keeps the LiDAR powered (stock `laser_status.sh` switches it off without `/tmp/load_done`) and starts `cx_ai_middleware`; run in the background by `k1max-boot.sh` |
+| `lidar-bridge.py` | forwards `cx_ai_middleware`'s socket over TCP (port 7130, only from the helper's address) for `helper/lidar_service.py`; started by `lidar-start.sh` |
 | `LIDAR-NOTES.md` | what's known about the LiDAR: hardware, the middleware socket API, the serial frame format, Creality's calibrations, and what not to run |
 | `k1max-boot.sh` | recreates the plugin links and `/etc/init.d/S54k1max`, retires Pellcorp's Bed_Warp_Stabilisation, installs the crontab, starts `crond` |
 | `S54k1max` | the init script itself (copied to `/etc/init.d/`) |

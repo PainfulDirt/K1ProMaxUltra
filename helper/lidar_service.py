@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# k1-lidar service: the LiDAR work of lidar.py, on a helper computer.
+#
+# lidar.py (in Klipper on the K1) moves the toolhead; between rows it asks
+# this service to capture. The service talks to cx_ai_middleware on the K1
+# through lidar-bridge.py, reduces the point clouds, keeps the raw captures
+# on disk and runs the analysis. The K1 then only forwards bytes.
+#
+#   lidar_service.py --printer 10.0.1.129:7130 [--listen 0.0.0.0:7131]
+#                    [--data /var/lib/k1-lidar] [--allow 10.0.1.129]
+#
+# Requests and replies are one JSON object per line.
+#
+# This file may be distributed under the terms of the GNU GPLv3 license.
+import argparse
+import json
+import os
+import socket
+import socketserver
+import threading
+import time
+
+import lidar   # the shared reduction / analysis code (lidar.py)
+
+ETX = b"\x03"
+
+
+class Middleware:
+    """One persistent connection to cx_ai_middleware via lidar-bridge.py."""
+
+    def __init__(self, addr):
+        self.addr = addr
+        self.sock = None
+
+    def close(self):
+        if self.sock is not None:
+            try:
+                self.sock.close()
+            except OSError:
+                pass
+        self.sock = None
+
+    def call(self, msg, timeout=15.0):
+        err = None
+        for attempt in range(2):
+            try:
+                if self.sock is None:
+                    self.sock = socket.create_connection(self.addr, 5.0)
+                    self.sock.setsockopt(socket.IPPROTO_TCP,
+                                         socket.TCP_NODELAY, 1)
+                self.sock.settimeout(timeout)
+                self.sock.sendall(json.dumps(msg).encode() + ETX)
+                buf = b""
+                while not buf.endswith(ETX):
+                    d = self.sock.recv(1 << 20)
+                    if not d:
+                        raise OSError("connection closed")
+                    buf += d
+                return json.loads(buf[:-1].decode(errors="replace"))
+            except (OSError, ValueError) as e:
+                err = e
+                self.close()
+        raise RuntimeError("no answer from cx_ai_middleware (%s)" % (err,))
+
+
+class Service:
+    def __init__(self, mw, data_dir):
+        self.mw = mw
+        self.data_dir = data_dir
+        self.scans = {}
+        self.lock = threading.Lock()
+        os.makedirs(data_dir, exist_ok=True)
+
+    def laser(self, on):
+        if on:
+            self.mw.call({"control": "set_laser_open"})
+            self.mw.call({"control": "open_flow"})
+            self.mw.call({"control": "set_point_cloud_level", "level": 0})
+        else:
+            for c in ("close_flow", "set_laser_close"):
+                try:
+                    self.mw.call({"control": c})
+                except RuntimeError:
+                    pass
+
+    def handle(self, req):
+        cmd = req.get("cmd")
+        if cmd == "ping":
+            return {"ok": True}
+        if cmd == "middleware":
+            return {"ok": True, "reply": self.mw.call(req["msg"])}
+        if cmd == "begin":
+            name = req["name"]
+            self.laser(True)
+            raw = open(os.path.join(self.data_dir, name + ".raw.jsonl"), "w")
+            raw.write(json.dumps({k: req[k] for k in (
+                "x", "z", "x_dir", "x_offset", "y_offset")}) + "\n")
+            # keep memory bounded
+            while len(self.scans) >= 6:
+                old = self.scans.pop(next(iter(self.scans)))
+                if old.get("raw"):
+                    old["raw"].close()
+            self.scans[name] = {"x": req["x"], "z": req["z"],
+                                "x_dir": req["x_dir"], "ys": [], "rows": [],
+                                "captures": req.get("captures", 3),
+                                "raw": raw, "t0": time.time()}
+            return {"ok": True}
+        if cmd == "capture":
+            s = self.scans[req["name"]]
+            caps = []
+            for i in range(s["captures"]):
+                r = self.mw.call({"control": "get_point_cloud"})
+                caps.append(r.get("result", {}).get("point_cloud", []))
+            s["raw"].write(json.dumps({"y": req["y"], "caps": caps}) + "\n")
+            s["ys"].append(round(req["y"], 4))
+            s["rows"].append(lidar.reduce_caps(caps))
+            return {"ok": True, "points": sum(len(c) for c in caps)}
+        if cmd == "end":
+            s = self.scans[req["name"]]
+            self.laser(False)
+            s["raw"].close()
+            s["raw"] = None
+            self.save(req["name"], s)
+            return {"ok": True, "rows": len(s["ys"]),
+                    "seconds": round(time.time() - s["t0"], 1)}
+        if cmd == "pa_analyze":
+            base = self.scans.get(req["base"])
+            scan = self.scans.get(req["scan"])
+            if base is None or scan is None:
+                return {"ok": False, "error": "scan %s/%s not here" % (
+                    req["base"], req["scan"])}
+            if base["ys"] != scan["ys"] or base["x"] != scan["x"]:
+                return {"ok": False,
+                        "error": "base and scan don't cover the same rows"}
+            test = req["test"]
+            line_x = [test["x0"] + i * test["pitch"]
+                      for i in range(len(test["pa"]))]
+            A = [lidar.line_areas(b, r, scan["x"], scan["x_dir"], line_x)
+                 for b, r in zip(base["rows"], scan["rows"])]
+            res = lidar.pa_fit(scan["ys"], A, test)
+            with open(os.path.join(self.data_dir, "pa_result.json"),
+                      "w") as f:
+                json.dump(dict(res, areas=A, ys=scan["ys"]), f)
+            return {"ok": True, "result": res}
+        return {"ok": False, "error": "unknown command %r" % (cmd,)}
+
+    def save(self, name, s):
+        # same compact format as lidar.py writes on the printer
+        with open(os.path.join(self.data_dir, name + ".json"), "w") as f:
+            json.dump({"x": s["x"], "z": s["z"], "x_dir": s["x_dir"],
+                       "ys": s["ys"], "bin": lidar.BIN,
+                       "bin_min": lidar.BIN_MIN,
+                       "rows": [[int(v * 1000) if v == v else -1 for v in r]
+                                for r in s["rows"]]}, f)
+
+
+class Handler(socketserver.StreamRequestHandler):
+    def handle(self):
+        if self.server.allow and self.client_address[0] not in \
+                self.server.allow:
+            return
+        self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        for line in self.rfile:
+            if not line.strip():
+                continue
+            try:
+                req = json.loads(line)
+                with self.server.svc.lock:
+                    rep = self.server.svc.handle(req)
+            except Exception as e:   # report, keep serving
+                rep = {"ok": False, "error": "%s: %s" % (
+                    type(e).__name__, e)}
+            self.wfile.write((json.dumps(rep) + "\n").encode())
+            self.wfile.flush()
+
+
+class Server(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--printer", default="10.0.1.129:7130")
+    ap.add_argument("--listen", default="0.0.0.0:7131")
+    ap.add_argument("--data", default="/var/lib/k1-lidar")
+    ap.add_argument("--allow", action="append", default=[])
+    a = ap.parse_args()
+    host, port = a.printer.rsplit(":", 1)
+    lhost, lport = a.listen.rsplit(":", 1)
+    srv = Server((lhost, int(lport)), Handler)
+    srv.svc = Service(Middleware((host, int(port))), a.data)
+    srv.allow = set(a.allow)
+    print("k1-lidar service on %s, LiDAR via %s, data in %s" % (
+        a.listen, a.printer, a.data), flush=True)
+    srv.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
