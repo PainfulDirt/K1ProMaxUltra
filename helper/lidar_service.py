@@ -158,6 +158,16 @@ class Service:
                       "w") as f:
                 json.dump(dict(res, areas=A, ys=scan["ys"]), f)
             return {"ok": True, "result": res}
+        if cmd == "offset_analyze":
+            scan = self.scans.get(req["scan"])
+            if scan is None:
+                return {"ok": False, "error": "scan %s not here" % (
+                    req["scan"],)}
+            res = lidar.cross_fit(scan, req["test"])
+            with open(os.path.join(self.data_dir, req["scan"] + ".fit.json"),
+                      "w") as f:
+                json.dump(res, f)
+            return {"ok": True, "result": res}
         return {"ok": False, "error": "unknown command %r" % (cmd,)}
 
     def save(self, name, s):

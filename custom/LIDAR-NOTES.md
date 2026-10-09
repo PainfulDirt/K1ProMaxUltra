@@ -28,6 +28,20 @@ running Simple AF. `lidar.py` and `lidar-start.sh` are built on this.
 - Working range is narrow: full coverage with the nozzle 3-5 mm above the
   surface (distance ~25-28 mm), partial at 8 mm, nothing at 10+.
 - Repeatability 1-2 µm between captures; distance follows Z 1:1.
+- Laser offset self-check (`LIDAR_OFFSET_CALIBRATE`, 2026-10-07, glass +
+  PEI, cross at X150 Y150): at nozzle Z3 the line centre is at nozzle
+  **X -36.01, Y -21.34**; per mm of nozzle height it moves **Y -0.99**,
+  X +0.035 (the laser comes in at ~45° in Y, X doesn't move). The profile
+  scale is right: 20 mm arms read 20.1-20.3 mm.
+- How printed lines look: a 0.6 mm line along Y (across the profile) shows
+  only a small bump (~0.1-0.15 mm) next to a few empty bins (shadow); a line
+  along X (crossed row by row) shows an empty row, then a jump to ~0.7 mm
+  that ramps down over ~1.8 mm of Y. The laser sheet has a thickness in Y
+  and the reading blends line and plate, so heights are only rough and the
+  Y centre of a line along X is biased (estimated up to ~0.3 mm). Measure
+  widths/areas, not peak heights.
+- The profile is tilted: distance changes ~0.031 mm per mm of profile x on a
+  flat plate (the LiDAR's mounting, not the bed: same in every scan).
 - Position on a K1 Max with glass + PEI: line centre at nozzle **X -36,
   Y -21.2**, profile x runs towards printer -X. The stock config says
   `laser_y_offset: -23.2`: the laser hits at an angle, so the spot moves in Y

@@ -3,6 +3,8 @@
 # At spots along X, the Microprobe measures the bed and the nozzle touches the
 # same spot with the load cells. The difference between the two varies along
 # X by the carriage twist; that variation becomes [axis_twist_compensation].
+# The compensation is for the Microprobe only: it is kept off the load cell
+# touches (see _connect).
 #
 # Lives in pellcorp-overrides/custom and is symlinked into klippy/plugins.
 #
@@ -20,11 +22,35 @@ class TwistTouch:
         # never apply a result this far from the current values
         self.max_change = config.getfloat("max_change", 0.1, above=0.0)
         self.gcode = self.printer.lookup_object("gcode")
+        self.printer.register_event_handler("klippy:connect", self._connect)
         self.gcode.register_command(
             "AXIS_TWIST_TOUCH_CALIBRATE",
             self.cmd_AXIS_TWIST_TOUCH_CALIBRATE,
             desc=self.cmd_AXIS_TWIST_TOUCH_CALIBRATE_help,
         )
+
+    def _connect(self):
+        # Pellcorp's probe.py adds the axis twist compensation to every probe
+        # result, the load cell touch included. The compensation corrects the
+        # Microprobe against the nozzle; on the nozzle's own touch it would
+        # shift True Zero by the compensation at the touch X. Take it out.
+        atc = self.printer.lookup_object("axis_twist_compensation", None)
+        lcp = self.printer.lookup_object("load_cell_probe", None)
+        if atc is None or lcp is None:
+            return
+        pp = lcp.get_printer_probe()
+        toolhead = self.printer.lookup_object("toolhead")
+        orig = pp._probe
+
+        def _probe(speed, gcmd):
+            # same position probe.py looks the compensation up with
+            pos = toolhead.get_position()
+            epos, is_good = orig(speed, gcmd)
+            epos = list(epos)
+            epos[2] -= atc.get_z_compensation_value(pos)
+            return epos, is_good
+
+        pp._probe = _probe
 
     def _run(self, script):
         self.gcode.run_script_from_command(script)

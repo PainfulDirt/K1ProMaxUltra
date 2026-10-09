@@ -12,9 +12,14 @@
 # the analysis is plain Python done a few rows at a time.
 #
 #   [lidar]
-#   x_offset: -36       # laser line centre relative to the nozzle
-#   y_offset: -21.2
+#   x_offset: -36       # laser line centre relative to the nozzle,
+#   y_offset: -21.2     #   with the nozzle offset_z above the surface
+#   #x_per_z: 0         # how far the spot moves per mm of nozzle height
+#   #y_per_z: 0         #   (the laser hits at an angle)
+#   #offset_z: 3
 #   x_dir: -1           # profile x runs towards printer -X
+#   LIDAR_OFFSET_CALIBRATE saves its result as lidar_x_offset, lidar_y_offset,
+#   lidar_x_per_z, lidar_y_per_z (variables.cfg); they override these
 #   #service: 10.0.1.34:7131   # optional: lidar_service.py on a helper
 #                              # computer does the captures and the analysis
 #
@@ -33,6 +38,11 @@
 #       writes the PA test as a print and starts it: START_PRINT (with the
 #       bare-plate scan after the nozzle touch, before the purge), the test
 #       lines, cool down, scan, analysis, END_PRINT
+#   LIDAR_OFFSET_CALIBRATE EXTRUDER_TEMP= BED_TEMP= [X=150] [Y=150]
+#       [Z1=3] [Z2=5] [APPLY=1]
+#       prints a small cross (nozzle at X/Y = its centre), scans it at Z1
+#       and Z2 and works out where the laser looks: X/Y offset and how far
+#       it moves per mm of height. Run directly, nothing in the job list
 #   LIDAR_PA_CREALITY EXTRUDER_TEMP= BED_TEMP= [X=170] [Y=60]
 #       [PA_START=0.02] [PA_STEP=0.004]
 #       Creality's own PA test pattern (frame, flow boxes, four zig-zags,
@@ -218,6 +228,164 @@ def pa_fit(ys, A, test):
     return res
 
 
+def plane_fit(pts):
+    """Least squares d = a + b*x + c*y through (x, y, d) points."""
+    n = sx = sy = sd = sxx = sxy = syy = sxd = syd = 0.0
+    for x, y, d in pts:
+        n += 1
+        sx += x
+        sy += y
+        sd += d
+        sxx += x * x
+        sxy += x * y
+        syy += y * y
+        sxd += x * d
+        syd += y * d
+    m = [[n, sx, sy], [sx, sxx, sxy], [sy, sxy, syy]]
+    r = [sd, sxd, syd]
+
+    def det(a):
+        return (a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+                - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+                + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]))
+    dm = det(m)
+    if abs(dm) < 1e-12:
+        return None
+    out = []
+    for c in range(3):
+        mc = [row[:] for row in m]
+        for i in range(3):
+            mc[i][c] = r[i]
+        out.append(det(mc) / dm)
+    return out
+
+
+def cross_fit(scan, test, tick=None):
+    """Find the printed cross in a scan.
+
+    test: {"cx", "cy", "arm", "height"}, the cross as commanded (nozzle
+    coordinates). Returns where the scan sees the arm along Y (its X) and
+    the arm along X (its Y), in the scan's own coordinates, and the line
+    height: {"ok", "x", "y", "h", ...}.
+    """
+    ys, rows = scan["ys"], scan["rows"]
+    X = [scan["x"] + scan["x_dir"] * bin_center(b) for b in range(NBINS)]
+    res = {"ok": False}
+    # bare plate: plane fit, leaving out what is closer (plastic)
+    pts = [(X[b], y, row[b]) for y, row in zip(ys, rows)
+           for b in range(0, NBINS, 4) if row[b] == row[b]]
+    if len(pts) < 1000:
+        res["reason"] = "scan is empty (%d points)" % (len(pts),)
+        return res
+    coef = None
+    for it in range(4):
+        use = pts if coef is None else [
+            p for p in pts
+            if coef[0] + coef[1] * p[0] + coef[2] * p[1] - p[2] < 0.08]
+        coef = plane_fit(use)
+        if coef is None:
+            res["reason"] = "no plate found"
+            return res
+        if tick:
+            tick()
+    thr = 0.5 * test["height"]
+    # plastic weight per point: its height where it stands out, else 0
+    P = []
+    for y, row in zip(ys, rows):
+        base = coef[0] + coef[2] * y
+        P.append([max(0.0, base + coef[1] * X[b] - row[b])
+                  if row[b] == row[b] and
+                  base + coef[1] * X[b] - row[b] > thr else 0.0
+                  for b in range(NBINS)])
+        if tick:
+            tick()
+
+    def peak(w, k):
+        sm = [sum(w[max(0, i - k):i + k + 1]) for i in range(len(w))]
+        return max(range(len(sm)), key=lambda i: sm[i])
+
+    # first guess: the arm along Y is the column with the most plastic,
+    # the arm along X the row with the most
+    xp = X[peak([sum(r[b] for r in P) for b in range(NBINS)], 5)]
+    yp = ys[peak([sum(r) for r in P], 2)]
+    win, gap = 1.5, 3.0
+    # arm along Y: plastic centroid in X, row by row (away from the other arm)
+    xs, rows_y = [], []
+    for r, y in enumerate(ys):
+        if abs(y - yp) < gap:
+            continue
+        w = [(P[r][b], X[b]) for b in range(NBINS)
+             if abs(X[b] - xp) < win and P[r][b] > 0]
+        if len(w) >= 3:
+            xs.append(sum(a * x for a, x in w) / sum(a for a, x in w))
+            rows_y.append(y)
+    # arm along X: plastic centroid in Y, column by column
+    yc, cols_x = [], []
+    xm = median(xs) if xs else xp
+    for b in range(NBINS):
+        if abs(X[b] - xm) < gap:
+            continue
+        w = [(P[r][b], ys[r]) for r in range(len(ys))
+             if abs(ys[r] - yp) < win and P[r][b] > 0]
+        if len(w) >= 2:
+            yc.append(sum(a * y for a, y in w) / sum(a for a, y in w))
+            cols_x.append(X[b])
+    tops = [max(P[r][b] for b in range(NBINS) if abs(X[b] - xm) < win)
+            for r, y in enumerate(ys) if y in rows_y]
+    res.update({"rows": len(xs), "cols": len(yc),
+                "plane": [round(c, 5) for c in coef]})
+    if len(xs) < 20 or len(yc) < 50:
+        res["reason"] = ("cross not found (arm along Y in %d rows, arm along"
+                         " X in %d columns)" % (len(xs), len(yc)))
+        return res
+    res.update({"ok": True, "x": round(xm, 4), "y": round(median(yc), 4),
+                "h": round(median(tops), 4),
+                "x_spread": round(median([abs(v - xm) for v in xs]), 4),
+                "y_len": round(max(rows_y) - min(rows_y), 2),
+                "x_len": round(max(cols_x) - min(cols_x), 2)})
+    return res
+
+
+def offset_solve(fits, test, ref_z):
+    """Laser offset from cross fits at two nozzle heights.
+
+    fits: [(z, x_offset used, y_offset used, cross_fit result)]. Where the
+    scan sees the arm along Y (X) and along X (Y), against where it was
+    printed, is the error of the offset used. The laser sees the top of the
+    lines, (z - line height) below the nozzle, so the offsets belong to that
+    height; a line through both gives the offset at ref_z and per mm.
+    """
+    report, pts = [], []
+    for z, xo, yo, f in fits:
+        if not f.get("ok"):
+            return {"ok": False, "reason": "Z%.1f: %s" % (z, f.get("reason")),
+                    "report": ["LiDAR offset: Z%.1f: %s" % (
+                        z, f.get("reason"))], "fits": [x[3] for x in fits]}
+        xt = xo + test["cx"] - f["x"]
+        yt = yo + test["cy"] - f["y"]
+        d = z - f["h"]
+        pts.append((d, xt, yt))
+        report.append(
+            "  Z%.1f: cross seen at X%.2f Y%.2f (printed X%.2f Y%.2f), lines"
+            " %.2fmm high, arms %.1f / %.1fmm -> offset X%.3f Y%.3f" % (
+                z, f["x"], f["y"], test["cx"], test["cy"], f["h"],
+                f["x_len"], f["y_len"], xt, yt))
+    (d1, x1, y1), (d2, x2, y2) = pts
+    kx, ky = (x2 - x1) / (d2 - d1), (y2 - y1) / (d2 - d1)
+    res = {"ok": True, "fits": [x[3] for x in fits],
+           "x_offset": round(x1 + kx * (ref_z - d1), 3),
+           "y_offset": round(y1 + ky * (ref_z - d1), 3),
+           "x_per_z": round(kx, 4), "y_per_z": round(ky, 4)}
+    report.append(
+        "LiDAR offset at Z%.1f: X%.3f Y%.3f, per mm of height X%+.3f"
+        " Y%+.3f" % (ref_z, res["x_offset"], res["y_offset"], kx, ky))
+    if abs(kx) > 1.0 or abs(ky) > 3.0:
+        res.update(ok=False, reason="implausible change with height"
+                   " (X%+.2f Y%+.2f per mm)" % (kx, ky))
+    res["report"] = report
+    return res
+
+
 class Lidar:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -226,6 +394,12 @@ class Lidar:
         self.sock_path = config.get("socket", "/tmp/ai_server_uds")
         self.x_offset = config.getfloat("x_offset", -36.0)
         self.y_offset = config.getfloat("y_offset", -21.2)
+        self.x_per_z = config.getfloat("x_per_z", 0.0)
+        self.y_per_z = config.getfloat("y_per_z", 0.0)
+        self.offset_z = config.getfloat("offset_z", 3.0)
+        self.offset_source = "config"
+        self.printer.register_event_handler("klippy:connect",
+                                            self._load_offsets)
         self.x_dir = config.getfloat("x_dir", -1.0)
         self.scan_z = config.getfloat("scan_z", 3.0)
         self.captures = config.getint("captures", 3, minval=1)
@@ -258,13 +432,35 @@ class Lidar:
         self.pa_test = None
         self.last_result = {}
         for cmd in ("LIDAR_STATUS", "LIDAR_SCAN", "LIDAR_PA_ANALYZE",
-                    "LIDAR_PA_CALIBRATE", "LIDAR_PA_CREALITY"):
+                    "LIDAR_PA_CALIBRATE", "LIDAR_PA_CREALITY",
+                    "LIDAR_OFFSET_CALIBRATE"):
             self.gcode.register_command(
                 cmd, getattr(self, "cmd_" + cmd),
                 desc=getattr(self, "desc_" + cmd))
 
     def get_status(self, eventtime):
         return {"last_result": self.last_result}
+
+    OFFSET_VARS = (("x_offset", "lidar_x_offset"),
+                   ("y_offset", "lidar_y_offset"),
+                   ("x_per_z", "lidar_x_per_z"),
+                   ("y_per_z", "lidar_y_per_z"))
+
+    def _load_offsets(self):
+        # the last LIDAR_OFFSET_CALIBRATE result wins over [lidar]
+        sv = self.printer.lookup_object("save_variables", None)
+        saved = getattr(sv, "allVariables", None) or {}
+        if all(v in saved for a, v in self.OFFSET_VARS):
+            for attr, var in self.OFFSET_VARS:
+                setattr(self, attr, float(saved[var]))
+            self.offset_source = "saved by LIDAR_OFFSET_CALIBRATE"
+
+    def _xo(self, z):
+        """Laser line centre relative to the nozzle at nozzle height z."""
+        return self.x_offset + self.x_per_z * (z - self.offset_z)
+
+    def _yo(self, z):
+        return self.y_offset + self.y_per_z * (z - self.offset_z)
 
     def _yield(self):
         self.reactor.pause(self.reactor.monotonic() + 0.001)
@@ -410,10 +606,11 @@ class Lidar:
         else:
             r = self._call(msg)
         gcmd.respond_info(
-            "LiDAR ok: exposure %s, offset X%.2f Y%.2f (x_dir %+d), %s,"
-            " scans: %s" % (
+            "LiDAR ok: exposure %s, offset X%.2f Y%.2f at Z%.1f, per mm Z"
+            " X%+.3f Y%+.3f (%s), x_dir %+d, %s, scans: %s" % (
                 r.get("result", {}).get("exposure"), self.x_offset,
-                self.y_offset, self.x_dir,
+                self.y_offset, self.offset_z, self.x_per_z, self.y_per_z,
+                self.offset_source, self.x_dir,
                 "work done by the service at " + self.service
                 if self.service else "work done on this printer",
                 ", ".join(sorted(self.scans)) or "none"))
@@ -423,22 +620,23 @@ class Lidar:
         n = int(round(abs(y1 - y0) / step))
         d = step if y1 >= y0 else -step
         ys = [round(y0 + i * d, 4) for i in range(n + 1)]
-        nozzle_x = x - self.x_offset
+        xo, yo = self._xo(z), self._yo(z)
+        nozzle_x = x - xo
         rows = []
         start = self.reactor.monotonic()
         self.gcode.run_script_from_command(
             "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600" % (z,))
         if self.service:
             self._svc({"cmd": "begin", "name": name, "x": x, "z": z,
-                       "x_dir": self.x_dir, "x_offset": self.x_offset,
-                       "y_offset": self.y_offset, "captures": captures})
+                       "x_dir": self.x_dir, "x_offset": xo,
+                       "y_offset": yo, "captures": captures})
         else:
             self._laser(True)
         try:
             for y in ys:
                 self.gcode.run_script_from_command(
                     "G0 X%.3f Y%.3f F%.0f" % (
-                        nozzle_x, y - self.y_offset, self.speed * 60.0))
+                        nozzle_x, y - yo, self.speed * 60.0))
                 toolhead.wait_moves()
                 self.reactor.pause(self.reactor.monotonic() + self.settle)
                 if self.service:
@@ -484,17 +682,18 @@ class Lidar:
         n = int(round(abs(y1 - y0) / step))
         d = step if y1 >= y0 else -step
         ys = [round(y0 + i * d, 4) for i in range(n + 1)]
-        nozzle_x = x - self.x_offset
+        xo, yo = self._xo(z), self._yo(z)
+        nozzle_x = x - xo
         dwell = self.frame_period + self.dwell_settle + self.dwell_margin
         start = self.reactor.monotonic()
         self.gcode.run_script_from_command(
             "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600\n"
-            "G0 X%.3f Y%.3f F%.0f" % (z, nozzle_x, ys[0] - self.y_offset,
+            "G0 X%.3f Y%.3f F%.0f" % (z, nozzle_x, ys[0] - yo,
                                       self.speed * 60.0))
         toolhead.wait_moves()
         self._svc({"cmd": "begin", "name": name, "x": x, "z": z,
-                   "x_dir": self.x_dir, "x_offset": self.x_offset,
-                   "y_offset": self.y_offset, "captures": 1,
+                   "x_dir": self.x_dir, "x_offset": xo,
+                   "y_offset": yo, "captures": 1,
                    "grid": [y0, y1, step]})
         got = [0] * len(ys)
         try:
@@ -512,7 +711,7 @@ class Lidar:
                     i = len(windows)
                     if i:
                         self.gcode.run_script_from_command(
-                            "G0 Y%.3f F%.0f" % (ys[i] - self.y_offset,
+                            "G0 Y%.3f F%.0f" % (ys[i] - yo,
                                                 self.speed * 60.0))
                     t_arrive = toolhead.get_last_move_time()
                     self.gcode.run_script_from_command(
@@ -794,6 +993,132 @@ class Lidar:
             "Creality PA test done. PA per V (rows front to back, zig-zags"
             " left to right):\n" + "\n".join(
                 "  " + "  ".join("%.3f" % v for v in row) for row in grid))
+
+    # --------------------------------------------- LiDAR offset self-check
+    desc_LIDAR_OFFSET_CALIBRATE = ("Print a small cross and measure where"
+                                   " the LiDAR looks")
+
+    def _scan_any(self, name, x, y0, y1, step, z):
+        if self.mode == "dwell" and self.service:
+            return self._scan_dwell(name, x, y0, y1, step, z)[0]
+        return self._scan(name, x, y0, y1, step, z, self.captures)[0]
+
+    def _cross_fit(self, name, test):
+        if self.service:
+            return self._svc({"cmd": "offset_analyze", "scan": name,
+                              "test": test}, timeout=120.0)["result"]
+        scan = self.scans.get(name)
+        if scan is None:
+            raise self.printer.command_error(
+                "LiDAR: scan %s not in memory" % (name,))
+        return cross_fit(scan, test, self._yield)
+
+    def cmd_LIDAR_OFFSET_CALIBRATE(self, gcmd):
+        state = self.printer.lookup_object("print_stats").get_status(
+            self.reactor.monotonic())["state"]
+        if state in ("printing", "paused"):
+            raise gcmd.error("LiDAR: not while a print is running")
+        temp = gcmd.get_float("EXTRUDER_TEMP", above=150.0)
+        bed = gcmd.get_float("BED_TEMP", minval=0.0)
+        chamber = gcmd.get_float("CHAMBER_TEMP", 0.0, minval=0.0)
+        cx = gcmd.get_float("X", 150.0)
+        cy = gcmd.get_float("Y", 150.0)
+        z1 = gcmd.get_float("Z1", 3.0, minval=2.0, maxval=5.0)
+        z2 = gcmd.get_float("Z2", 5.0, minval=2.0, maxval=6.0)
+        apply = gcmd.get_int("APPLY", 1)
+        if z2 - z1 < 1.0:
+            raise gcmd.error("LiDAR: Z2 must be at least 1mm above Z1")
+        arm, lh, width, half = 10.0, 0.2, 0.6, 15.0
+        test = {"cx": cx, "cy": cy, "arm": arm, "height": 2 * lh}
+        toolhead = self.printer.lookup_object("toolhead")
+        st = toolhead.get_status(self.reactor.monotonic())
+        lo, hi = st["axis_minimum"], st["axis_maximum"]
+        for z in (z1, z2):
+            nx = cx - self._xo(z)
+            if not (lo[0] <= nx <= hi[0] and lo[1] <= cy - half - self._yo(z)
+                    and cy + half - self._yo(z) <= hi[1]):
+                raise gcmd.error("LiDAR: the scans of a cross at X%.0f Y%.0f"
+                                 " would leave the bed" % (cx, cy))
+        fil_area = getattr(toolhead.get_extruder(), "filament_area", 2.405)
+        epm = lh * width / fil_area
+        g = ["M83", "G90", "M106 S0"]
+        for layer in (1, 2):
+            z = layer * lh
+            if layer == 2:
+                g.append("M106 S128")
+            # arm along X, then the arm along Y in two halves (no crossing
+            # over the first arm with the nozzle down)
+            for (xa, ya), (xb, yb) in (
+                    ((cx - arm, cy), (cx + arm, cy)),
+                    ((cx, cy - arm), (cx, cy - 2.0)),
+                    ((cx, cy + 2.0), (cx, cy + arm))):
+                ln = math.hypot(xb - xa, yb - ya)
+                g += ["G0 Z%.2f F600" % (z + 1.0,),
+                      "G0 X%.3f Y%.3f F9000" % (xa, ya),
+                      "G0 Z%.2f F600" % (z,), "G1 E0.8 F2400",
+                      "G1 X%.3f Y%.3f E%.5f F1200" % (xb, yb, ln * epm),
+                      "G1 E-0.8 F2400"]
+        g += ["G0 Z%.2f F600" % (z2,), "M106 S0",
+              # cool down away from the scanned area, so nothing drips on it
+              "G0 X%.3f Y%.3f F9000" % (cx, cy - half - 12.0),
+              "M104 S150", "M106 S255",
+              "TEMPERATURE_WAIT SENSOR=extruder MAXIMUM=155", "M106 S0"]
+        gcmd.respond_info(
+            "LiDAR offset check: cross at X%.0f Y%.0f, scans at Z%.1f and"
+            " Z%.1f" % (cx, cy, z1, z2))
+        # the object keeps the purge line out of the scanned area and makes
+        # the adaptive mesh cover it
+        self.gcode.run_script_from_command(
+            "EXCLUDE_OBJECT_DEFINE RESET=1\n"
+            "EXCLUDE_OBJECT_DEFINE NAME=lidar_offset_cross CENTER=%.1f,%.1f"
+            " POLYGON=[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]\n"
+            "START_PRINT EXTRUDER_TEMP=%.0f BED_TEMP=%.0f CHAMBER_TEMP=%.0f" % (
+                cx, cy, cx - half, cy - half - 2, cx + half, cy - half - 2,
+                cx + half, cy + half + 2, cx - half, cy + half + 2,
+                temp, bed, chamber))
+        fits = []
+        try:
+            self.gcode.run_script_from_command("\n".join(g))
+            for i, z in enumerate((z1, z2)):
+                name = "offset_z%d" % (i + 1,)
+                xo, yo = self._xo(z), self._yo(z)
+                self._scan_any(name, cx, cy - half, cy + half, 0.2, z)
+                fits.append((z, xo, yo, self._cross_fit(name, test)))
+        except Exception:
+            self.gcode.run_script_from_command(
+                "TURN_OFF_HEATERS\nEXCLUDE_OBJECT_DEFINE RESET=1")
+            raise
+        self.gcode.run_script_from_command(
+            "END_PRINT\nEXCLUDE_OBJECT_DEFINE RESET=1")
+        res = offset_solve(fits, test, self.offset_z)
+        res["old"] = [round(self.x_offset, 3), round(self.y_offset, 3),
+                      round(self.x_per_z, 4), round(self.y_per_z, 4)]
+        self.last_result = res
+        try:
+            with open(os.path.join(self.data_dir, "offset_result.json"),
+                      "w") as f:
+                json.dump(res, f)
+        except OSError:
+            pass
+        for line in res["report"]:
+            gcmd.respond_info(line)
+        if not res["ok"]:
+            raise gcmd.error("LiDAR offset: %s" % (res["reason"],))
+        new = (res["x_offset"], res["y_offset"], res["x_per_z"],
+               res["y_per_z"])
+        if abs(new[0] - self.x_offset) > 5 or abs(new[1] - self.y_offset) > 5:
+            raise gcmd.error("LiDAR offset: more than 5mm from the current"
+                             " one, not applied (check the cross)")
+        if not apply:
+            return
+        for (attr, var), v in zip(self.OFFSET_VARS, new):
+            setattr(self, attr, v)
+            self.gcode.run_script_from_command(
+                "SAVE_VARIABLE VARIABLE=%s VALUE=%.4f" % (var, v))
+        self.offset_source = "saved by LIDAR_OFFSET_CALIBRATE"
+        gcmd.respond_info("LiDAR offset saved: X%.2f Y%.2f at Z%.1f, per mm"
+                          " Z X%+.3f Y%+.3f" % (new[0], new[1],
+                                                self.offset_z, new[2], new[3]))
 
 
 def creality_pa_gcode(ox, oy, pa0, pas):

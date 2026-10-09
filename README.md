@@ -57,7 +57,7 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59
 |---|---|---|
 | `Adaptive_Glass_Soak` | on | no waiting for the glass to settle before the mesh |
 | `Nozzle_Deep_Clean` | on | True Zero Touch happens without cleaning the nozzle first |
-| `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 0.876, measured with the load cells) |
+| `True_Zero_Touch` | on | no load-cell touch: Z comes from the Microprobe (`z_offset` 0.831, measured with the load cells at bed ~70C, nozzle 150C) |
 | `Chamber_Heat_Soak` | on | ABS/ASA prints start without waiting for the chamber to warm up |
 | `Forced_Calibration` | on | due calibrations are not run before prints |
 
@@ -122,13 +122,12 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 
 ## Roadmap
 
-**LiDAR** (done: LiDAR PA calibration)
+**LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check)
 - **True first-layer thickness.** Scan the bare plate, print the first layer, scan again: the difference is the real thickness across the part. Checks True Zero Touch and the mesh with numbers.
 - **Flow / extrusion multiplier.** Measure single-line cross-sections (height × width) against what was commanded, per filament. The PA test already measures these areas.
 - **Bed mesh check.** Scan points at the same Z and compare them with the Microprobe mesh: an independent check of the mesh and the glass.
 - **Strings and blobs before a print.** A quick scan of the print area after the purge; warn or stop if something is lying where the part goes.
 - **Axis twist check.** The LiDAR measures plate height without touching it, so it gives a second opinion on the Microprobe twist.
-- **LiDAR offset self-check** (`LIDAR_OFFSET_CALIBRATE`). A short print lays down a small cross on the plate and scans it twice, at Z 3 and Z 5. That gives the laser's X/Y offset relative to the nozzle (measured by hand on 2026-10-06: X -36, Y -21.2) and how far the spot moves in Y per mm of surface height, so a plate swap can be corrected automatically. Creality's own route doesn't work here: the calibration sticker on the bed is the LiDAR's *internal* calibration (`set_laser_cali_step` at nozzle X7 Y168, Z1 then Z3; the result is stored in the module). With the glass mod the sticker is 4–5 mm too far away, so running it would store wrong geometry in the LiDAR. Don't run it. See [custom/LIDAR-NOTES.md](custom/LIDAR-NOTES.md).
 - **Faster scanning, part 2.** Done so far (2026-10-07): with the helper service, scans plan their rows just ahead of the toolhead and take one frame per row standing still ("dwell" mode), 0.38 s per row instead of 1.3 s, equally repeatable (15.5 vs 14.5 µm between passes). Measured limits: the LiDAR delivers ~4.3 frames/s, and a frame is ~0.19 s old when it arrives. Scanning while moving was tried and dropped: textured PEI changes by ~76 µm between rows only 0.1 mm apart, so frames have to be taken at exactly the same Y in both scans. Left to try: locking the pauses to the LiDAR's frame rhythm (up to ~1.6× more), and using every point's own Y and full X resolution on the helper.
 - **Open LiDAR driver.** Today Creality's closed `cx_ai_middleware` drives the LiDAR. The plan: record its serial traffic (strace), document the protocol (frames are `AF FF | len16 | src | cmd | payload | checksum16`), and write a plain Python driver. Open question: the `cx_ai_crypto` handshake that udev runs when the LiDAR is plugged in.
 - **LiDAR reports on the helper computer.** The Pi already runs the LiDAR service and keeps the raw scans (`/var/lib/k1-lidar`): add height maps and history pages there.
@@ -140,7 +139,7 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Known limitations
 
 - The nozzle wipe can still leave a thin string hanging off the side of the nozzle. It doesn't affect the touch (the Microprobe check shows a clean contact), and the purge line picks it up. A silicone brush at the back edge would be the proper fix.
-- The LiDAR position (`[lidar]` x/y offset) was measured with a printed cross for this glass + PEI stack; a different plate height moves the laser spot in Y.
+- The LiDAR position is measured by `LIDAR_OFFSET_CALIBRATION` (a printed cross, scanned at Z3 and Z5; saved in `variables.cfg`, overrides `[lidar]`). Rerun it after changing the plate or the LiDAR mount. Lines along X read up to ~0.3 mm off in Y (see LIDAR-NOTES), lines along Y are exact in X.
 - `counts_per_gram` was not weighed on this printer, so load-cell forces in grams are approximate. The touch height doesn't depend on it.
 
 ## OrcaSlicer profiles

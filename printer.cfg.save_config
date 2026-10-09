@@ -3,7 +3,7 @@
 #*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.
 #*#
 #*# [probe]
-#*# z_offset = 0.876
+#*# z_offset = 0.831
 #*#
 #*# [input_shaper]
 #*# shaper_type_x = 3hump_ei
