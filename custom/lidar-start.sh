@@ -4,8 +4,10 @@
 #
 # The stock udev hook (laser_status.sh) switches the LiDAR off right after it
 # enumerates unless /tmp/load_done exists, which the Creality stack would
-# create. Then Creality's cx_ai_middleware, which still ships on the printer,
-# drives it and serves /tmp/ai_server_uds for lidar.py.
+# create. Then a driver serves /tmp/ai_server_uds for lidar.py: Creality's
+# cx_ai_middleware (still ships on the printer) or lidar-direct.py, the open
+# replacement (same JSON API). variables.cfg: lidar_driver = 'direct' or
+# 'middleware' (default); switch with the LIDAR_DRIVER macro, which runs this.
 touch /tmp/load_done
 [ -x /usr/bin/laser_power.sh ] || exit 0
 # fails harmlessly before the first enumeration (no laser_info.json yet); the
@@ -20,11 +22,28 @@ if [ ! -e /dev/serial/by-id/creality-laser ]; then
     exit 0
 fi
 sleep 2
-pidof cx_ai_middleware > /dev/null || cx_ai_middleware > /dev/null 2>&1 &
+C=$(dirname "$(readlink -f "$0")")
+DRIVER=$(sed -n "s/^lidar_driver = '\(.*\)'/\1/p" /usr/data/printer_data/config/variables.cfg)
+if [ "$DRIVER" = direct ]; then
+    killall cx_ai_middleware > /dev/null 2>&1 && sleep 1
+    pgrep -f lidar-direct.py > /dev/null ||
+        setsid python3 -B $C/lidar-direct.py < /dev/null > /dev/null 2>&1 &
+else
+    DRIVER=middleware
+    for p in $(pgrep -f lidar-direct.py); do kill $p; done
+    if ! pidof cx_ai_middleware > /dev/null; then
+        rm -f /tmp/ai_server_uds
+        setsid cx_ai_middleware < /dev/null > /dev/null 2>&1 &
+        # it only sets the module up when told it's plugged in (udev does
+        # that at enumeration, which may have happened before it started)
+        sleep 2
+        ubus call laser set_state '{"laser_plugged": 1}' > /dev/null 2>&1
+    fi
+fi
 # forward the middleware to the helper computer that runs lidar_service.py
 # (helper/): only that address may connect
 LIDAR_HELPER=10.0.1.34
 if ! ps | grep -v grep | grep -q lidar-bridge.py; then
-    python3 "$(dirname "$0")/lidar-bridge.py" 7130 $LIDAR_HELPER > /dev/null 2>&1 &
+    setsid python3 $C/lidar-bridge.py 7130 $LIDAR_HELPER < /dev/null > /dev/null 2>&1 &
 fi
-echo "lidar-start: up" > /tmp/lidar-start.log
+echo "lidar-start: up, driver $DRIVER" | tee /tmp/lidar-start.log

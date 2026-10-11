@@ -26,11 +26,17 @@
 # Commands:
 #   LIDAR_STATUS
 #   LIDAR_SCAN NAME= X= Y0= Y1= [STEP=0.4] [Z=3] [MODE=dwell|stop]
-#       [CAPTURES=3]
+#       [CAPTURES=3] [LEVEL=scan_level]
 #       X/Y are where the laser looks (not the nozzle); one profile per Y.
-#       dwell (default with a service): the whole scan planned at once, one
-#       frame per row taken standing still; stop: stop at every row and
-#       average CAPTURES frames (slower, ~1.3s per row)
+#       dwell (default with a service): rows planned just ahead and locked
+#       to the LiDAR's frames, one frame per row taken standing still (one
+#       frame period per row); stop: stop at every row and average CAPTURES
+#       frames (slower, ~1.3s per row)
+#   LIDAR_TIMING [Z=3] [DZ=1.5] [SPEED=5] [CYCLES=15] [LEVELS=0,1] [APPLY=1]
+#       measures the frame period and the time window a frame covers before
+#       it arrives, for the current driver (slow Z moves over a flat plate
+#       at the current X/Y), and saves them for dwell scans (lidar_timing).
+#       Run again after LIDAR_DRIVER
 #   LIDAR_PA_ANALYZE BASE= SCAN= [APPLY=1]
 #       compares the scan of the printed PA test with the bare-plate scan
 #   LIDAR_PA_CALIBRATE EXTRUDER_TEMP= BED_TEMP= [PA_START=0] [PA_STEP=0.01]
@@ -405,15 +411,27 @@ class Lidar:
         self.captures = config.getint("captures", 3, minval=1)
         self.settle = config.getfloat("settle_time", 0.15, minval=0.0)
         self.speed = config.getfloat("speed", 50.0, above=0.0)
-        # dwell scans (needs the service): the LiDAR delivers a new frame
-        # every ~0.235s, and a frame is ~0.19s old when it arrives
-        # (measured 2026-10-07: a 0.33mm lag at 1.7mm/s)
+        # dwell scans (needs the service): frames requested back-to-back
+        # come every frame_period. A frame is not a snapshot: it covers
+        # about 0.1s, ending ~0.15s before it arrives (direct driver, level
+        # 0, measured 2026-10-12). frame_latency +- frame_spread is that
+        # window. Defaults: cx_ai_middleware, level 0 (2026-10-07: a 0.33mm
+        # lag at 1.7mm/s); LIDAR_TIMING measures it per driver and level and
+        # saves it (lidar_timing), which wins
         self.frame_period = config.getfloat("frame_period", 0.235,
                                             above=0.05)
         self.frame_latency = config.getfloat("frame_latency", 0.194,
                                              minval=0.0)
+        self.frame_spread = config.getfloat("frame_spread", 0.05,
+                                            minval=0.0)
+        # standing still: settle time after a move, and extra time before
+        # and after a frame's window (prediction error)
         self.dwell_settle = config.getfloat("dwell_settle", 0.05, minval=0.0)
-        self.dwell_margin = config.getfloat("dwell_margin", 0.06, minval=0.0)
+        self.dwell_margin = config.getfloat("dwell_margin", 0.015, minval=0.0)
+        # point cloud level for dwell scans: 0 all points (~0.02mm apart),
+        # 1 every 2nd (~0.04mm, frames ~15% faster)
+        self.scan_level = config.getint("scan_level", 0, minval=0, maxval=2)
+        self.printer.load_object(config, "motion_report")
         self.mode = config.getchoice("mode", {"dwell": "dwell",
                                               "stop": "stop"}, "dwell")
         self.data_dir = config.get(
@@ -433,7 +451,7 @@ class Lidar:
         self.last_result = {}
         for cmd in ("LIDAR_STATUS", "LIDAR_SCAN", "LIDAR_PA_ANALYZE",
                     "LIDAR_PA_CALIBRATE", "LIDAR_PA_CREALITY",
-                    "LIDAR_OFFSET_CALIBRATE"):
+                    "LIDAR_OFFSET_CALIBRATE", "LIDAR_TIMING"):
             self.gcode.register_command(
                 cmd, getattr(self, "cmd_" + cmd),
                 desc=getattr(self, "desc_" + cmd))
@@ -481,43 +499,91 @@ class Lidar:
         except ValueError as e:
             raise self.printer.command_error("LiDAR: bad reply (%s)" % (e,))
 
-    def _call_raw(self, msg, timeout=10.0):
-        """Reply bytes (without ETX) and the reactor time they arrived."""
+    def _send(self, msg):
+        """Send a request without waiting for its reply (OSError)."""
         # one persistent connection: cx_ai_middleware leaks a descriptor per
         # connection and stops accepting after a few thousand
+        if self.sock is None:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(2.0)
+            s.connect(self.sock_path)
+            s.setblocking(False)
+            self.sock = s
+        self.sock.sendall(json.dumps(msg).encode() + ETX)
+
+    def _recv(self, timeout=10.0):
+        """The reply bytes (without ETX) and the reactor time they arrived."""
+        buf = b""
+        end = self.reactor.monotonic() + timeout
+        while not buf.endswith(ETX):
+            try:
+                d = self.sock.recv(1 << 20)
+                if not d:
+                    raise OSError("connection closed")
+                buf += d
+                continue
+            except (BlockingIOError, InterruptedError):
+                pass
+            now = self.reactor.monotonic()
+            if now > end:
+                raise OSError("timeout")
+            # wait without blocking the reactor
+            self.reactor.pause(now + 0.002)
+        return buf[:-1], self.reactor.monotonic()
+
+    def _driver_error(self, err):
+        self._close()
+        return self.printer.command_error(
+            "LiDAR: no answer from the driver (%s, %s). Is it running?"
+            " (custom/lidar-start.sh)" % (self._driver(), err))
+
+    def _call_raw(self, msg, timeout=10.0):
+        """Reply bytes (without ETX) and the reactor time they arrived."""
         err = None
         for attempt in range(2):
             try:
-                if self.sock is None:
-                    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                    s.settimeout(2.0)
-                    s.connect(self.sock_path)
-                    s.setblocking(False)
-                    self.sock = s
-                self.sock.sendall(json.dumps(msg).encode() + ETX)
-                buf = b""
-                end = self.reactor.monotonic() + timeout
-                while not buf.endswith(ETX):
-                    try:
-                        d = self.sock.recv(1 << 20)
-                        if not d:
-                            raise OSError("connection closed")
-                        buf += d
-                        continue
-                    except (BlockingIOError, InterruptedError):
-                        pass
-                    now = self.reactor.monotonic()
-                    if now > end:
-                        raise OSError("timeout")
-                    # wait without blocking the reactor
-                    self.reactor.pause(now + 0.002)
-                return buf[:-1], self.reactor.monotonic()
+                self._send(msg)
+                return self._recv(timeout)
             except OSError as e:
                 err = e
                 self._close()
-        raise self.printer.command_error(
-            "LiDAR: no answer from cx_ai_middleware (%s). Is it running?"
-            " (custom/lidar-start.sh)" % (err,))
+        raise self._driver_error(err)
+
+    def _frame_msg(self):
+        """get_point_cloud for timed frames: with the direct driver the
+        frames are streamed back-to-back by the driver and time-stamped."""
+        if self._driver() == "direct":
+            return {"control": "get_point_cloud", "prefetch": 1}
+        return {"control": "get_point_cloud"}
+
+    def _frame_time(self, raw, t):
+        """When a frame arrived from the LiDAR: the direct driver's own time
+        stamp (the reactor's clock), else when its reply arrived here."""
+        i = raw.find(b'"t": ', 0, 120)
+        if i >= 0:
+            try:
+                return float(raw[i + 5:raw.index(b",", i)])
+            except ValueError:
+                pass
+        return t
+
+    def _driver(self):
+        """Which driver serves the socket (variables.cfg lidar_driver)."""
+        sv = self.printer.lookup_object("save_variables", None)
+        saved = getattr(sv, "allVariables", None) or {}
+        return str(saved.get("lidar_driver", "middleware"))
+
+    def _timing(self, level):
+        """(frame period, window start, window end, source) for the driver
+        and level: a frame covers arrival - end .. arrival - start."""
+        sv = self.printer.lookup_object("save_variables", None)
+        saved = getattr(sv, "allVariables", None) or {}
+        t = (saved.get("lidar_timing") or {}).get(self._driver(), {})
+        t = t.get(str(level))
+        if t and len(t) >= 4:
+            return float(t[0]), float(t[2]), float(t[3]), "LIDAR_TIMING"
+        return (self.frame_period, self.frame_latency - self.frame_spread,
+                self.frame_latency + self.frame_spread, "config")
 
     def _laser(self, on):
         if on:
@@ -668,23 +734,31 @@ class Lidar:
             self._save(name, scan)
         return len(ys), self.reactor.monotonic() - start
 
-    def _scan_dwell(self, name, x, y0, y1, step, z):
-        """Stop at every row, but plan the whole scan at once.
+    def _scan_dwell(self, name, x, y0, y1, step, z, level=None, debug=None):
+        """Stop at every row, with the rows locked to the LiDAR's frames.
 
-        The toolhead never idles between rows (no restart delay); frames are
-        requested back-to-back and each one is matched to the row where the
-        toolhead was standing when the frame was taken (arrival time minus
-        frame_latency). So every row is measured standing still at exactly
-        its Y, like a stopped scan, with one frame.
+        Frames are requested back-to-back: the next request goes out the
+        moment a reply arrives, so they keep coming every `period`, and each
+        one covers the time from `hi` to `lo` before it arrives
+        (LIDAR_TIMING). From the last arrival the next arrivals are
+        predicted, and the rows are planned just ahead of the toolhead so it
+        stands still at row i for the whole window of one of them (+-
+        dwell_margin), moving to the next row in between: one frame per row
+        when move + settle + window fit into a frame period (level 0 on the
+        direct driver: ~0.2s per row). A frame is only used if its whole
+        window is inside its row's still time, so a wrong prediction costs a
+        row (filled in from the neighbours), never a wrong measurement.
         """
         toolhead = self.printer.lookup_object("toolhead")
         mcu = self.printer.lookup_object("mcu")
+        level = self.scan_level if level is None else level
+        period, lo, hi, src = self._timing(level)
+        margin, settle = self.dwell_margin, self.dwell_settle
         n = int(round(abs(y1 - y0) / step))
         d = step if y1 >= y0 else -step
         ys = [round(y0 + i * d, 4) for i in range(n + 1)]
         xo, yo = self._xo(z), self._yo(z)
         nozzle_x = x - xo
-        dwell = self.frame_period + self.dwell_settle + self.dwell_margin
         start = self.reactor.monotonic()
         self.gcode.run_script_from_command(
             "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600\n"
@@ -693,50 +767,92 @@ class Lidar:
         toolhead.wait_moves()
         self._svc({"cmd": "begin", "name": name, "x": x, "z": z,
                    "x_dir": self.x_dir, "x_offset": xo,
-                   "y_offset": yo, "captures": 1,
+                   "y_offset": yo, "captures": 1, "level": level,
                    "grid": [y0, y1, step]})
         got = [0] * len(ys)
-        try:
-            # plan the rows just ahead of the toolhead (planning a row costs
-            # the K1 a noticeable time, so plan as we go): stand still at a
-            # row, short move to the next. windows = when each row is still
-            windows = []
-            head = '{"cmd": "frame", "name": %s, "row": %%d, "raw": ' % (
-                json.dumps(name),)
+        windows = []     # per row: (still from, still until), print time
+        # predicted next arrival, last used arrival, last move duration
+        clock = {"next": None, "last": -1e9, "move": 0.02}
+        head = '{"cmd": "frame", "name": %s, "row": %%d, "raw": ' % (
+            json.dumps(name),)
+        in_flight = False
 
-            def plan_ahead(ahead=2.0):
-                now = mcu.estimated_print_time(self.reactor.monotonic())
-                while len(windows) < len(ys) and (
-                        not windows or windows[-1][1] - now < ahead):
-                    i = len(windows)
-                    if i:
-                        self.gcode.run_script_from_command(
-                            "G0 Y%.3f F%.0f" % (ys[i] - yo,
-                                                self.speed * 60.0))
-                    t_arrive = toolhead.get_last_move_time()
+        def plan_ahead(ahead=1.0):
+            # planning costs the K1 noticeable time, so plan as we go
+            now = mcu.estimated_print_time(self.reactor.monotonic())
+            while len(windows) < len(ys) and (
+                    not windows or windows[-1][1] - now < ahead):
+                i = len(windows)
+                if i:
                     self.gcode.run_script_from_command(
-                        "G4 P%.0f" % (dwell * 1000.0,))
-                    windows.append((t_arrive + self.dwell_settle,
-                                    toolhead.get_last_move_time()))
+                        "G0 Y%.3f F%.0f" % (ys[i] - yo, self.speed * 60.0))
+                t_arrive = toolhead.get_last_move_time()
+                if i:
+                    clock["move"] = t_arrive - windows[-1][1]
+                still = t_arrive + settle
+                # the first predicted frame after the last row's whose whole
+                # window we can stand still for
+                a = clock["next"]
+                while a - hi - margin < still or a < clock["last"] + period / 2:
+                    a += period
+                clock["last"] = a
+                # stay as long as the next row can still catch the next
+                # frame: frames that come late (the module's clock slips by
+                # a sensor tick now and then) are still inside the window
+                tail = max(margin, period - (hi - lo) - margin - settle
+                           - clock["move"] - 0.005)
+                self.gcode.run_script_from_command(
+                    "G4 P%.0f" % ((a - lo + tail - t_arrive) * 1000.0,))
+                windows.append((still, toolhead.get_last_move_time()))
 
-            i = 0
-            plan_ahead()
-            while True:
-                raw, t = self._call_raw({"control": "get_point_cloud"})
-                pt = mcu.estimated_print_time(t) - self.frame_latency
-                plan_ahead()
-                if pt > windows[-1][1] and len(windows) == len(ys):
-                    break
-                while i < len(windows) - 1 and pt > windows[i][1]:
-                    i += 1
-                if not (windows[i][0] <= pt <= windows[i][1]) or got[i]:
-                    continue   # taken while moving, or row already done
-                got[i] = 1
-                # forwarded as is: the K1 doesn't decode the point cloud
-                self._svc_send((head % (i,)).encode()
-                               + raw.replace(b"\n", b" ") + b"}\n")
+        try:
+            frame_msg = self._frame_msg()
+            try:
+                self._send(frame_msg)
+                in_flight = True
+                i = 0
+                while True:
+                    raw, t = self._recv(5.0)
+                    in_flight = False
+                    arrival = mcu.estimated_print_time(
+                        self._frame_time(raw, t))
+                    done = (len(windows) == len(ys) and
+                            arrival - hi > windows[-1][1])
+                    if not done:
+                        # keep the frame clock running: ask for the next
+                        # frame before anything else
+                        self._send(frame_msg)
+                        in_flight = True
+                    w0, w1 = arrival - hi, arrival - lo   # what it covers
+                    clock["next"] = arrival + period
+                    plan_ahead()
+                    if done:
+                        break
+                    while i < len(windows) - 1 and w1 > windows[i][1]:
+                        i += 1
+                    ok = (windows[i][0] <= w0 and w1 <= windows[i][1]
+                          and not got[i])
+                    if debug is not None:
+                        debug.append((round(arrival, 4), round(w0, 4),
+                                      round(w1, 4), i, windows[i], ok,
+                                      got[i]))
+                    if not ok:
+                        continue   # partly taken while moving, or row done
+                    got[i] = 1
+                    # forwarded as is: the K1 doesn't decode the point cloud
+                    self._svc_send((head % (i,)).encode()
+                                   + raw.replace(b"\n", b" ") + b"}\n")
+            except OSError as e:
+                in_flight = False
+                raise self._driver_error(e)
             toolhead.wait_moves()
         finally:
+            if in_flight:
+                # don't leave a reply in the socket for the next request
+                try:
+                    self._recv(5.0)
+                except OSError:
+                    self._close()
             try:
                 self._svc({"cmd": "end", "name": name}, timeout=60.0)
             except self.printer.command_error:
@@ -778,7 +894,13 @@ class Lidar:
                 gcmd.get_float("Z", self.scan_z))
         mode = gcmd.get("MODE", self.mode).lower()
         if mode == "dwell" and self.service:
-            rows, secs, missed = self._scan_dwell(*args)
+            dbg = [] if gcmd.get_int("DEBUG", 0) else None
+            rows, secs, missed = self._scan_dwell(*args, level=gcmd.get_int(
+                "LEVEL", self.scan_level, minval=0, maxval=2), debug=dbg)
+            if dbg is not None:
+                with open("/tmp/lidar_scan_debug.txt", "w") as f:
+                    for row in dbg:
+                        f.write("%r\n" % (row,))
             gcmd.respond_info("LiDAR scan %s: %d rows in %.0fs (%d filled in"
                               " from neighbours)" % (name, rows, secs, missed))
             return
@@ -786,6 +908,169 @@ class Lidar:
             *args, gcmd.get_int("CAPTURES", self.captures, minval=1))
         gcmd.respond_info("LiDAR scan %s: %d rows in %.0fs" % (
             name, rows, secs))
+
+    # --------------------------------------------------------------- timing
+    def _median_dist(self, raw):
+        """Median distance (um) of a get_point_cloud reply, None if empty."""
+        try:
+            pc = json.loads(raw.decode(errors="replace"))["result"][
+                "point_cloud"]
+        except (ValueError, KeyError, TypeError):
+            return None
+        return median([p[2] for p in pc]) if pc else None
+
+    def _last_time_at(self, trapq, z, before, span=0.7, dt=0.002):
+        """Latest print time before `before` at which the toolhead was at
+        height z (linear interpolation), None if not within span."""
+        t = before
+        z1 = trapq.get_trapq_position(t)[0]
+        if z1 is None:
+            return None
+        while t > before - span:
+            p, v = trapq.get_trapq_position(t - dt)
+            if p is None:
+                return None
+            if (p[2] - z) * (z1[2] - z) <= 0 and p[2] != z1[2]:
+                return t - dt + dt * (z - p[2]) / (z1[2] - p[2])
+            z1 = p
+            t -= dt
+        return None
+
+    def _timing_run(self, toolhead, mcu, trapq, z0, dz, speed, cycles,
+                    debug=None):
+        rest = [self._median_dist(
+            self._call_raw({"control": "get_point_cloud"})[0])
+            for i in range(4)]
+        rest = [r for r in rest if r is not None]
+        if len(rest) < 3:
+            raise self.printer.command_error(
+                "LIDAR_TIMING: no points at Z%.2f: is a flat plate under"
+                " the laser?" % (z0,))
+        d0 = median(rest)
+        f = speed * 60.0
+        # up, pause, down, pause, `cycles` times, in 0.05mm steps fed while
+        # the frames come in (Klipper blocks a command that queues more than
+        # ~2s of moves). The pauses are longer than any latency, so the last
+        # time the nozzle was at a height stays unambiguous. Fast ramps: the
+        # laser hits at ~45 deg, so a Z move also slides the line over the
+        # plate's texture, which reads as height noise; at 5mm/s 25um of
+        # texture is 5ms of timing error (50ms at 0.5mm/s)
+        n = max(1, int(round(dz / 0.05)))
+        up = ["G1 Z%.4f F%.0f" % (z0 + dz * k / n, f) for k in range(1, n + 1)]
+        down = ["G1 Z%.4f F%.0f" % (z0 + dz * k / n, f)
+                for k in range(n - 1, -1, -1)]
+        todo = (up + ["G4 P600"] + down + ["G4 P600"]) * cycles
+
+        end = []   # print time the last move ends, once it is queued
+
+        def feed(ahead=0.8):
+            now = mcu.estimated_print_time(self.reactor.monotonic())
+            while todo and toolhead.get_last_move_time() - now < ahead:
+                self.gcode.run_script_from_command(todo.pop(0))
+                if not todo:
+                    end.append(toolhead.get_last_move_time())
+
+        frames = []
+        frame_msg = self._frame_msg()
+        try:
+            self._send(frame_msg)
+            while True:
+                raw, t = self._recv(5.0)
+                pt = mcu.estimated_print_time(self._frame_time(raw, t))
+                # (not get_last_move_time() here: on an idle toolhead it
+                # keeps moving ahead, and this would never end)
+                last = bool(end) and pt > end[0] + 0.3
+                if not last:
+                    self._send(frame_msg)
+                frames.append((pt, raw))
+                if last:
+                    break
+                feed()
+        except OSError as e:
+            raise self._driver_error(e)
+        toolhead.wait_moves()
+        periods = [b[0] - a[0] for a, b in zip(frames, frames[1:])]
+        lats = []
+        for pt, raw in frames:
+            dist = self._median_dist(raw)
+            self._yield()
+            c = z = None
+            if dist is not None:
+                z = z0 + (dist - d0) / 1000.0
+                if z0 + 0.15 * dz < z < z0 + 0.85 * dz:
+                    c = self._last_time_at(trapq, z, pt)
+                    if c is not None:
+                        lats.append(pt - c)
+            if debug is not None:
+                debug.append((pt, dist, z, c,
+                              trapq.get_trapq_position(pt)[0]))
+        if len(lats) < 4:
+            raise self.printer.command_error(
+                "LIDAR_TIMING: only %d frames on the ramps" % (len(lats),))
+        return median(periods), lats
+
+    desc_LIDAR_TIMING = ("Measure the LiDAR frame period and latency of the"
+                         " current driver (slow Z moves over a flat plate)")
+
+    def cmd_LIDAR_TIMING(self, gcmd):
+        toolhead = self.printer.lookup_object("toolhead")
+        mcu = self.printer.lookup_object("mcu")
+        trapq = self.printer.lookup_object("motion_report").trapqs[
+            "toolhead"]
+        z0 = gcmd.get_float("Z", self.scan_z)
+        dz = gcmd.get_float("DZ", 1.5, above=0.3, maxval=2.0)
+        speed = gcmd.get_float("SPEED", 5.0, above=0.2, maxval=10.0)
+        cycles = gcmd.get_int("CYCLES", 15, minval=1, maxval=50)
+        levels = [int(v) for v in gcmd.get("LEVELS", "0,1").split(",")]
+        if any(v not in (0, 1, 2) for v in levels):
+            raise gcmd.error("LIDAR_TIMING: LEVELS are 0, 1 or 2")
+        driver = self._driver()
+        self.gcode.run_script_from_command(
+            "SAVE_GCODE_STATE NAME=_lidar_timing\nG90\nG0 Z%.3f F600"
+            % (z0,))
+        toolhead.wait_moves()
+        res = {}
+        try:
+            self._laser(True)
+            for level in levels:
+                self._call({"control": "set_point_cloud_level",
+                            "level": level})
+                dbg = [] if gcmd.get_int("DEBUG", 0) else None
+                p, lats = self._timing_run(toolhead, mcu, trapq, z0,
+                                           dz, speed, cycles, dbg)
+                if dbg is not None:
+                    with open("/tmp/lidar_timing_%d.txt" % (level,), "w") as f:
+                        for row in dbg:
+                            f.write("%r\n" % (row,))
+                # the frame's window: earliest .. latest measured capture
+                # time before the arrival (a frame is not a snapshot)
+                res[str(level)] = [round(p, 4), round(median(lats), 4),
+                                   round(min(lats), 4), round(max(lats), 4)]
+                gcmd.respond_info(
+                    "LiDAR timing (%s, level %d): frame every %.1f ms,"
+                    " covering %.0f..%.0f ms before it arrives (median %.0f,"
+                    " %d frames)" % (driver, level, p * 1000.0,
+                                     max(lats) * 1000.0, min(lats) * 1000.0,
+                                     median(lats) * 1000.0, len(lats)))
+        finally:
+            try:
+                self._call({"control": "set_point_cloud_level", "level": 0})
+            except self.printer.command_error:
+                pass
+            self._laser(False)
+            self.gcode.run_script_from_command(
+                "RESTORE_GCODE_STATE NAME=_lidar_timing")
+        if gcmd.get_int("APPLY", 1):
+            sv = self.printer.lookup_object("save_variables", None)
+            saved = getattr(sv, "allVariables", None) or {}
+            timing = dict(saved.get("lidar_timing") or {})
+            timing[driver] = dict(timing.get(driver, {}), **res)
+            # no spaces: one G-code parameter
+            val = repr(timing).replace(" ", "")
+            self.gcode.run_script_from_command(
+                'SAVE_VARIABLE VARIABLE=lidar_timing VALUE="%s"' % (val,))
+            gcmd.respond_info("LiDAR timing saved for %s: %s" % (
+                driver, res))
 
     # ------------------------------------------------------------- analysis
     desc_LIDAR_PA_ANALYZE = "Find pressure advance from a LiDAR PA test scan"

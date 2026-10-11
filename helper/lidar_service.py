@@ -71,11 +71,11 @@ class Service:
         self.lock = threading.Lock()
         os.makedirs(data_dir, exist_ok=True)
 
-    def laser(self, on):
+    def laser(self, on, level=0):
         if on:
             self.mw.call({"control": "set_laser_open"})
             self.mw.call({"control": "open_flow"})
-            self.mw.call({"control": "set_point_cloud_level", "level": 0})
+            self.mw.call({"control": "set_point_cloud_level", "level": level})
         else:
             for c in ("close_flow", "set_laser_close"):
                 try:
@@ -91,7 +91,7 @@ class Service:
             return {"ok": True, "reply": self.mw.call(req["msg"])}
         if cmd == "begin":
             name = req["name"]
-            self.laser(True)
+            self.laser(True, req.get("level", 0))
             raw = open(os.path.join(self.data_dir, name + ".raw.jsonl"), "w")
             raw.write(json.dumps({k: req[k] for k in (
                 "x", "z", "x_dir", "x_offset", "y_offset")}) + "\n")
