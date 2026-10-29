@@ -49,3 +49,8 @@
 #*# max_x = 261.96
 #*# min_y = 5.0
 #*# max_y = 294.9600000000001
+#*#
+#*# [axis_twist_compensation]
+#*# z_compensations = 0.132721, 0.092048, 0.040646, -0.001499, -0.044973, -0.085035, -0.133909
+#*# compensation_start_x = 10.0
+#*# compensation_end_x = 290.0
