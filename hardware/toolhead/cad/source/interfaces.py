@@ -153,15 +153,19 @@ LIDAR_LINE_X = (-50.8, -21.6)  # DERIVED 02:L3
 # (research/02 §3.7 originally had the direction reversed - corrected.)
 # Reserved space = union of an optical box (laser sheet + camera view, below the
 # module) and a body box (module + bracket). research/01 §H: body footprint
-# 46.6 (X) x 19.4 (Y), height ~25-28, distance origin ~22.6 above the tip; a body
-# centred on the line spans X -59.3..-12.7. Replace both once measured (M6).
+# 46.6 (X) x 19.4 (Y), height ~25-28, distance origin ~22.6 above the tip.
+# Replace both once measured (M6).
 LIDAR_RESERVED_OPTICAL = Box(-62.0, -18.0, -36.0, 10.0, -1.0, 22.0, "ESTIMATED",
                              "laser sheet + camera cone below the module (M6)")
-LIDAR_RESERVED_BODY = Box(-62.0, -12.0, -36.0, 10.0, 18.0, 50.0, "ESTIMATED",
-                          "module body 46.6 x 19.4 x 25-28 + bracket, research/01 §H (M6)")
+# The stock cover fills X -24..+24 (STOCK_COVER) and the carriage X -25.2..+24.2,
+# so the module body cannot be centred on the line: it must hang outside the
+# cover (X <= -24) with its optics toward the inner end, and stay below the
+# XY-joint band (left X limit ~-31 above Z 44.3). 46.6 long -> X ~-71..-24.
+LIDAR_RESERVED_BODY = Box(-74.0, -24.0, -36.0, 10.0, 18.0, 44.3, "ESTIMATED",
+                          "module 46.6 x 19.4 x 25-28 outside the stock cover; research/01 §H, 02 §9 (M6)")
 LIDAR_RESERVED_BOXES = (LIDAR_RESERVED_OPTICAL, LIDAR_RESERVED_BODY)
 # Backward-compatible bounding box of both (conservative).
-LIDAR_RESERVED = Box(-62.0, -12.0, -36.0, 10.0, -1.0, 50.0, "ESTIMATED",
+LIDAR_RESERVED = Box(-74.0, -18.0, -36.0, 10.0, -1.0, 44.3, "ESTIMATED",
                      "bounding box of LIDAR_RESERVED_BOXES; prefer the boxes for checks")
 LIDAR_BODY_FOOTPRINT = (Dim(46.6, "DERIVED", "01 §H.2 community lid (Printables 1476318)"),
                         Dim(19.4, "DERIVED", "01 §H.2"))
