@@ -134,6 +134,19 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 - **LiDAR reports on the helper computer.** The Pi already runs the LiDAR service and keeps the raw scans (`/var/lib/k1-lidar`): add height maps and history pages there.
 - **Klipper on the helper computer.** Only if the direct cable proves stable in a long soak test (another cable; the K1's Ethernet hung after link drops on 2026-10-07): bridge the three MCU UARTs to the Pi.
 
+**More calibrations** (ideas; pressure advance and input shaper/belts are already handled). Uses the accelerometer, the LiDAR or the load cell, so none of them needs a ruler or the eye.
+- **VFA speed sweep (accelerometer, no print).** VFA (vertical fine artifacts, the fine regular ripples on walls) mostly comes from the stepper motors: the ripple period is the distance of a motor's electrical cycle (0.8 mm on a 20T GT2 pulley with 200-step motors), so it shows up at the speeds where `speed / period` hits a belt or frame resonance. Move at constant speed from 20 to 300 mm/s in small steps along X, Y and both diagonals, record vibration, and list the speeds with a peak. Result: speeds to avoid (or a wall speed picked between peaks) and a quick before/after number for every change below.
+- **VFA stepper settings, A/B with the same sweep.** Compare `interpolate` on/off, microsteps (16 vs 32 vs 64), StealthChop vs SpreadCycle and run current. Pick the quietest, keep the result in `variables.cfg`.
+- **VFA seen by the LiDAR.** The LiDAR looks down, so a vertical wall is invisible to it. A shallow slope (~20°) turns the ripple into a height wave on top. Print one, scan it, take the spectrum along the slope: shows the real period and amplitude, and whether it is the motors (fixed period) or the extruder (period follows the extruded length).
+- **Extruder ripple check.** The same scan separates the extruder gear (one ripple per gear turn of extruded filament) from the motors. If it is the extruder, that is a `rotation_distance`/gear problem and not a speed one.
+- **Max volumetric flow.** Print a line with rising speed and scan its cross-section: the speed where the area stops following the commanded flow is the real limit per filament and temperature. The slicer value comes from this.
+- **Skew / squareness.** Print a square and scan its corners (the LiDAR offset is already known); gives the XY skew for `SET_SKEW`. Also gives the shrink factor per filament (printed size vs commanded).
+- **Retraction.** Print two posts, scan the gap for strings, and step distance and speed to the lowest value that stays clean. Shares the "strings and blobs" scan above.
+- **Ringing tower measured, not looked at.** Accelerometer on the toolhead during real corners at set acceleration and square corner velocity, to choose acceleration per axis from numbers.
+- **Sensorless homing threshold.** The stall threshold (`SGTHRS`) auto-tuned by homing at several speeds and temperatures, picking the middle of the range that works.
+- **Load cell `counts_per_gram`.** Weigh a known mass (a 100-500 g calibration weight) once; today the grams are approximate (see Known limitations).
+- **Z lead screw error.** Step Z in small increments over the LiDAR's working range and compare the measured plate distance with the commanded move; a repeating error is the cause of Z banding. Only covers the first few mm, so a period seen there is a hint, not proof.
+
 **Other**
 - **Silicone wipe pads** (K2 Plus) for the Nozzle Deep Clean.
 
