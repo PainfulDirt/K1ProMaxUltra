@@ -73,16 +73,16 @@ HEATSINK = Box(-13.9, 13.9, -10.8, 10.2, 31.9, 56.0, "DERIVED", "02:H12")
 # Heatsink front fixing holes, shared by the 3010 hotend fan and the PCB.
 # Blind, along +Y from the heatsink front face (Y -10.8) to Y +2.0.
 HEATSINK_FRONT_HOLES = [(-12.0, 34.3), (12.0, 34.3)]  # (x, z) DERIVED 02:H13
-HEATSINK_FRONT_HOLE_D = Dim(3.0, "DERIVED", "02:H13 (thread form MISSING: tapped M3? thread-forming?)")
+HEATSINK_FRONT_HOLE_D = Dim(3.0, "DERIVED", "02:H13/N7: M3 (M3x20 BHCS, ~8.5 engagement; tapped vs thread-forming unknown)")
 HEATSINK_FRONT_HOLE_DEPTH = Dim(12.8, "DERIVED", "02:H13")
 
 # 3010 hotend fan + PCB share a 24 mm square pattern centred at X 0, Z 46.3.
 FAN3010_PATTERN = Dim(24.0, "DERIVED", "02:P3/F2")
 FAN3010_PATTERN_CZ = Dim(46.3, "DERIVED", "02:F2 (holes Z 34.3 / 58.3)")
-FAN3010 = Box(-15.0, 15.0, -22.1, -11.7, 31.3, 61.3, "DERIVED", "02:F2 (kemsky placement, stock-like: shares heatsink screws)")
-UPPER_PATTERN_HOLES_TARGET = Dim(0.0, "MISSING", "what the Z 58.3 screws thread into (carriage? bracket?) - user measurement M2")
+FAN3010 = Box(-15.0, 15.0, -21.1, -10.7, 31.3, 61.3, "DERIVED", "02:N10 Henlor 742370 (stock)")
+UPPER_PATTERN_HOLES_TARGET = Dim(58.35, "DERIVED", "M3 heat-set inserts in the X-carriage at X ±12.0, Y -10.8..-6.8 (02:N6, Henlor)")
 
-PCB = Box(-22.05, 22.05, -25.4, -24.2, 24.5, 71.4, "DERIVED", "02:P2/P4, two sources agree")
+PCB = Box(-22.05, 22.05, -22.3, -21.1, 24.5, 71.4, "DERIVED", "outline 02:P2 (two sources); position 02:N8 Henlor 742370")
 PCB_HOLES = [(-12.0, 34.3), (-12.0, 58.3), (12.0, 58.3)]  # (x, z) DERIVED 02:P3
 # Cooling-module / cover mount (DD-01): the three PCB holes, with longer
 # screws of the stock thread. Lower-left goes PCB -> 3010 -> heatsink hole;
@@ -90,13 +90,31 @@ PCB_HOLES = [(-12.0, 34.3), (-12.0, 58.3), (12.0, 58.3)]  # (x, z) DERIVED 02:P3
 # M2). Bosses bear on the PCB front face around each hole: pad keep-out
 # diameter ESTIMATED until PCB photos (M10) show the copper/components there.
 MODULE_MOUNT_HOLES = PCB_HOLES
-MODULE_MOUNT_SCREW = Dim(3.0, "ESTIMATED", "M3 assumed (holes Ø3.4 clearance); thread MISSING (M2)")
-MODULE_MOUNT_BEARING_Y = Dim(-25.4, "DERIVED", "PCB front face, 02:P4")
+MODULE_MOUNT_SCREW = Dim(3.0, "DERIVED", "M3: upper 2x M3x18 BHCS -> carriage inserts; lower M3x20 BHCS -> heatsink (02:N6/N7)")
+MODULE_MOUNT_BEARING_Y = Dim(-22.3, "DERIVED", "PCB front face, 02:N8")
 MODULE_MOUNT_PAD_D = Dim(6.5, "ESTIMATED", "boss contact diameter on the PCB (M10)")
 # Connectors and components on the PCB front face. Real heights MISSING (M10).
-PCB_COMPONENT_ZONE = Box(-22.05, 22.05, -33.0, -25.4, 24.5, 71.4, "ESTIMATED", "8 mm allowance for connectors + plugs, M10")
+PCB_COMPONENT_ZONE = Box(-22.05, 22.05, -31.5, -22.3, 24.5, 71.4, "ESTIMATED", "connectors to -31.2 on the K1SE model (02:N9); M10")
 
-EXTRUDER = Box(-20.4, 21.0, -5.4, 35.9, 60.6, 108.1, "DERIVED", "02:E10")
+EXTRUDER = Box(-20.7, 20.7, -5.3, 35.9, 59.6, 107.0, "DERIVED", "02:N11 Henlor")
+EXTRUDER_TOP_COVER = Box(-23.9, 23.9, -10.4, 35.2, 72.9, 100.7, "DERIVED", "02:N13")
+
+# X-carriage and gantry (Henlor 742370 = K1; K1 Max carriage assumed identical). 02 §9
+XCARRIAGE = Box(-25.2, 24.2, -28.6, 24.7, 26.5, 96.8, "DERIVED", "02:N1")
+X_RODS_YZ = [(-15.7, 81.7), (9.5, 50.9)]  # rod axes along X, DERIVED 02:N2
+X_ROD_D = Dim(10.0, "DERIVED", "02:N2 Henlor + alignment-tool note 523718")
+HEATSINK_CARRIAGE_SCREWS_FRONT = [(-10.0, 52.05), (10.0, 52.05)]  # (x, z) M3x6 along Y, 02:N4
+HEATSINK_CARRIAGE_SCREWS_SIDE = (-2.2, 42.8)  # (y, z) M3x12 countersunk along X, 02:N4
+COVER_SCREWS = [(-22.6, -2.2, 35.35), (22.6, -2.2, 35.35)]  # M3x4 low-head along X into carriage inserts, 02:C5
+BELT_RETAINERS = (Box(-24.2, -15.2, -13.2, -6.5, 46.0, 72.0, "DERIVED", "02:N14"),
+                  Box(15.2, 24.2, -13.2, -6.5, 46.0, 72.0, "DERIVED", "02:N14"))
+STOCK_COVER = Box(-24.0, 24.0, -55.0, 4.3, 6.4, 93.1, "DERIVED", "02:C4 Henlor 687411 (public domain)")
+STOCK_DUCT = Box(-22.7, 21.3, -31.5, 5.3, 7.1, 28.7, "DERIVED", "02:C6 U-manifold, lowest edge Z +7.1")
+STOCK_4020_POS = Box(-22.3, 19.7, -49.4, -30.2, 22.9, 63.9, "DERIVED", "02:C7")
+STOCK_TOOLHEAD_ENVELOPE = Box(-25.2, 25.2, -55.0, 35.9, 0.0, 113.4, "DERIVED", "02:T1 (K1, no LiDAR)")
+UNICORN_TIP_DZ = Dim(-0.5, "DERIVED", "02:N17")
+# Henlor STEP global -> nozzle frame: subtract (-0.05, -13.65, 340.7)
+HENLOR_TO_NOZZLE = (0.05, 13.65, -340.7)
 
 # --------------------------------------------------------------------------
 # Sensors. research/01 and 02 §2.4
@@ -172,9 +190,13 @@ class BlowerSpec:
 
 BLOWER_4020_STOCK = BlowerSpec(
     "Creality K1 stock 4020 blower (24 V 0.3 A, 4-wire PWM)", (40.0, 40.0, 20.0),
-    (17.0, 13.0), Dim(18.0, "ESTIMATED", "no published mass; generic 4020 blowers 15-20 g"),
+    (17.0, 13.0), Dim(24.0, "ESTIMATED", "retailer range 22-31 g (02:C9)"),
     "creality_K1_stock_4020_blower.csv",
     notes="outlet size ESTIMATED from generic 4020 blowers (M7); P-Q curve ESTIMATED")
+BLOWER_5015_DELTA = BlowerSpec(
+    "Delta BFB0524HH (24 V 0.11 A, 2-wire)", (51.0, 51.3, 15.0),
+    (17.6, 12.2), Dim(28.0, "VERIFIED", "Delta spec sheet, 28 ± 5 g (03 §10)"),
+    "delta_BFB0524HH_digitized.csv", notes="curve DIGITIZED; outlet inside 17.6 x 12.2 VERIFIED")
 BLOWER_5015_SUNON = BlowerSpec(
     "Sunon MF50152VX-1L02C-A99 (24 V, 2-wire)", (51.0, 51.0, 15.0),
     (12.5, 19.5), Dim(28.4, "VERIFIED", "secondary source, research/03"),
@@ -189,8 +211,12 @@ PROBE_RETRACTED_MIN_Z = Dim(2.0, "ESTIMATED", "retracted pin must clear prints -
 # Rearmost allowed point below Z 30 so the rear keep-out zones do not grow.
 REAR_LIMIT_Y = Dim(31.0, "ESTIMATED", "785004 adapter rear ~+29.1 ±2 (01 §H.1); exact M8")
 # Front/side envelope the toolhead may occupy without losing travel - MISSING (M9).
-FRONT_LIMIT_Y = Dim(-60.0, "MISSING", "front clearance at Y min travel (M9)")
-RIGHT_LIMIT_X = Dim(45.0, "MISSING", "right clearance at X max travel (M9)")
+FRONT_LIMIT_Y = Dim(-55.0, "DERIVED", "stock cover front reaches Y min; further forward unverified (02:T4, M9)")
+# X ends: X homes by stalling the carriage against the right XY joint.
+# These limits apply ONLY inside XY_JOINT_BAND_Z; outside it the joints don't limit X.
+XY_JOINT_BAND_Z = (44.3, 91.8)  # DERIVED 02:T2
+RIGHT_LIMIT_X = Dim(24.2, "DERIVED", "carriage right face touches the right joint at X 306.5 (02:T3); Z 44.3..91.8 only")
+LEFT_LIMIT_X = Dim(-31.0, "ESTIMATED", "carriage left face -25.2 + ~6.6 mm K1 Max slack (02:T3); Z 44.3..91.8 only")
 HOT_ZONE_CLEARANCE = Dim(3.0, "ESTIMATED", "min air gap from sock/heater to any printed part")
 
 # Printed part proxy used by CFD (current layer being printed at 0.2 mm).

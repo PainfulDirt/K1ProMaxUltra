@@ -371,3 +371,115 @@ The stock carriage and LiDAR are not in any CAD I could reach. Calipers to ±0.0
 - The derived hotend/extruder/PCB numbers come from a single community CAD source. The PCB outline/pattern is confirmed independently by the K1C gerber; the rest is not. **Check H3–H16 and E3–E10 against item 2/6 before freezing any interface.**
 - Material heat ratings (ASA/ABS Tg about 100 °C, PC about 145 °C, PA-CF HDT 120–180 °C) are typical-datasheet ESTIMATES, not verified for specific filaments. Take them from the chosen filament's TDS.
 - Stock K1 Max factory config files are from a third-party archive (Tombraider2006, firmware 1.3.3.5). The user's own Pellcorp `printer.cfg` limits should be checked against them (the repo's overrides do not restate travel).
+
+---
+
+## 9. Network-restored measurements (2026-10-30, second pass)
+
+Printables was reached through `api.printables.com/graphql/` (`print` query, `getDownloadLink` mutation) plus `files.printables.com`. Thingiverse, MakerWorld, Cults and GrabCAD still return 403 to curl; I did not try to bypass that. Everything below was measured with the same scripts as before, plus `export_parts.py` / `sections.py` / `stl_holes.py` in `.../scratchpad/scripts/`, all run with `python -I`.
+
+### 9.1 New sources
+
+Downloaded to `.../scratchpad/ref/stock/`. Only dimensions are taken from these files; no geometry is copied.
+
+| Dir | Model | Author, date | Licence | Use |
+|---|---|---|---|---|
+| `henlor_742370/creality-k1-assembly-alpha-v001.step` (205 MB) | "Creality K1 Assembly CAD Model", full printer, **includes the stock X-carriage, rods, bushings, belt retainers, cover, duct, 4020, 3010, PCB, extruder, hotend** | Henlor, 2024-09-27 (STEP 2024-02-12), "non-official, reverse engineered, some inaccuracies" | **CC BY** (Attribution) | primary source for §9.2 |
+| `henlor_687411/creality-k1-toolhead-cover.step` | stock K1 toolhead cover | Henlor, 2024-02-12 | CC0 / Public Domain | cover |
+| `sinkovsky_1359540/k1se-toolhead.stp` | K1 SE / K1C toolhead (Unicorn hotend) | Mike Sinkovsky, 2025-08-29 | CC BY | Unicorn offset. **Not independent for the carriage**: its carriage, bushings and duct have the same volumes as Henlor's |
+| `icezaza_773067/k1max_lidar_mountingplate.step/.stl` | "K1 Max AI LiDAR Mounting Plate" (replica) | Icezaza, 2024-02-20, "haven't tested" | CC BY-NC-SA | LiDAR bracket shape only |
+| `simon_990853/k1-lidar-mount-v2.stl` | remix of 773067 ("holes didn't line up, moved them") | Simon, 2024-09-06 | CC BY-NC-SA | LiDAR bracket hole cross-check |
+| `hysaru_1476318/ailidarbody.stl` | K1 Max LiDAR cover/body (replacement shell) | Hysaru, 2025-11-10 | CC BY-SA | LiDAR body size |
+| `retronym_1072843/eddymounttweaked.stl` | BTT Eddy mount "for the LiDAR port" | 2D Print a Retronym, 2024-11-14 | CC BY-NC-SA | not used (no placement) |
+
+**Frame.** Henlor's model already uses our axes: XY motors at +Y (rear) and parts named "Left" at −X. I set the nozzle tip as origin (Henlor global X −0.05, Y −13.65, Z 340.7). Values below are ±0.1 mm against the model, so their accuracy is that of a reverse-engineered model.
+
+Important caveat:
+- Henlor's model is a **K1**, not a K1 Max, and has **no LiDAR**.
+- The K1 and K1 Max carriages are assumed identical. Two things support that: Bondtech sells the same carriage design for both, and the gantry geometry scales with rod length (§9.4). Still **not confirmed**.
+- kemsky's hotend and heatsink solids have the same volumes as Henlor's (4741 mm³, 899 mm³, …), so kemsky built on Henlor. The kemsky/Henlor agreement on H1–H17 is therefore **not** an independent check.
+
+### 9.2 Stock X-carriage and how everything fixes to it (closes M2/M3 except LiDAR)
+
+| # | Interface (nozzle frame) | Value | Status / source; cross-check |
+|---|---|---|---|
+| N1 | X-carriage body envelope | X −25.2…+24.2, Y −28.6…+24.7, Z +26.5…+96.8 (49.4 × 53.3 × 70.4) | DERIVED: Henlor `X-Carriage`. Mass check: body 32 305 mm³ × about 1.3 g/cm³ ≈ 42 g, plus 2 brass bushings 2 × 3 453 mm³ × 8.5 ≈ 59 g, plus inserts ≈ 103 g, against the published 110 g (Cults, §2.5 X1). Consistent |
+| N2 | **X rods** | **Ø10, two rods**: front-upper axis at **Y −15.7, Z +81.7**; rear-lower axis at **Y +9.5, Z +50.9** (25.2 apart in Y, 30.8 in Z, 39.8 centre-to-centre). Henlor: "Hollow Linear rod 10 × 302.5" (K1) | DERIVED: Henlor `Gantry`. **Ø10 independently supported**: K1/K1 Max XY alignment tool note "X axis slot has 10 mm, Y axis slot 8 mm" (https://www.printables.com/model/523718, snippet). **This corrects §2.5 X3 (Ø8 assumed solid)**: 148.5 g per 382 mm K1 Max rod = 49.5 mm² of steel, i.e. a Ø10 tube with about 2.0 mm wall (Henlor models 1.0 mm wall, unverified). K1 rod 302.5 mm matches the Bondtech K1 kit; K1 Max 382 mm |
+| N3 | Carriage bearings | 2 × sliding brass bushings ("SL Brass Bearing 12-14 45 mm"), OD 14 × 45 long, X −22.5…+22.5, one per rod. Retained by 4 × M3×6 ultra-low self-tapping SHCS along X: (Y +0.65, Z +49.85) and (Y −9.1, Z +88.85), X ±(16.4…23.5) | DERIVED: Henlor |
+| N4 | **Heatsink → carriage** | **2 × M3×6 SHCS from the front along +Y** at **X ±10.0, Z +52.05** (head at Y −9.5), into **M3 heat-set inserts in the carriage** at Y −4.5…−0.5. **Plus 2 × M3×12 countersunk from the sides along X** at **Y −2.2, Z +42.8**, through the carriage walls into tapped side holes in the heatsink | DERIVED: Henlor. Matching features already in the heatsink solid (Ø6/Ø3.2 counterbores at X ±10, Z 52; Ø3 side hole at Y −2.2, Z 42.8), but that solid is the same source |
+| N5 | Heater (M2 × 22 SBHC at X ±7.0) | the screws pass through the heatsink and thread into **M2 heat-set inserts in the carriage** at X ±7.0, Y 0, Z +46.2…+50.4 | DERIVED: Henlor |
+| N6 | **What the upper PCB/3010 screws (Z +58.3) go into** | **M3 heat-set inserts in the carriage** at **X ±12.0, Y −10.8…−6.8, Z +58.35**. Screws: **2 × M3×18 BHCS**, head on the PCB front face at Y −22.3, through PCB + 3010 into the inserts | DERIVED: Henlor `toolhead-PCB` screws + carriage inserts 5/6 |
+| N7 | Lower PCB/3010 screw | **1 × M3×20 BHCS** at X −12.0, Z +34.3, from Y −24.3 to −2.3, into the heatsink's Ø3.0 hole (about 8.5 mm engagement). No screw at X +12, Z 34.3 (the PCB has no hole there) | DERIVED: Henlor. Thread: M3 into aluminium (the hole is modelled at Ø3.0; tapped or thread-forming unknown) |
+| N8 | **PCB position (stock)** | board **Y −22.3…−21.1**, i.e. flat against the 3010 front face. Outline X ±22.05, Z +24.5…+71.4, unchanged. A second 1.2 mm plate at Y −28.6…−27.4 is in the model (meaning unclear) | DERIVED: Henlor. **Corrects P4/kemsky (Y −25.4…−24.2)**: kemsky moved it 3.1 mm forward in his own toolhead |
+| N9 | PCB components/connectors | in front of the board out to Y ≈ −31.2 | DERIVED: K1 SE model connectors (Sinkovsky; K1C/SE board, same outline) |
+| N10 | **3010 hotend fan (stock)** | X ±15.0, **Y −21.1…−10.7**, Z +31.3…+61.3 (centre Z 46.3) | DERIVED: Henlor (kemsky had Y −22.1…−11.7) |
+| N11 | Extruder (stock position) | main plate Y +6.9…+14.7, **Z +61.2…+99.4**. Extruder incl. cover X −20.7…+20.7, Y −5.3…+35.9 (motor rear), Z +59.6…+107.0 (lever). Motor axis Z ≈ +80.3. Gap heatsink top → extruder plate = **5.2** | DERIVED: Henlor. **kemsky's assembly sits 1.0 mm higher** (his 6.2 spacer; H16/E7/E10 were kemsky-placed) |
+| N12 | Extruder → carriage | 3 × M3×6 SHCS along X through the carriage side walls: left at (Y +10.1, Z +71.15); right at (Y +10.1, Z +71.15) and (Y +10.1, Z +91.15). They go into M3 heat-set inserts in the extruder main plate at X ±(15.1…19.1) | DERIVED: Henlor |
+| N13 | Extruder top cover (stock, over extruder and motor) | X ±23.9, Y −10.4…+35.2, Z +72.9…+100.7 | DERIVED: Henlor `Extruder cover` |
+| N14 | **Belt retainers / belt clamp** | 2 retainers 9 × 6.7 × 26: X ±(15.2…24.2), **Y −13.2…−6.5, Z +46.0…+72.0**. Each held by 2 × M3×6 SHCS along Y at X ±19.65, Z +48.15 and +69.65, into carriage inserts | DERIVED: Henlor |
+| N15 | Belt planes | about **Z +53.7** and **Z +64.4** (the two Ø12 idler bands on the XY joints, rel Z +48.7…+58.7 and +59.4…+69.4). Belt runs at about Y −6.0 (lower) and Y −8.0 (upper) ±1 | DERIVED: Henlor joint idlers, assuming 6 mm GT2 on Ø12 smooth idlers |
+| N16 | Cable strain relief and cable-chain toolhead end | strain relief X ±21.9, Y −32.3…−23.8, Z +72.3…+91.2 (2 × M3×6 SBHC). Chain end X −15.3…+15.7, Y −34.9…−15.1, Z +96.8…+113.4 | DERIVED: Henlor |
+| N17 | Unicorn (K1C/SE) hotend | Same heatsink body. With the Unicorn hotend the **nozzle tip sits about 0.5 mm lower relative to the carriage** (carriage zmin +25.9 vs +26.5; bushings 0.5 mm higher in the tip frame) | DERIVED: Sinkovsky K1 SE model (hotend is his; carriage is Henlor-derived) |
+
+### 9.3 Stock front cover, duct and 4020 (M5, M7)
+
+| # | Interface | Value | Status / source |
+|---|---|---|---|
+| C4 | Stock cover envelope | **X −24.0…+24.0, Y −55.0…+4.3, Z +6.4…+93.1** (bottom lip at Z +6.4) | DERIVED: Henlor 687411 / 742370 (same part). Mass check: (cover 16 963 + duct 2 647) mm³ × 1.2 ≈ 23.5 g, against **23.8 g measured** (D3vil README). Consistent |
+| C5 | **Cover fixing** | **2 × M3×4 ultra-low SHCS, horizontal, from the outside** at **X ±22.6, Y −2.2, Z +35.35**, into **M3 heat-set inserts in the carriage side walls** (X ±18.4…22.4). Heads stand out to X ±25.2 | DERIVED: Henlor. Matches "remove the two screws … slide the cover off" (D3vil) |
+| C6 | Stock part-cooling duct | separate part inside the cover: **X −22.7…+21.3, Y −31.5…+5.3, Z +7.1…+28.7**. A U-shaped manifold that wraps the nozzle front/left/right (inner U opening about X ±9, from Y −11 to +1) and is fed from the blower at the front-right. **Lowest duct edge Z +7.1**. Outlets: inner U lips at about Z +7.5…+10 | DERIVED: Henlor sections (`work/duct_z.png`, `work/duct_x.png`). Outlet shape is only approximate: the duct is a thin shell and the outlet cross-section could not be measured cleanly |
+| C7 | **4020 position (stock)** | fan face in the XZ plane, thickness along Y: **X −22.3…+19.7, Y −49.4…−30.2, Z +22.9…+63.9**. Fixed to the cover by 3 × M3×18 BHCS along Y at (X +16.05, Z +60.3), (X −18.65, Z +60.3), (X +16.05, Z +25.6) | DERIVED: Henlor |
+| C8 | 4020 outlet opening | faces −Z at the bottom-right corner: about **X +8.5…+19.7 (11.2) × Y −48.5…−31.2 (≈17)** | DERIVED, **low confidence**: Henlor's 4020 is a generic fan model. The interfaces.py estimate (17 × 13) is about the same area |
+| C9 | **4020 mass** | **22–31 g** (retailer "approximately 22–31 g"). Snippets: 23.2 g (K1/K1 Max SKU), 24 g, 31 g (K1C/K1 Max SKU 3205010392) | VERIFIED (retailer): https://www.makerlab-electronics.com/products/creality-4020-blower-fan-for-k1-4004110132. Others via search snippet. **Replaces the 15–20 g estimate in §6.1** (the A/B mass deltas shift by about −5 g) |
+| C10 | 3010 mass | — | MISSING (no listing found) |
+
+### 9.4 Envelope and travel-limit clearances (M9)
+
+| # | Interface | Value | Status / source |
+|---|---|---|---|
+| T1 | **Stock K1 toolhead envelope (no LiDAR)** | **X −25.2…+25.2** (carriage −25.2/+24.2; cover screw heads ±25.2 at Z ≈ 35), **Y −55.0…+35.9** (cover front … motor rear), **Z 0…+113.4** (nozzle … chain end; lever +107.0) | DERIVED: Henlor union of N1, N11, N13, N16, C4, C5 |
+| T2 | XY-joint band (what the carriage meets at the X ends) | joints span **Z +44.3…+91.8**, Y −22.7…+24.3 | DERIVED: Henlor `K1-XY-left/right-joint` |
+| T3 | **X-end clearance** | X homes by stall at max (`position_endstop` = max), so at **X 306.5 the carriage's right face (+24.2) touches the right joint**: right slack about 0. K1: joint-to-joint free length minus carriage = 235.6, against 234 of travel (−5…229) = **1.6 mm** total. K1 Max: rods +79.5 longer, travel +74.5 longer, so about **6.6 mm**, all of it on the **left** at X −2 | DERIVED: Henlor + stock configs (Tombraider archive, K1 1.3.3.x: X −5…229; K1 Max X −2…306.5). The K1 Max figure assumes the same joints/carriage. **Rule: nothing may extend beyond X +24.2, or beyond about −31, inside Z +44.3…+91.8.** Outside that band the joints don't limit X |
+| T4 | Front / rear / top clearance | — | MISSING for the K1 Max (Henlor's K1 frame differs: K1 has front Z rods, K1 Max rear ones). The stock cover front Y −55.0 reaches Y min, so ≥ −55 is safe at the front |
+
+### 9.5 LiDAR (M6): still mostly MISSING
+
+| # | Interface | Value | Status / source |
+|---|---|---|---|
+| L10 | LiDAR body (housing) size | 46.6 × 19.4 × 7.6 | DERIVED, single source: Hysaru replacement shell STL (CC BY-SA). Window positions not identifiable |
+| L11 | Bracket (replica) | plate 35 × 22.5 × 1.5 plus a 15 mm flange. Flange: 2 holes 8.0 mm apart (Ø2.5–3.0) and 2 pins Ø1.9–2.0. The plate's module holes disagree between Icezaza (Ø2.5 at Δ 17 × 15) and Simon's corrected remix (Ø3.5 at Δ 20.0 × 14.5, plus Ø3.0 pair 22.5 apart) | DERIVED, **low confidence**. Neither file is placed relative to the toolhead. Do not design to these |
+| L12 | Module pose, window positions, bracket position relative to the nozzle | — | **MISSING**: no K1 Max (with LiDAR) assembly exists on Printables. User measurement §7 item 7 stays required. `LIDAR_RESERVED` stays ESTIMATED |
+
+Laser-sheet direction: §3.7 was corrected by the orchestrator. The sheet rises toward +Y (emitter on the nozzle side of the line), as implemented in `cad/source/interfaces.py::lidar_sheet_y()`. I agree with the correction (Y −0.99 per +1 mm of nozzle Z).
+
+### 9.6 Proposed changes to `cad/source/interfaces.py`
+
+Not applied: the orchestrator applies them. "Henlor" = Printables 742370 (CC BY), measured as above.
+
+| Name | Current | Proposed value | Status | Source |
+|---|---|---|---|---|
+| `PCB` | Box(..., Y −25.4, −24.2, ...) | `Box(-22.05, 22.05, -22.3, -21.1, 24.5, 71.4)` | DERIVED | Henlor (02:N8). kemsky had moved it |
+| `MODULE_MOUNT_BEARING_Y` | −25.4 | `-22.3` | DERIVED | 02:N8 |
+| `PCB_COMPONENT_ZONE` | Y −33.0…−25.4 | `Box(-22.05, 22.05, -31.5, -22.3, 24.5, 71.4)` | ESTIMATED (connectors to −31.2 on K1SE model) | 02:N9 |
+| `FAN3010` | Y −22.1…−11.7 | `Box(-15.0, 15.0, -21.1, -10.7, 31.3, 61.3)` | DERIVED | 02:N10 |
+| `UPPER_PATTERN_HOLES_TARGET` | 0.0 MISSING | `Dim(58.35, "DERIVED", "M3 heat-set inserts in X-carriage at X ±12.0, Y -10.8..-6.8 (02:N6)")` | DERIVED | Henlor |
+| `MODULE_MOUNT_SCREW` | 3.0 ESTIMATED | `Dim(3.0, "DERIVED", "M3: upper 2× M3×18 BHCS -> carriage inserts; lower M3×20 BHCS -> heatsink (02:N6/N7)")` | DERIVED | Henlor |
+| `HEATSINK_FRONT_HOLE_D` | note "thread form MISSING" | keep 3.0, note "M3 (M3×20 BHCS, ≈8.5 engagement; tapped vs thread-forming unknown)" | DERIVED | 02:N7 |
+| `EXTRUDER` | Box(-20.4, 21.0, -5.4, 35.9, 60.6, 108.1) | `Box(-20.7, 20.7, -5.3, 35.9, 59.6, 107.0)` | DERIVED | 02:N11 (kemsky placement was 1 mm high) |
+| new `EXTRUDER_TOP_COVER` | — | `Box(-23.9, 23.9, -10.4, 35.2, 72.9, 100.7)` | DERIVED | 02:N13 |
+| new `XCARRIAGE` | — | `Box(-25.2, 24.2, -28.6, 24.7, 26.5, 96.8)` | DERIVED | 02:N1 |
+| new `X_RODS` | — | `[(y=-15.7, z=81.7), (y=9.5, z=50.9)]`, `X_ROD_D = Dim(10.0, "DERIVED", "Henlor + alignment-tool note 523718")` | DERIVED | 02:N2 |
+| new `HEATSINK_CARRIAGE_SCREWS` | — | front: M3×6 SHCS at (x ±10.0, z 52.05), axis Y, inserts Y −4.5…−0.5. Side: M3×12 countersunk at (y −2.2, z 42.8), axis X | DERIVED | 02:N4 |
+| new `COVER_SCREWS` | — | M3×4 ultra-low SHCS, axis X, at (x ±22.6, y −2.2, z 35.35); carriage inserts X ±18.4…22.4 | DERIVED | 02:C5 |
+| new `BELT_RETAINERS` | — | `Box(±15.2…24.2, -13.2, -6.5, 46.0, 72.0)` (two). Belt planes z ≈ 53.7 / 64.4 | DERIVED | 02:N14/N15 |
+| new `STOCK_COVER`, `STOCK_DUCT` | — | `Box(-24.0, 24.0, -55.0, 4.3, 6.4, 93.1)`, `Box(-22.7, 21.3, -31.5, 5.3, 7.1, 28.7)` | DERIVED | 02:C4/C6 |
+| new `STOCK_4020_POS` | — | `Box(-22.3, 19.7, -49.4, -30.2, 22.9, 63.9)` | DERIVED | 02:C7 |
+| `BLOWER_4020_STOCK.mass_g` | 18.0 ESTIMATED | `Dim(24.0, "ESTIMATED", "retailer range 22-31 g (makerlab 4004110132); listings 23.2/24/31 g")` | ESTIMATED within a VERIFIED range | 02:C9 |
+| `BLOWER_4020_STOCK.outlet` | (17.0, 13.0) | keep. Henlor generic fan gives about 17 × 11.2, which does not justify a change | — | 02:C8 |
+| `RIGHT_LIMIT_X` | 45.0 MISSING | `Dim(24.2, "DERIVED", "carriage right face touches right XY joint at X 306.5 (stall homing); applies in Z 44.3..91.8 only")` | DERIVED | 02:T3 |
+| new `LEFT_LIMIT_X` | — | `Dim(-31.0, "ESTIMATED", "carriage left face -25.2 + about 6.6 mm K1 Max slack; Z 44.3..91.8 only")` | ESTIMATED | 02:T3 |
+| new `XY_JOINT_BAND_Z` | — | `(44.3, 91.8)` | DERIVED | 02:T2 |
+| `FRONT_LIMIT_Y` | −60.0 MISSING | `Dim(-55.0, "DERIVED", "stock cover front reaches Y min; more forward is unverified (T4)")` | DERIVED (as a safe bound) | 02:C4/T4 |
+| new `STOCK_TOOLHEAD_ENVELOPE` | — | `Box(-25.2, 25.2, -55.0, 35.9, 0.0, 113.4)` (K1, no LiDAR) | DERIVED | 02:T1 |
+| new `UNICORN_TIP_DZ` | — | `Dim(-0.5, "DERIVED", "Unicorn tip about 0.5 mm lower vs carriage, Sinkovsky K1SE model")` | DERIVED | 02:N17 |
+| `LIDAR_RESERVED`, `REAR_LIMIT_Y`, `DUCT_MIN_Z` | — | no change. Stock duct lowest edge is Z +7.1 and cover lip +6.4, so 2.0 stays a design choice | — | — |
