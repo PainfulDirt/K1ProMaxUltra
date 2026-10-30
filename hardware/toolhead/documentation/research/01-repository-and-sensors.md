@@ -431,3 +431,143 @@ Folder: `/tmp/claude-0/-home-user-K1ProMaxUltra/1fc00b30-b973-54a8-8106-390cde6c
 | `Nozzle-board-A-en.JPEG`, `Nozzle-board-B-en.JPEG` | Creality nozzle board ports: LiDAR extension, power, model fan, heatbreak fan, TOUCH | CRA |
 
 Scripts (my own): `…/scratchpad/scripts/shaper_mass.py`, `stepbb.py`, `stepcirc.py`.
+
+---
+
+## H. Network-restored findings (2026-10-30, second pass)
+
+**Access this pass:**
+- Worked: the Printables GraphQL API and `files.printables.com`/`media.printables.com` (via curl), `cdn.shopify.com` (curl), github.com.
+- Still failing in WebFetch: `pellcorp.github.io`. I used the wiki's git source instead (`PCW` @ecd1770, 2026-10-29), which has the same content. `curl https://pellcorp.github.io/creality-wiki/microprobe/` returned 200 and matches it.
+- `store.dremc.com.au` is still blocked.
+
+All downloads are in `/tmp/claude-0/-home-user-K1ProMaxUltra/1fc00b30-b973-54a8-8106-390cde6c1256/scratchpad/ref/sensors/{p785004,p773067,p1476318,web}/`. They were treated as data; no downloaded code was run. The geometry was measured with my own scripts in `…/scratchpad/scripts/` (`stl_holes*.py`, `stl_slices.py`, `stl_render.py`).
+
+**New label used here:**
+- **DERIVED** = measured from community CAD (same meaning as `interfaces.py`).
+
+### H.1 Printables 785004: the current probe adapter (closes part of M8)
+
+**Model data** (VERIFIED, Printables GraphQL `print(id:785004)`):
+- "Biqu MicroProbe for Creality K1 / MAX / C", user "aadfg dsadg".
+- Licence: **Creative Commons Public Domain**.
+- One file: `Biqu_microprobe_K1.STL` (206 284 B). The STL header names it `K1_Bl_Touch_Adapter001`.
+- The description is a Klipper block: `probe_enable nozzle_mcu:PA8`, `pin ^!nozzle_mcu:PA9`, `x_offset 0`, `y_offset 20.3`, `samples 2`, `deactivate_on_each_sample False`, `PROBE_DOWN/UP`.
+- It links github.com/Veisen/K1_microprobe. That repo's HOW-TO also lists a commented alternative "zadni offset" (Czech, "rear offset") `y_offset 25.25`, and `mesh_min 5,25.3`.
+- **This matches the repo's 2026-10-06 config exactly (git c74fe8b), so the probe mount is 785004 with high confidence.** It is still not confirmed by the user.
+- Photos (3) show the adapter hanging vertically behind the hotend, under the rear of the extruder motor, with the probe pointing down.
+
+**Files saved:** `p785004/biqu_microprobe_k1_785004.stl`, `img_3324/3325/3379.jpeg`, plus my renders and slices (`render_785004.png`, `slicesZ/X/Y.png`).
+
+**Measured geometry.** STL frame: Z up (the probe flange is at the bottom face), +Y_stl toward the printer rear (the chamfered cable side faces the camera in the rear-view photo). All rows DERIVED from the STL.
+
+| Feature | STL frame | Value |
+|---|---|---|
+| Envelope | X 1.57–35.67, Y 2.57–18.29, Z 368.95–401.45 | **34.10 × 15.72 × 32.50**; watertight; 8.55 cm³ |
+| Bottom face = probe flange seat | Z 368.95, flat | footprint Y 2.57–18.29 (15.7, about the probe's 15.60 depth) |
+| Probe screw bores | (10.07, 10.49) and (27.00, 10.49) | **Ø3.90, 8 mm deep** (Z 369–377), Ø4.4 entry chamfer; **spacing 16.93** (BIQU: 17); centre X 18.535. Likely M2.5 heat-set inserts or a self-tap pilot (ESTIMATED) |
+| Top screw holes (toolhead side) | (6.57, 9.25) and (30.67, 9.25) | **Ø2.40** through Z 395.5–398.5, then a **Ø4.20 counterbore 2.95 deep** from the top face; **spacing 24.10**; centre X 18.62 (same as the probe centre within 0.09) |
+| Side windows (pockets) | open on the Y_min face (Y 6.05); X ≈ 4–9 and 28–33; Z ≈ 386.7–396; depth to Y ≈ 11 | ≈ 5 W × 7–9 H × 5 D. Each top hole ends inside one window, so they act as nut or screw-head pockets, or clearance for a toolhead tab (purpose ESTIMATED) |
+| Cable channel | through-slot X 13–24 × Y 14–18, full height | for the probe lead (rear side) |
+| Body shape | Z ≥ 384: block Y 6.05–18.29, chamfered rear; Z 369–383: skirt tapering to the probe | — |
+
+**How it attaches to the toolhead (ESTIMATED, user to confirm with one photo).**
+- The flat Y_min face (Y_stl 6.05) faces the toolhead.
+- Two vertical screws, 24.10 mm apart and about M2 (Ø2.4 clearance, Ø4.2 head counterbore), plus the two side windows, engage two features on the underside or rear of the K1 toolhead about 27–33 mm above the probe flange.
+- The adapter carries no other fasteners. No source names the K1 screws it reuses.
+
+**Placement in the nozzle frame (ESTIMATED).**
+
+Assumptions:
+1. X: adapter and probe centre at nozzle X 0. This matches `x_offset 0`.
+2. Z: adapter bottom = probe flange top = **+26.75** (§B.4).
+3. Y: the probe pin (Y +20.3) is at the middle of the body's 15.60 depth. The connector (the 6.80 side) faces +Y, toward the cable slot. That puts the pin 1.0 mm in front of the hole line. **V2 does not publish its pin position relative to the holes.** The 2022 V1 mockup has it 2.75 off the hole line, so the result carries about ±2 mm uncertainty.
+
+Mapping: X_p = X_stl − 18.58; Y_p = Y_stl + 10.81; Z_p = Z_stl − 342.20.
+
+| Item | Nozzle frame (X, Y, Z) |
+|---|---|
+| Probe pin | 0, **+20.3**, tip extended −1.35 / trigger −0.83 / stowed +1.45 (§B.4) |
+| Probe body (V2) | Y **+12.5 … +28.1**, X ±10.97, Z +2.77 … +26.75 (body), flange +24.65 … +26.75 |
+| Adapter envelope | X −17.0 … +17.1, Y **+13.4 … +29.1** (block above Z +41.8: +16.9 … +29.1), Z **+26.75 … +59.25** |
+| Adapter → toolhead screws | X ±12.05, Y +20.1, heads at the top face Z +59.25 (counterbore down to +56.3) |
+| Side windows | X ≈ −14.6…−9.6 and +9.4…+14.4; Y +16.9…+21.8; Z ≈ +44.5…+53.8 |
+| **Rearmost point of the probe assembly** | **Y ≈ +29.1** (adapter). Range +25.4…+30.9 over the pin-position uncertainty |
+
+The derived toolhead mating face (Y ≈ +16.9 at Z > +42) and screw height (≈ +56…+59) are a constraint for the new rear structure, but only once the user confirms them. The keep-out data then implies the middle Z-rod housing front is at about Y 293 + 3 + 29.1 ≈ **325** in printer coordinates (ESTIMATED).
+
+### H.2 LiDAR module physical data (M6)
+
+**Sources found:**
+
+| Source | What it gives | Label |
+|---|---|---|
+| **Micro Swiss FlowTech K1/K1 Max install PDF** (cdn.shopify.com, 2 pages) | "Remove the two screws holding the LiDAR sensor (**2.0 mm Allen wrench**)"; "Reattach the LiDAR sensor **to the mounting bracket** using two screws". The step-1 photo shows the module on the **left side** of the toolhead with both screws on top, driven from above | VERIFIED: `web/flowtech.pdf` p. 1, steps 1 and 11 |
+| **Printables 773067** "Creality K1 Max AI LiDAR Mounting Plate" (Icezaza, **CC BY-NC-SA**; author notes "Haven't tested it") | community replica of the stock sheet-metal bracket, STEP + STL | DERIVED (untested replica) |
+| **Printables 1476318** "Lidar Cover \| K1 Max" (Hysaru, **CC BY-SA**) | replacement top cover (`AiLidarBody.stl` + `.f3d`); photos of the module with the stock bracket fitted | DERIVED |
+| Creality "LiDAR Sensor Kit" listing | 71 g including cable and mounting accessories | ESTIMATED (search snippet; store.dremc.com.au still blocked) |
+
+**Stock bracket** (from the 773067 STEP; the frame is a flat sheet-metal L). DERIVED:
+- 1.5 mm sheet with an L-bend.
+- **Main leg 35.0 × ~21** (STL 35 × 22.5 including the bend).
+  - It screws to the module's back face with **2 × Ø2.53 holes, countersunk to Ø4.0**, at a diagonal offset **17.0 in length × 15.0 in height**.
+  - It has **2 × Ø1.9 locating holes**, 17.5 apart, on the mid-line.
+  - It has a 5 × 3.5 relief slot next to the bend.
+- **Toolhead flange 13.5 × 13.5**, on top of one end of the module (photo 1476318 #2). It carries a **4-hole diamond**:
+  - 2 × Ø2.53 countersunk to Ø3.76, **8.0 apart**;
+  - 2 × Ø2.0, **8.5 apart**, on the perpendicular axis;
+  - same centre for both pairs.
+  - These are the "two screws above the LiDAR" (2.0 mm key) plus two locating features. Whether the Ø2.0 pair takes posts or screws is ESTIMATED.
+
+**Module body.**
+- **Footprint about 46.6 (X, along the laser line) × 19.4 (Y)**, from the replacement top cover's outer outline. DERIVED; outline 46.56 × 19.40. It has 2 internal locating pegs Ø2.4, 22.5 apart, and Ø2.0 holes at a diagonal 20 × 14.5.
+- **Height about 25–28 mm.** ESTIMATED from the photo proportions (front face aspect ≈ 0.6 × 46.6) and from the bracket's 21–22.5 mm back leg.
+- Photo 1476318 #1 shows a dark window strip along the **lower front edge** with two round optical elements on one half, plus a hinged black flap. **The exact window positions and sizes on the underside are still MISSING.**
+- **The module's own mass is still MISSING.** The 71 g kit figure is an upper bound for module + cable + bracket (ESTIMATED).
+
+**Combined with the optics data** (§A.2, all ESTIMATED):
+- The module's internal distance origin is about 22.6 mm above the nozzle tip.
+- The laser sheet comes from +Y at about 45°.
+- The line is centred at nozzle X −36.
+- So a module 46.6 long centred on the line would span about X −59.3 … −12.7. The current `LIDAR_RESERVED` X range (−62 … −18) may be **too short by about 5 mm on the +X (nozzle) side** if the body is centred on the line. Which way the optics are offset inside the body is unknown, so confirm with a photo or measurement.
+
+### H.3 Pellcorp docs: anything that changes §B and §C
+
+- **No change to the probe findings.**
+  - The rendered wiki matches the git source: TOUCH port, 5-pin PicoBlade, GND/5V/PA8/GND/PA9, reachable from the left (LiDAR) side; "All mount options assume a V2 microprobe" (PCW:docs/microprobe.md:60).
+  - Pellcorp has no official mount for the rear in-line position (the Default k1m mount is 867527 at x −33).
+- **One addition to the fan findings:**
+  - The part fan is deliberately `[fan]`, not `[fan_generic part]`, to avoid "move queue overflow" crashes. `M106 P0` is not supported for it; P1/P2/P3 address chamber/auxiliary/chamber (PCW:docs/nozzle_wipe.md:115-116; docs/rpi_faq.md:7-15).
+  - `M141` sets the chamber fan's turn-on temperature (PCW:docs/chamber_temp.md:41-55).
+  - Nothing new on fan PWM or tach. The part-fan tach (PB3) stays commented out in Pellcorp.
+- **New hotend fact:** the K1 filament path from the extruder gears is pipe 23.6 → heatbreak 10.5 → pipe 3 → nozzle 28.3, **65.4 mm total** for the stock ("Unicorn") nozzle; 65.5 mm for a CHCB-OTC. VERIFIED PCW:docs/m600_support.md:46-62 (a user-contributed macro comment).
+- The nozzle MCU is `/dev/ttyS7` on K1 (PCW:docs/firmware.md:65). The second board photo (CRA, K1-NOZZLE-M_V12) labels the part-fan connector "Model Fan" with pins GND/PWM/FG/FAN+.
+
+### H.4 Proposed value changes for `cad/source/interfaces.py` (not edited)
+
+| Name | Current | Proposed | Status | Source |
+|---|---|---|---|---|
+| `REAR_LIMIT_Y` | 30.0 ESTIMATED | **31.0** (adapter rear ≈ 29.1, range 25.4–30.9; rounded up) | ESTIMATED | H.1 (785004 STL + V2 drawing) |
+| `PROBE_RETRACTED_MIN_Z` | 2.0 ESTIMATED | add the current-state value **1.45** (stowed tip today) and keep 2.0 only as a design target; flag that the current mount does not meet 2.0 | ESTIMATED | §B.4 |
+| `PROBE_MOUNT_FACE_Z` | 26.75 ESTIMATED | unchanged (785004 bottom face = flange seat, so the adapter adds no correction) | ESTIMATED | §B.4, H.1 |
+| new `PROBE_ADAPTER_785004` | — | Box X −17.0…+17.1, Y +13.4…+29.1, Z +26.75…+59.25 | ESTIMATED (DERIVED shape, ESTIMATED placement) | H.1 |
+| new `PROBE_ADAPTER_SCREWS` | — | 2 × Ø2.4 (≈M2) at X ±12.05, Y +20.1; Ø4.2 counterbore at Z +59.25 | DERIVED / ESTIMATED placement | H.1 |
+| new `PROBE_BODY_Y` | — | +12.5 … +28.1 | ESTIMATED | H.1 assumption 3 |
+| `PROBE_HOLE_SPACING` | 17.0 VERIFIED | unchanged (785004 measures 16.93) | VERIFIED | BIQU; H.1 |
+| `PROBE_SCREW_BORE` (new) | — | Ø3.9 × 8 deep (insert/pilot) if 785004 is reused | DERIVED | H.1 |
+| new `LIDAR_BODY_FOOTPRINT` | — | **46.6 (X) × 19.4 (Y)**; height 25–28 | DERIVED (footprint) / ESTIMATED (height) | H.2 (1476318) |
+| new `LIDAR_BRACKET_FLANGE` | — | 13.5 × 13.5 × 1.5 sheet; 4-hole diamond: 2 × Ø2.53 csk 8.0 apart + 2 × Ø2.0 8.5 apart; screws driven from above with a **2.0 mm hex key** | DERIVED (holes) / VERIFIED (2 screws, 2.0 mm key) | H.2 (773067; FlowTech PDF) |
+| new `LIDAR_BRACKET_PLATE` | — | 35 × ~21 × 1.5; 2 × Ø2.53 csk (Δ 17.0 × 15.0), 2 × Ø1.9 locating (Δ 17.5) | DERIVED (untested replica) | H.2 (773067) |
+| `LIDAR_RESERVED` | X −62…−18 | **X −62…−12** until the window and body position are measured (a centred 46.6 body reaches −12.7) | ESTIMATED | H.2 |
+| `LIDAR_MASS` (new) | — | MISSING; ≤ 71 g kit upper bound | ESTIMATED | H.2 |
+| `FILAMENT_PATH_GEAR_TO_TIP` (new) | — | 65.4 (stock) / 65.5 (CHCB-OTC) | VERIFIED (community) | H.3 |
+
+### H.5 Still open after this pass
+
+- **M8 (probe):** one photo of the adapter on the toolhead (which K1 screws or tabs the two vertical M2 screws and windows use), and the probe pin position relative to its holes (calipers).
+- **M6 (LiDAR):**
+  - window and emitter positions on the module underside;
+  - true body height and its position relative to the line centre;
+  - module mass (scale);
+  - bracket flange position on the toolhead (X, Y, Z of the 4-hole centre relative to the nozzle).
+- **Network:** `store.dremc.com.au` and WebFetch to `pellcorp.github.io` are still blocked. The latter is not needed now (git source plus curl).

@@ -112,6 +112,12 @@ PROBE_FLANGE = (Dim(21.93, "VERIFIED", "BIQU drawing"), Dim(15.60, "VERIFIED", "
 PROBE_FLANGE_TO_BACK = Dim(6.80, "VERIFIED", "BIQU drawing: hole line to body back face")
 PROBE_FLANGE_TO_TIP_EXTENDED = Dim(28.10, "VERIFIED", "BIQU drawing")
 PROBE_MAX_AMBIENT_C = Dim(60.0, "VERIFIED", "BIQU manual")
+# Current mount (Printables 785004, public domain; user to confirm) - 01 §H.1
+PROBE_ADAPTER_785004 = Box(-17.0, 17.1, 13.4, 29.1, 26.75, 59.25, "ESTIMATED",
+                           "785004 STL placed by the probe offset; pin-to-hole offset ±2 mm (M8)")
+PROBE_ADAPTER_SCREWS = [(-12.05, 20.1), (12.05, 20.1)]  # (x, y), vertical, ~M2, ESTIMATED 01 §H.1
+PROBE_BODY_Y = (Dim(12.5, "ESTIMATED", "01 §H.1"), Dim(28.1, "ESTIMATED", "01 §H.1"))
+PROBE_STOWED_TIP_Z = Dim(1.45, "ESTIMATED", "01 §H.1: today's stowed pin tip is below DUCT_MIN_Z")
 
 # LiDAR - optical geometry is calibrated; keep the module pose unchanged
 # (design decision DD-02). Only the line and sheet are known; the module
@@ -127,8 +133,21 @@ LIDAR_LINE_X = (-50.8, -21.6)  # DERIVED 02:L3
 # of the line. Sheet Y at height z (nozzle frame), with the bed at z = -Zs:
 #   y_sheet(z) = y_line + (z + Zs) * |dY/dZ|      (rises toward +Y)
 # (research/02 §3.7 originally had the direction reversed - corrected.)
-LIDAR_RESERVED = Box(-62.0, -18.0, -36.0, 10.0, -1.0, 42.0, "ESTIMATED",
-                     "module body + bracket + laser sheet + camera cone; replace once measured (M6)")
+# Reserved space = union of an optical box (laser sheet + camera view, below the
+# module) and a body box (module + bracket). research/01 §H: body footprint
+# 46.6 (X) x 19.4 (Y), height ~25-28, distance origin ~22.6 above the tip; a body
+# centred on the line spans X -59.3..-12.7. Replace both once measured (M6).
+LIDAR_RESERVED_OPTICAL = Box(-62.0, -18.0, -36.0, 10.0, -1.0, 22.0, "ESTIMATED",
+                             "laser sheet + camera cone below the module (M6)")
+LIDAR_RESERVED_BODY = Box(-62.0, -12.0, -36.0, 10.0, 18.0, 50.0, "ESTIMATED",
+                          "module body 46.6 x 19.4 x 25-28 + bracket, research/01 §H (M6)")
+LIDAR_RESERVED_BOXES = (LIDAR_RESERVED_OPTICAL, LIDAR_RESERVED_BODY)
+# Backward-compatible bounding box of both (conservative).
+LIDAR_RESERVED = Box(-62.0, -12.0, -36.0, 10.0, -1.0, 50.0, "ESTIMATED",
+                     "bounding box of LIDAR_RESERVED_BOXES; prefer the boxes for checks")
+LIDAR_BODY_FOOTPRINT = (Dim(46.6, "DERIVED", "01 §H.2 community lid (Printables 1476318)"),
+                        Dim(19.4, "DERIVED", "01 §H.2"))
+LIDAR_DISTANCE_ORIGIN_Z = Dim(22.6, "MEASURED-BY-USER", "variables.cfg lidar_zero_log, 01 §H")
 
 
 def lidar_sheet_y(z: float, scan_nozzle_z: float = 3.0) -> float:
@@ -168,7 +187,7 @@ BLOWER_5015_SUNON = BlowerSpec(
 DUCT_MIN_Z = Dim(2.0, "ESTIMATED", "nozzle wipe drags 0.15 mm into PEI; 2 mm leaves margin for glass flex and blobs")
 PROBE_RETRACTED_MIN_Z = Dim(2.0, "ESTIMATED", "retracted pin must clear prints - check with user M8")
 # Rearmost allowed point below Z 30 so the rear keep-out zones do not grow.
-REAR_LIMIT_Y = Dim(30.0, "ESTIMATED", "current probe body rear; MISSING exact (M8)")
+REAR_LIMIT_Y = Dim(31.0, "ESTIMATED", "785004 adapter rear ~+29.1 ±2 (01 §H.1); exact M8")
 # Front/side envelope the toolhead may occupy without losing travel - MISSING (M9).
 FRONT_LIMIT_Y = Dim(-60.0, "MISSING", "front clearance at Y min travel (M9)")
 RIGHT_LIMIT_X = Dim(45.0, "MISSING", "right clearance at X max travel (M9)")
@@ -182,6 +201,9 @@ BED_Z = -20.2
 # Materials (design decision DD-07)
 MATERIAL_HOT = "PC or PA-CF (parts within 15 mm of the heater)"
 MATERIAL_DEFAULT = "ASA (or ABS)"
+
+
+FILAMENT_PATH_GEAR_TO_TIP = Dim(65.4, "VERIFIED", "pellcorp docs, 01 §H.3")
 
 
 def unconfirmed(*objs) -> list[str]:
