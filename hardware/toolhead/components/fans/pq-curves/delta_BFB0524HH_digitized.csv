@@ -1,0 +1,36 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Delta BFB0524HH (5015 blower 51x51x15, 24 VDC, 2 ball bearings), curve '24.0 VDC'
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage, room temperature, 65 %RH
+# status: DIGITIZED (manufacturer P&Q curve, spec page 5) - table values VERIFIED: 0.130 m3/min (4.59 CFM) at 0 Pa; 22.00 mmH2O (0.866 inH2O) at 0 flow; limited spec min 0.095 m3/min / 15.72 mmH2O
+# source: https://www.delta-fan.com/Download/Spec/BFB0524HH.pdf (Delta 'Specification for approval', model BFB0524HH, sample rev 00, 2003-10-28, 7 pages)
+# method: page rendered at 300 dpi (PyMuPDF); plot frame located from solid frame lines (x 0..0.14 m3/min = px 651..1799.5, y 0..24 mmH2O = px 2368..838.5); curve traced column-by-column (dark-pixel cluster nearest the previous point, dashed grid lines and the '24.0 VDC' leader masked); 990 raw points; ends extrapolated linearly over 15 points; resampled to 21 uniform Q points + the 2 polyline kinks
+# estimated digitizing error: +-0.05 mmH2O (+-0.5 Pa) and +-0.0005 m3/min (+-8e-6 m3/s); check: traced 21.98 mmH2O / 0.1302 m3/min vs table 22.00 / 0.130 (<0.2 %)
+# derived end points: dP(Q=0) = 215.9 Pa (0.867 inH2O, 22.01 mmH2O); Q(dP=0) = 2.1730e-03 m3/s (4.60 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,215.89
+1.086513e-04,212.82
+2.173025e-04,209.82
+3.259538e-04,206.92
+4.346051e-04,203.67
+5.432563e-04,200.66
+6.519076e-04,197.59
+6.666667e-04,196.95
+7.605589e-04,191.60
+8.692101e-04,185.44
+9.778614e-04,179.22
+1.086513e-03,172.99
+1.195164e-03,166.84
+1.216667e-03,165.22
+1.303815e-03,151.49
+1.412466e-03,135.98
+1.521118e-03,121.04
+1.629769e-03,104.35
+1.738420e-03,82.94
+1.847072e-03,60.60
+1.955723e-03,40.04
+2.064374e-03,19.57
+2.173025e-03,0.00

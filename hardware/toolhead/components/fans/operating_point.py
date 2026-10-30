@@ -19,6 +19,9 @@ Usage
   python3 operating_point.py              # CSVs + tables (numpy only)
   python3 operating_point.py --plot       # also the PNG (needs matplotlib)
   python3 operating_point.py --no-csv     # tables only
+  python3 operating_point.py --digitized [--plot]
+        # section 10: same tables from the *_digitized.csv / *_proxy-scaled.csv
+        # files (manufacturer curves); reads only, never writes a CSV
 
 Units: SI. 1 CFM = 4.719e-4 m^3/s, 1 inH2O = 249.09 Pa, 1 mmH2O = 9.80665 Pa.
 """
@@ -354,11 +357,148 @@ def plot(path: Path):
     print(f"wrote {path}")
 
 
+# --------------------------------------------------------------------------
+# Digitized / proxy-scaled curves (section 10 of the report). Read-only: these
+# CSVs are produced separately from the manufacturer PDFs; this mode never
+# writes or changes any CSV.
+# --------------------------------------------------------------------------
+@dataclass
+class TableFan:
+    key: str
+    name: str
+    status: str
+    q: np.ndarray
+    p: np.ndarray
+
+    @property
+    def qmax(self):
+        return float(self.q[-1])
+
+    @property
+    def pmax(self):
+        return float(self.p[0])
+
+    def dp(self, q, pmax=None):
+        return np.interp(q, self.q, self.p, right=0.0)
+
+
+def load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    lines = path.read_text().splitlines()
+    n = int(lines[0].split("=")[1].split()[0])
+    d = np.array([[float(v) for v in ln.split(",")] for ln in lines[n:] if ln.strip()])
+    return d[:, 0], d[:, 1]
+
+
+# (csv stem, label, status, estimated-CSV stem it replaces / is compared with)
+DIGITIZED = [
+    ("delta_BFB0524HH_digitized", "Delta BFB0524HH", "DIGITIZED", "delta_BFB0524HH"),
+    ("sunon_MF40202VX-1000U-G99_digitized", "Sunon MF40202VX-1000U-G99 axial", "DIGITIZED",
+     "sunon_MF40202VX-1000U-G99"),
+    ("sunon_MF50151VX-1B00U-A99_digitized", "Sunon MF50151VX-1B00U-A99 (12 V sibling)", "DIGITIZED",
+     "sunon_MF50152VX-1L02C-A99"),
+    ("sunon_MF50152VX-1L02C-A99_proxy-scaled", "Sunon MF50152VX-1L02C-A99 (owned)", "ESTIMATED (DIGITIZED shape)",
+     "sunon_MF50152VX-1L02C-A99"),
+    ("samesky_CBM-4020B-160-367_digitized", "Same Sky CBM-4020B-160-367 (12 V, 6000 rpm)", "DIGITIZED", None),
+    ("creality_K1_stock_4020_blower_proxy-scaled", "Creality stock 4020 (CBM-4020B x affinity)",
+     "ESTIMATED (DIGITIZED shape)", "creality_K1_stock_4020_blower"),
+]
+
+
+def digitized_tables(plot_path: Path | None = None):
+    fans = []
+    for stem, label, status, _ in DIGITIZED:
+        path = OUT / f"{stem}.csv"
+        if not path.exists():
+            print(f"(missing {path.name})")
+            continue
+        q, p = load_csv(path)
+        fans.append(TableFan(stem, label, status, q, p))
+
+    print("\n## Digitized vs ESTIMATED end points\n")
+    print("| curve | compared with | dP(Q=0) est -> dig (Pa) | dev | Q(dP=0) est -> dig (CFM) | dev | "
+          "max |dP| deviation along curve (% of dig. dP_max) |")
+    print("|---|---|---|---|---|---|---|")
+    for (stem, label, status, est), f in zip([d for d in DIGITIZED if (OUT / f"{d[0]}.csv").exists()], fans):
+        if not est:
+            continue
+        e = FAN[est]
+        qq = np.linspace(0, min(e.qmax, f.qmax), 200)
+        dev = np.max(np.abs(e.dp(qq) - f.dp(qq))) / f.pmax * 100
+        print(f"| {label} | {est}.csv | {e.pmax:.0f} -> {f.pmax:.0f} | {(e.pmax/f.pmax-1)*100:+.0f} % | "
+              f"{e.qmax/CFM:.2f} -> {f.qmax/CFM:.2f} | {(e.qmax/f.qmax-1)*100:+.0f} % | {dev:.0f} % |")
+    print("\n(dev = estimated relative to digitized: + means the estimate was too high)")
+
+    hdr = ("| fan | low K: Q / v_out / dP | medium K | high K |\n|---|---|---|---|")
+    for n, title in [(1, "A) single part fan (digitized curves)"),
+                     (2, "B) two identical fans, each feeding half the outlet area (totals)")]:
+        print(f"\n## {title}\n")
+        print(hdr)
+        for f in fans:
+            if "axial" in f.name and n == 2:
+                continue
+            cells = []
+            for d in DUCTS:
+                qt, p1, v = solve(f, n, d)
+                cells.append(f"{qt/CFM:.2f} CFM / {v:.1f} m/s / {p1:.0f} Pa")
+            print(f"| {('2 x ' if n == 2 else '') + f.name} | " + " | ".join(cells) + " |")
+
+    print("\n## C) hotend fan on heat sink, digitized Sunon MF40202VX\n")
+    f = next((x for x in fans if x.key.startswith("sunon_MF40202VX")), None)
+    if f is not None:
+        cells = []
+        for lvl in ["low", "medium", "high"]:
+            q, p = operating_point(lambda q: float(f.dp(q)), lambda q: K_HS[lvl] * q * q, f.qmax)
+            cells.append(f"{q/CFM:.2f} CFM / {p:.0f} Pa")
+        print("| low | medium | high |\n|---|---|---|\n| " + " | ".join(cells) + " |")
+
+    if plot_path is not None:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        series = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"]
+        ink, muted, grid, surf = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
+        fig, ax = plt.subplots(figsize=(9.5, 6.4), facecolor=surf)
+        ax.set_facecolor(surf)
+        for s in ax.spines.values():
+            s.set_color(grid)
+        ax.tick_params(colors=muted)
+        ax.grid(True, color=grid, lw=0.8)
+        qq = np.linspace(0, 5.2e-3, 300)
+        for d in DUCTS:
+            ax.plot(qq * 1e3, d.K * qq ** 2, color=muted, lw=1.0, ls=":")
+            ql = min(math.sqrt(300 / d.K), 5.0e-3)
+            ax.text(ql * 1e3, d.K * ql ** 2, f" {d.name} K", color=muted, fontsize=8)
+        for c, f in zip(series, fans):
+            ax.plot(f.q * 1e3, f.p, color=c, lw=2, label=f"{f.name} [{f.status}]")
+            est = next((d[3] for d in DIGITIZED if d[0] == f.key), None)
+            if est in FAN and "MF50151VX" not in f.key:   # sibling sheet: no own estimate
+                eq, ep = FAN[est].curve()
+                ax.plot(eq * 1e3, ep, color=c, lw=1.2, ls="--")
+            qo, po, _ = solve(f, 1, DUCTS[1])
+            ax.plot(qo * 1e3, po, "o", ms=8, color=c, mec=surf, mew=2)
+        ax.set_xlim(0, 5.2)
+        ax.set_ylim(0, 420)
+        ax.set_xlabel("Q  [L/s]   (1 CFM = 0.472 L/s)", color=muted)
+        ax.set_ylabel("static pressure  [Pa]", color=muted)
+        ax.set_title("Digitized manufacturer curves (solid) vs earlier ESTIMATED curves (dashed); "
+                     "dots = medium-K operating point", color=ink, fontsize=9.5, loc="left")
+        ax.legend(fontsize=7.5, frameon=False, labelcolor=ink, loc="upper center",
+                  bbox_to_anchor=(0.5, -0.11), ncol=2)
+        fig.tight_layout()
+        fig.savefig(plot_path, dpi=130, facecolor=surf)
+        print(f"wrote {plot_path}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--plot", action="store_true")
     ap.add_argument("--no-csv", action="store_true")
+    ap.add_argument("--digitized", action="store_true",
+                    help="tables from the *_digitized / *_proxy-scaled CSVs (writes no CSV)")
     a = ap.parse_args()
+    if a.digitized:
+        digitized_tables(OUT / "pq_digitized_vs_estimated.png" if a.plot else None)
+        return
     if not a.no_csv:
         write_csvs()
     tables()

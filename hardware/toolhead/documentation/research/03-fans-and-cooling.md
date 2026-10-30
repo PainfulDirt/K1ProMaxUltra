@@ -10,6 +10,8 @@ Status labels used throughout:
 - **ESTIMATED**: my own arithmetic or assumption. The method is stated each time.
 - **INFERRED**: deduced from firmware config, not measured. Used for electrical topology.
 
+> **Update (network restored): see [§10](#10-verified-data-network-restored).** Manufacturer datasheets were since downloaded and their P-Q curves digitized into new `*_digitized.csv` / `*_proxy-scaled.csv` files. Sections 1-9 are kept as written, and the ESTIMATED CSVs are unchanged, because the CFD campaign is using them.
+>
 > **Important limitation, read first.** This session's network policy blocks every manufacturer and distributor host. Blocked hosts include www.sunon.com, www.sunonusa.com, www.fansco.com, www.delta-fan.com, www.mouser.com, www.digikey.com, cdn-reichelt.de, www.tme.eu, bttwiki.com, pastebin.com and printables.com, for both WebFetch and curl. Only GitHub could be reached directly. All fan numbers below therefore come from **web-search extracts** of the cited pages. The datasheet PDFs could not be opened, and no P-Q curve could be digitised.
 >
 > As a result:
@@ -296,3 +298,103 @@ When paralleling 4-wire fans, tie the PWM wires together, connect only one FG wi
    This decides 2a vs 2b and the real current ceiling.
 4. Measure the outlet dimensions of each blower for the duct CAD.
 5. In CFD, test whether the per-fan K assumed here (Σζ 1.4-3.5) is realistic for the actual duct, then re-run the operating points with the CFD-derived K.
+
+## 10. Verified data (network restored)
+
+Manufacturer documents could be downloaded after the network was opened. Sections 1-9 above are left as written, and so are the ESTIMATED CSVs, which the CFD campaign is using. The new curves are in **new files** in `components/fans/pq-curves/`:
+
+- `*_digitized.csv`: a manufacturer curve read off its datasheet.
+- `*_proxy-scaled.csv`: a manufacturer curve *shape* scaled to another fan's end points. Status ESTIMATED.
+
+They use the same column format and header convention as before. To get the tables below, run `python3 operating_point.py --digitized [--plot]`; it only reads CSVs. The plot is written to `pq-curves/pq_digitized_vs_estimated.png`.
+
+### 10.1 Documents obtained
+
+All are saved, untrusted, in `scratchpad/ref/fans/`.
+
+| Document | URL | Used for |
+|---|---|---|
+| Delta "Specification for approval", **BFB0524HH**, sample rev 00, 2003-10-28 (7 pp, scanned) | https://www.delta-fan.com/Download/Spec/BFB0524HH.pdf | specs, P&Q curve (p.5), dimensions (p.6) |
+| Delta spec **BFB0524HH-F00**, 2013-07-17 (9 pp) | https://www.delta-fan.com/Download/Spec/BFB0524HH-F00.pdf | cross-check only |
+| Sunon spec **MF40202VX-1000U-G99**, D04115420G-01, rev 2021-05-18 (Sunon document, FansCo-hosted) | https://www.fansco.com/datasheets/sunon/MF40202VX-1000U-G99.pdf | specs, curve (p.5, vector), FG tach (p.8) |
+| Sunon spec **MF50151VX-1B00U-A99** (12 V 5015 MagLev blower), D05073850G-00, 2020-08-18 | https://www.fansco.com/datasheets/sunon/MF50151VX-1B00U-A99.pdf | nearest Sunon blower sheet to our MF50152VX-1L02C (p.7, vector curve) |
+| Sunon catalogue "DC Brushless Fan & Blower" (240-A) | https://www.sunon.com/en/MANAGE/Docs/PRODUCT/286/360/Sunon%20DC%20Brushless%20Fan%20&%20Blower_(240-A).pdf | blower range check (p.83-85) |
+| Same Sky **CBM-40B** series datasheet, 2025-11-04 | https://www.sameskydevices.com/product/resource/cbm-40b.pdf | 4020 blower with a manufacturer P-Q curve (CBM-4020B-160-367), proxy for the stock fan |
+| Delta BFB04512VHD spec (45×45×20, 12 V) | https://www.delta-fan.com/Download/Spec/BFB04512VHD.pdf | downloaded, not used (12 V, 4500 rpm, different frame) |
+
+**Not obtained:**
+- **No Sunon sheet exists for MF50152VX-1L02C-A99.** It is an OEM suffix. Sunon's catalogue lists only **12 V** 5015 blowers (MF50151Vx-B000 family).
+- **No manufacturer data exists for the Creality stock 4020** (type code "CHT4024BY-W20C").
+- The Wonsmart WS7040 curve was not re-checked.
+- Mouser, DigiKey, TME and Reichelt still refused or timed out (403/520), and were not needed.
+
+### 10.2 What the datasheets confirm or change
+
+| Fan | Now VERIFIED (datasheet) | Change vs sections 1-4 |
+|---|---|---|
+| **Sunon MF40202VX-1000U-G99** | 24 VDC (op. 8-27.6 V, start 8 V); **39 mA / max 45 mA**; 0.94 W / max 1.08 W (safety 1.11 W); 8000 rpm ±15 %; 10.8 CFM; 0.29 inH2O; 27.5 dBA; **29 g**; Vapo bearing (p.3; the cover says "MagLev Motor Fan"); auto-restart + polarity protection; 70 000 h @ 40 °C. **G99 = auto-restart + F-type FG**: open collector, V+ ≤ 27.6 V, If ≤ 5 mA, VL ≤ 0.5 V, **2 pulses/rev**. That works with `^nozzle_mcu:PB4` and Klipper's default ppr = 2 | All earlier SECONDARY numbers confirmed. Max current and the FG electrical spec are new |
+| **Sunon MF50151VX-1B00U-A99** (12 V sibling of our blower) | 12 VDC; 0.155 / max 0.179 A; 1.86 / max 2.15 W; 6200 rpm ±15 %; **5.4 (min 4.6) CFM; 0.97 (min 0.65) inH2O**; 42.2 (max 47.5) dBA; 30 g; Vapo; 2 wires, 305 mm #26AWG; frame 51.7 × 51.6 × 15 mm | The reseller figures for our 24 V **MF50152VX-1L02C** (4.8 CFM / 0.76 inH2O, SECONDARY) are **affinity-consistent with this impeller at 88.9 % speed**: 0.889² × 0.97 = 0.766 inH2O vs 0.76, within 1 %. They are also inside Sunon's min limits. So our blower is very likely the same aero design at ~5500-6000 rpm. Its end points stay SECONDARY, but its curve **shape** is now DIGITIZED |
+| **Delta BFB0524HH** | 24 V (14-27.6 V); 0.11 (max 0.16) A; 2.64 (max 3.84) W; 6500 rpm (ref); **0.130 (min 0.095) m³/min = 4.59 (min 3.35) CFM**; **22.00 (min 15.72) mmH2O = 0.866 (min 0.619) inH2O**; 45 (max 48) dBA; **28 ± 5 g**; two ball bearings; 50 000 h @ 40 °C; locked rotor: "current will shut down" (p.2) and winding impedance protection (p.3); 2 wires UL1061 #26, 340 mm; frame 51.0 × 51.3 × 15.0 mm; **outlet 20.0 × 15.0 mm outside, 17.6 × 12.2 mm inside (≈ 215 mm²)** | Typical values confirmed. New: the limited (minimum) spec and the outlet dimensions. Note that the minimum-spec unit has only 71-73 % of typical pressure and flow |
+| **Same Sky CBM-4020B-160-367** (stock-fan proxy) | 12 V; 0.08 / max 0.12 A; 0.96 / max 1.44 W; 6000 rpm ±10 %; 2.66 CFM; 0.19 inH2O; 36.7 dBA; "-22" suffix = PWM + tach | Affinity to 12 000 rpm (Q × 2, ΔP × 4, P × 8) gives **5.3 CFM / 191 Pa / 7.7 W**. The listed stock power 24 V × 0.3 A = 7.2 W matches. The listed 6.4 CFM is 17 % higher. The earlier GDSTIME-based estimate gave 6.8 CFM / 391 Pa / 9.4 W. The two published 4020 impellers differ by **2.4×** in pressure coefficient, so the stock fan is only bracketed: **190-390 Pa shut-off**. Still ESTIMATED, still needs measuring |
+
+### 10.3 Digitizing method and error
+
+| CSV | Method | Points | Error estimate | Self-check against the datasheet table |
+|---|---|---|---|---|
+| `delta_BFB0524HH_digitized.csv` (DIGITIZED) | Scanned page rendered at 300 dpi. Frame found from solid lines (0-0.14 m³/min, 0-24 mmH2O). Column-by-column trace of the dark curve, with dashed grid and leader line masked: 990 raw points. Resampled to 21 uniform Q points plus the two polyline kinks (0.040, 0.073 m³/min) | 23 | ±0.05 mmH2O (±0.5 Pa), ±0.0005 m³/min | 21.98 mmH2O / 0.1302 m³/min vs 22.00 / 0.130 (≤ 0.2 %) |
+| `sunon_MF40202VX-1000U-G99_digitized.csv` (DIGITIZED) | The curve is a **vector** polyline. Its 93 vertices were read from the PDF (PyMuPDF `get_drawings`) and mapped to the axis frame. Resampled to 31 Q points | 31 | < ±0.5 % full scale (stroke width) | 0.290 inH2O / 10.80 CFM, exact |
+| `sunon_MF50151VX-1B00U-A99_digitized.csv` (DIGITIZED) | Vector filled outline. Centre line = mid-point of the upper and lower edges on 1 pt scan lines. 21 Q points | 21 | < ±0.5 % FS | 0.966 inH2O / 5.40 CFM vs 0.97 / 5.4 |
+| `samesky_CBM-4020B-160-367_digitized.csv` (DIGITIZED) | Embedded raster (1528 × 792 px). The **11 plotted measurement markers** were found by dark-pixel density and their centroids taken | 12 | ±0.01 CFM, ±0.03 mmH2O | 0.192 inH2O / 2.65 CFM vs 0.19 / 2.66 (≤ 1 %) |
+| `sunon_MF50152VX-1L02C-A99_proxy-scaled.csv` (ESTIMATED, DIGITIZED shape) | MF50151VX curve × (Q 0.8889, ΔP 0.7901) | 21 | shape as above; end points ±(SECONDARY) | 191 Pa / 4.80 CFM |
+| `creality_K1_stock_4020_blower_proxy-scaled.csv` (ESTIMATED, DIGITIZED shape) | CBM-4020B curve × (Q 2, ΔP 4) | 12 | the real stock fan could be +100 % in ΔP | 191 Pa / 5.31 CFM |
+
+All curves are at rated voltage and ~25 °C. The Sunon axial curve has a genuine **positive-slope stall saddle** at 5.2-6 CFM, so ΔP is non-monotonic there. OpenFOAM's table lookup copes with it. The hotend operating points (2-3.4 CFM) lie to the left of the saddle.
+
+### 10.4 How far the ESTIMATED curves were off
+
+In this table, "dev" = (estimated − digitized) / digitized, so + means the estimate was too high. Operating points use the same ducts as section 6. The stock row compares against the CBM-4020B proxy, which is itself an estimate.
+
+| Curve | Shut-off ΔP: est → real | dev | Free-air Q: est → real | dev | Max ΔP error along the curve (% of real ΔPmax) | Medium-K flow: est → real | dev |
+|---|---|---|---|---|---|---|---|
+| Delta BFB0524HH | 216 → 216 Pa | **0 %** | 4.59 → 4.60 CFM | **0 %** | 15 % (generic shape too low in the middle; real curve is flatter to 0.073 m³/min, then near-linear) | 1.89 → 1.99 CFM | **−5 %** (low K −5 %, high K −2 %) |
+| Sunon MF40202VX (axial) | 72 → 72 Pa | **0 %** | 10.8 → 10.8 CFM | **0 %** | 28 % (real stall saddle deeper: ~26-27 Pa at 4.5-6.5 CFM vs ~40-45 Pa estimated) | 1.16 → 1.14 CFM; heat sink medium 2.88 → 2.65 CFM | **+2 %**; **+9 %** (heat sink low K +16 %, high K +4 %) |
+| Sunon MF50152VX-1L02C (owned), vs proxy-scaled | 189 → 191 Pa | **−1 %** | 4.80 → 4.80 CFM | **0 %** | 11 % (real curve sags in the middle) | 1.80 → 1.70 CFM | **+6 %** (low +6 %, high +5 %) |
+| …same fan, if it matches the Sunon catalogue blower | 189 → 242 Pa | −22 % | 4.80 → 5.40 CFM | −11 % | 22 % | 1.80 → 1.91 CFM | −6 % |
+| Creality stock 4020, vs CBM proxy | 390 → 191 Pa | **+104 %** | 6.40 → 5.31 CFM | **+20 %** | 109 % | 2.56 → 1.72 CFM | **+49 %** (low +48 %, high +48 %) |
+
+**Summary.** For the three fans with real datasheets, the published end points were right, and only the generic shape was off. The shape error was 11-28 % of ΔPmax locally, but only **2-9 %** in delivered flow at the operating point.
+- The **Delta** estimate was slightly pessimistic.
+- The **Sunon blower** and **axial** estimates were slightly optimistic.
+- The one large error is the **stock 4020**. Its shut-off pressure was never published, and the second, manufacturer-curve proxy halves it.
+
+### 10.5 Does this change the ranking or the recommendation?
+
+**Ranking (single fan, medium K):**
+- **Before:** stock 4020 (2.56 CFM) > Delta (1.89) ≈ GDSTIME (1.86) > owned Sunon 5015 (1.80) ≫ 4020 axial (1.16).
+- **After:** **Delta BFB0524HH (1.99)** > Sunon catalogue blower (1.91) > stock 4020 proxy (1.72) ≈ owned Sunon (1.70) ≫ axial (1.14).
+- **Dual symmetric, shared area:** 2 × Delta 2.10 > 2 × stock-proxy 1.88 ≈ 2 × owned Sunon 1.84.
+- The stock fan drops from first to joint third. With its 190-390 Pa bracket it could still be anywhere from equal to the owned Sunon up to best, but **no manufacturer-backed curve supports "highest pressure"** any more.
+
+**Recommendation changes:**
+1. **Hotend fan:** unchanged. Sunon MF40202VX-1000U-G99 on channel 2 (PB5, tach PB4). Its FG spec is now verified compatible. Digitized flow through the assumed heat sink is 2.0-3.4 CFM.
+2. **Part cooling:** the preference flips from 2a to **2b**: two symmetric **24 V 5015 blowers**, one logical fan, each with its own 40-60 mm² outlet.
+   - **Delta BFB0524HH** is the first choice. It has the best verified curve and ~17 % more flow than our Sunon at medium K. With separate outlets, two Deltas give ≈ 4.0 CFM.
+   - Our Sunon is the second unit or the backup.
+   - Option 2a (2 × Creality 4020 at 0.6 A) loses its main argument. Its only remaining advantage is being native 4-pin PWM.
+   - Because both preferred blowers are **2-wire**, the open electrical item is now central: speed control needs PWM on PB6 or a small low-side MOSFET driven from channel 1. Probing channel 1 is the next hardware step.
+3. **Shortlist:**
+   - **Delta BFB0524HH × 2**: now #1, ~$10-15 each.
+   - **Creality 4020 × 1**: only to measure the stock curve (was × 2-3).
+   - CPAP kit: unchanged, conditional.
+4. **CFD (for the coordinator):**
+   - Switch finalists to `delta_BFB0524HH_digitized.csv` and `sunon_MF40202VX-1000U-G99_digitized.csv`.
+   - For our Sunon blower, use `sunon_MF50152VX-1L02C-A99_proxy-scaled.csv`. Use `sunon_MF50151VX-1B00U-A99_digitized.csv` as the upper bound.
+   - For the stock fan, run **both** `creality_K1_stock_4020_blower.csv` (390 Pa) and `creality_K1_stock_4020_blower_proxy-scaled.csv` (191 Pa) as bounds until it is measured.
+   - The section 6 conclusion still holds: dual fans sharing one outlet area add only 5-15 % flow.
+
+### 10.6 Nozzle-board fan channels: Pellcorp docs check
+
+I searched pellcorp.github.io/creality-wiki (source cloned from github.com/pellcorp/creality-wiki) for nozzle-board, fan, PB6/PB8 and MOSFET content.
+- It has **no nozzle-board schematic, no fan-output current rating, and nothing on whether PB6 switches high- or low-side**. The section 3 topology therefore stays INFERRED, and the 0.3 A / 0.1 A demonstrated loads stay the only limits. Probe the board before relying on more.
+- One relevant fact (`rpi_faq.md`, `nozzle_wipe.md`): Pellcorp moved the part fan from `[fan_generic part]` to `[fan]` "to mitigate performance issues that were causing klipper to crash with a move queue overflow". `M106 P0` is not supported; plain `M106` addresses the part fan, and P1/P2 address chamber/auxiliary.
+- Practical consequence: keep the part fan(s) as the single `[fan]` object. If a new fan object is added on `nozzle_mcu`, test it under a heavy print before trusting it.
