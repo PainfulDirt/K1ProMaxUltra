@@ -206,7 +206,7 @@ Extruder lever top Z +108.1, PTFE/Bowden inlet above that (E10/E11). The clearan
 
 Nothing may enter the volume swept by the LiDAR laser sheet:
 - X −50.8 … −21.6 (at the bed);
-- inclined about 45° in YZ, rising toward −Y from the spot at Y −21.3 at the bed;
+- inclined about 45° in YZ, rising toward **+Y** (toward the nozzle) from the spot at Y −21.3 at the bed. *Orchestrator correction: the original text said −Y. The line moves −0.99 mm in Y per +1 mm of nozzle Z, so the emitter is on the +Y side of the line; see `cad/source/interfaces.py::lidar_sheet_y`;*
 - up to the module window.
 
 The receiver's line of sight must also stay clear if the module is a triangulation sensor. Which window is emitter and which is receiver is MISSING. Many community covers needed a "LiDAR gap" (TrueBlueRoo) or a LiDAR-port version (XSvFury).
