@@ -1,0 +1,6 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  K1 toolhead CFD pipeline template (OpenFOAM v2512). placeholders filled by run_case.py
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object surfaceFeatureExtractDict; }
+
+@{feature_entries}
