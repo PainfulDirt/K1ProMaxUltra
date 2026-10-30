@@ -107,7 +107,7 @@ Rationale:
 - Nothing in the cooling design needs the left side, so the cost would buy nothing.
 
 A stiffer and thermally isolated LiDAR bracket is a later candidate, once the module and the stock
-bracket are measured (M7).
+bracket are measured (M6).
 
 Airflow and the LiDAR:
 - Air movement does not disturb laser triangulation at a 25 mm stand-off (ESTIMATED). Air's
