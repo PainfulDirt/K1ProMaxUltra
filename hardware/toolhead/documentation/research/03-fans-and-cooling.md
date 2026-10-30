@@ -1,0 +1,298 @@
+# 03 - Fans and cooling (Agent 3: fan research and cooling engineering)
+
+Scope: the fans we own, the stock K1 Max toolhead fans, the toolhead's fan electrics, candidate fans to buy, P-Q curves for CFD, a pre-CFD operating-point estimate, and a recommended configuration.
+
+Status labels used throughout:
+
+- **VERIFIED**: read directly from a manufacturer datasheet (URL given).
+- **SECONDARY**: from a retailer, distributor or forum page, or from a manufacturer page that was read only through a search-engine extract (cited).
+- **DIGITIZED**: read off a manufacturer curve.
+- **ESTIMATED**: my own arithmetic or assumption. The method is stated each time.
+- **INFERRED**: deduced from firmware config, not measured. Used for electrical topology.
+
+> **Important limitation, read first.** This session's network policy blocks every manufacturer and distributor host. Blocked hosts include www.sunon.com, www.sunonusa.com, www.fansco.com, www.delta-fan.com, www.mouser.com, www.digikey.com, cdn-reichelt.de, www.tme.eu, bttwiki.com, pastebin.com and printables.com, for both WebFetch and curl. Only GitHub could be reached directly. All fan numbers below therefore come from **web-search extracts** of the cited pages. The datasheet PDFs could not be opened, and no P-Q curve could be digitised.
+>
+> As a result:
+> - **No value in this document is VERIFIED.** Manufacturer numbers are at best SECONDARY.
+> - **Every P-Q curve is ESTIMATED.** Each one is a generic curve shape anchored on the published shut-off pressure and free-air flow.
+>
+> To upgrade the curves to DIGITIZED, do one of these, then re-run `operating_point.py` after replacing the shape tables:
+> - allow those domains in the environment's network settings (Network access, then Allowed domains), or
+> - drop the PDFs into `scratchpad/ref/fans/`.
+
+---
+
+## 1. Fans we own
+
+| Item | Sunon **MF40202VX-1000U-G99** | Sunon **MF50152VX-1L02C-A99** |
+|---|---|---|
+| Type | **Axial** (tube-axial), not a blower: "Fan Tubeaxial 24VDC Square 40 mm" (DigiKey) - SECONDARY | **Centrifugal blower** (5015 radial) - SECONDARY |
+| Size | 40 × 40 × 20 mm - SECONDARY | 50 × 50 × 15 mm nominal - SECONDARY. The sibling Sunon blower sheet MF50151VX-1B00U-A99 gives a 51.7 mm frame |
+| Voltage | **24 VDC** (Sunon code digit "2" = 24 V) - SECONDARY (DigiKey/SOS) | **24 VDC** - SECONDARY (resellers). Caution: one reseller lists the same specs under the 12 V MF50151VX |
+| Current | 39 mA rated (DigiKey, SOS); 45 mA max (RS, for the -A99 sibling) - SECONDARY | 70 mA rated / 81 mA max - SECONDARY (reseller). A second listing says "0.7 A-0.81 A", an obvious typo |
+| Power | 0.94 W - SECONDARY | 1.95 W - SECONDARY |
+| Speed | 8000 rpm - SECONDARY | 6000 rpm ±10 % - SECONDARY. Another listing gives 5000 rpm / 40 dBA |
+| Max flow | 10.8 CFM (0.302 m³/min = 5.10e-3 m³/s) - SECONDARY | 4.8 CFM (2.27e-3 m³/s) - SECONDARY |
+| Max static pressure | 0.290 inH2O = **72.2 Pa** - SECONDARY (DigiKey, Chipsfind) | 0.76 inH2O = **189 Pa** - SECONDARY (reseller, 3DPBlog) |
+| Noise | 27.5 dBA - SECONDARY | 43.8 dBA - SECONDARY |
+| Bearing | Vapo (Sunon fluid) - SECONDARY | MagLev (Sunon) - SECONDARY |
+| Wires / connector | **3 wires: +24 V, GND, tach (FG)**; no PWM wire - SECONDARY (DigiKey "3 Wire Leads"). Connector not listed | **2 wires (+, -)**; no tach, no PWM; XH2.54-2P on some listings - SECONDARY |
+| Mass | 29.03 g - SECONDARY (DigiKey -A99/-G99 listing) | 28.37 g - SECONDARY (reseller) |
+| Life | 70 000 h @ 40 °C - SECONDARY | not found |
+| P-Q curve | not obtained. CSV is **ESTIMATED** (axial shape) | not obtained. CSV is **ESTIMATED** (blower shape) |
+
+Notes:
+
+- **Datasheet status.** No Sunon datasheet for the exact **-1L02C** suffix was found. It looks like an OEM/lead-wire variant of the 24 V Sunon 5015 MagLev blower; a 4-pin **PWM** variant, MF50152VX-1L01C-Q99, also exists (eBay.de listing, SECONDARY). The closest Sunon sheet, for the 12 V MF50151VX-1B00U-A99 ([fansco copy](https://www.fansco.com/datasheets/sunon/MF50151VX-1B00U-A99.pdf), [TME copy](https://www.tme.eu/Document/b30ea71fee61d11101012e50df6ac0ad/MF50151VX-A99-DTE.pdf)), gives 0.155 A, 5.4 CFM, 0.97 inH2O and 6000 rpm. The real 24 V curve may therefore sit between 189 and 242 Pa. The script carries this as an uncertainty band.
+- **Name trap.** **MF50152VX-1000U-A99** (no "1L02C") is a 50 × 15 **axial** fan: 18.6 CFM, 0.31 inH2O, 55/64 mA ([reichelt copy of the Sunon sheet](https://cdn-reichelt.de/documents/datenblatt/C800/SUN_MF50152VX-1.pdf)). Do not use its numbers for our blower.
+- **Role of the 4020 axial.** It is a hotend (heat-sink) fan candidate. At 72 Pa it is a poor ducted part-cooling fan (see section 6).
+
+Sources:
+
+- MF40202VX: [DigiKey](https://www.digikey.com/en/products/detail/sunon-fans/MF40202VX-1000U-G99/7927786), [SOS Electronic](https://www.soselectronic.com/en-us/products/sunon/mf40202vx-1000u-g99-375391), [Chipsfind](https://www.chipsfind.com/part-item/01750959-MF40202VX-1000U-G99), [RS (-A99)](https://uk.rs-online.com/web/p/axial-fans/2025408).
+- MF50152VX-1L02C: [3Dandy](https://3dandy.com/product/1642/sunon-5015-195w-24v-blower-fan-2pin-mf50152vx-1l02c-a99), [Newegg](https://www.newegg.com/lemincrash-mf50152vx-1l02c-a99/p/2S7-09CJ-00003), [eBay](https://www.ebay.com/itm/364477240013), [west3d](https://west3d.com/products/sunon-5015-premium-blower-fan-maglev-suspension-bearing-24v), [okmarts](https://okmarts.com/sunon-fan-mf50152vx-1l02c-a99.html).
+
+## 2. Stock K1 Max fans
+
+| Fan | Where / Klipper name | Spec | Status |
+|---|---|---|---|
+| **Part-cooling ("model") fan** | Toolhead front, on the nozzle board. `[fan]` | **4020 blower, 24 V, 0.3 A, 12 000 rpm ±10 %, 40 × 40 × 20 mm, 4-pin** (connector reported as XH2.54-4P *or* 1.25-4P by different sellers). Retailer type code **CHT4024BY-W20C** (unconfirmed). Creality part no. 4004110132. Flow "6.4 CFM" (K1C listing; the same listing also claims "<25 dB, sleeve bearing", which is implausible at 0.3 A / 12 000 rpm). **No static-pressure figure is published anywhere.** | SECONDARY ([3DPrintingCanada K1/K1 Max](https://3dprintingcanada.com/products/official-creality-k1-k1-max-4020-blower-fan), [K1C](https://3dprintingcanada.com/products/official-creality-k1c-4020-blower-fan), [digitec](https://www.digitec.ch/en/s1/product/creality-4020-blower-fan-filament-cooling-for-k1c-and-k1-max-3d-printer-accessories-47334487), [makerparts3d](https://makerparts3d.com/products/4020-blower-fan-dc-24v-0-3a-for-creality-k1-k1-max)) |
+| **Hotend / heat-sink ("throat") fan** | Toolhead, heat sink. `[heater_fan hotend]` | **3010 axial, 24 V, 0.1 A, 12 000 rpm, 30 × 30 × 10 mm, 1.25-3P (3-wire with tach)**. Type EFC-03A24L, Creality SKU 3205010322 / 4004110133. Early K1/K1 Max use a standard 3010; newer K1 Max/K1C use a proprietary 3010 (TH3D). No flow or pressure data published. | SECONDARY ([3dprintingusa](https://3dprintingusa.com/products/official-creality-k1-k1-max-3010-axial-fan), [makerlab](https://www.makerlab-electronics.com/products/creality-3010-axial-fan-for-k1-k1-max-4004110133), [TH3D guide](https://www.th3dstudio.com/2025/03/26/get-the-right-fans-for-your-creality-k1-series-weve-got-you-covered-%E2%9C%85/)) |
+| Auxiliary side blower (not toolhead) | Left side of frame, main board **PB1**. `[fan_generic auxiliary]` | 24 V, **0.80 A** blower; frame size not published | SECONDARY ([spool3d](https://spool3d.ca/creality-k1-auxillary-side-blower-fan/)) |
+| Chamber exhaust (not toolhead) | Rear, main board **PC0**. `[fan_generic chamber]` + `[temperature_fan chamber_fan]` (watermark, 35 °C) | Size not confirmed (a 6025 listing could not be tied to this position) | — |
+| Electronics fans | Main board PB2 (always on); 6015 control-box fan | 24 V | SECONDARY ([fysetc](https://www.fysetc.com/products/fan-3010-axial-4020-blower-6015-hydraulic-24v-creality-k1)) |
+
+**Stock part-fan P-Q (ESTIMATED).** No Creality data exists, so I characterised it by fan affinity from the only 24 V 4020 blower with retailer P/Q data, the GDSTIME GDB4020 (6500 rpm, 3.67 CFM, 0.46 inH2O; [3DPrintingCanada](https://3dprintingcanada.com/products/gdstime-4020-24v-premium-fan-with-ball-bearing), SECONDARY):
+
+- Q scales with n: 3.67 × 12000/6500 = **6.8 CFM**. This agrees with the 6.4 CFM listing, which supports the scaling.
+- ΔP scales with n²: 114.6 Pa × (12000/6500)² = **391 Pa**.
+- Power scales with n³: 1.5 W × 6.3 = 9.4 W, against the listed 0.3 A × 24 V = 7.2 W. Same order of magnitude.
+
+The CSV uses Qmax 6.4 CFM and ΔPmax 390 Pa, with an uncertainty band of 250-500 Pa. **This is the least certain curve in the set.** If it holds, the stock 4020 has ~1.8-2× the pressure of any 6000 rpm 5015. Measure it before CFD relies on it (section 9).
+
+## 3. Toolhead electrics (K1 Max nozzle board)
+
+**Sources:**
+
+- Pellcorp `k1/patches/fan_control.cfg` and `rpi/printers/creality-k1m-2024.cfg` ([github.com/pellcorp/creality](https://github.com/pellcorp/creality), cloned).
+- Creality stock printer.cfg v1.0.2 header and fan sections ([quocanhcgd/Creality-K1](https://github.com/quocanhcgd/Creality-K1/blob/main/printer.cfg)).
+- Stock-firmware fan notes ([meteyou/creality-k1 fans.cfg](https://github.com/meteyou/creality-k1/blob/main/klipper/config/addons/fans.cfg)).
+- No schematic of the nozzle board is public.
+
+**MCU and supply.** The nozzle MCU is a **GD32F303CBT6** (stock printer.cfg header: "Nozzle_mcu: chip: GD32F303CBT6, version CR-K1-MAX-NOZZLE-V1.0.0"; the same chip appears on the PCBA_G "NOZZLE-C-V13" board listings). Fans are supplied at **24 V**. Every stock toolhead fan is a 24 V part.
+
+| Channel | Pins (nozzle_mcu) | Pellcorp/Kalico config | Topology (INFERRED) | Known load |
+|---|---|---|---|---|
+| **1 - part fan (4-pin)** | **PB8** = PWM, inverted (`!`); **PB6** = enable; **PB3** = tach (commented out) | `[fan] pin: !nozzle_mcu:PB8`, `enable_pin: nozzle_mcu:PB6`, `cycle_time: 0.0100` (100 Hz), `hardware_pwm: false`, `# tachometer_pin: ^nozzle_mcu:PB3`, `# tachometer_poll_interval: 0.0008`. Stock Creality firmware drove PB6 as a `static_digital_output` and PB8 as `[output_pin fan0]`, 0-255 | PB8 drives the fan's **PWM control wire** through an open-collector stage (hence the inversion). PB6 switches the fan's supply so the fan is truly off at 0 %. **This channel is built for a 4-wire PWM fan.** A 2- or 3-wire fan on it would only switch on/off via PB6. | 0.3 A (stock 4020) |
+| **2 - hotend fan (3-pin)** | **PB5** = switch; **PB4** = tach | `[heater_fan hotend] pin: nozzle_mcu:PB5`, `tachometer_pin: ^nozzle_mcu:PB4`, `heater_temp: 40` (default cycle_time 0.010, software PWM, runs at fan_speed 1.0) | Switched output (probably a low-side MOSFET) with tach input. Software PWM is possible but makes the tach reading unreliable. | 0.1 A (stock 3010) |
+
+**Free outputs.** None are documented. The other used nozzle-MCU pins are: PB0-2 (extruder stepper), PB7 (heater), PA0 (thermistor), PB10/11 (TMC UART), PA4-7 (accelerometer SPI) and PA10 (switch input). **The toolhead therefore offers at most two independently controllable fan channels, and only one of them is a proper PWM channel.**
+
+**Current limits.** Not published, and no schematic. The only demonstrated loads are **0.3 A on channel 1** and **0.1 A on channel 2** (ESTIMATED as safe ceilings: demonstrated, not rated). Anything above those needs the board inspected (identify the MOSFET or transistor and the trace/connector rating) or a separate driver.
+
+**Tach.** At 12 000 rpm with 2 pulses per revolution the tach runs at 400 Hz, so a poll interval of 2.5 ms or less is needed. Pellcorp left the 0.8 ms poll commented out. Tach on PB4 is active for the hotend fan. Klipper only reports rpm unless a macro acts on it.
+
+**Hardware PWM.** STM32F1-family timers do exist on PB8 (TIM4_CH3) and PB6/PB5. However, Pellcorp deliberately uses software PWM at 100 Hz, and whether the MCU firmware on the nozzle board supports hardware PWM there was not verified. 100 Hz on a 4-wire fan's PWM input works in practice (stock behaviour), even though fan specs usually call for ~25 kHz.
+
+**Klipper/Kalico control.**
+- Independent fans are possible with `[fan]` (M106), `[fan_generic]` (SET_FAN_SPEED), `[heater_fan]`, `[controller_fan]` and `[multi_pin]` (one logical fan on several pins), as long as each has its own pin.
+- **MPC coupling.** `tuning.cfg` sets `[extruder] cooling_fan: fan`. In `printer.cfg.save_config`, `fan_ambient_transfer = 0.0800, 0.0892, 0.0995, 0.1062, 0.1148, 0.1149, 0.1166` W/K from fan 0 → 100 %. The stock part fan therefore raises the block's heat loss by **+46 %**: about **+8 W of the 60 W heater** at ΔT ≈ 225 K. Any new duct changes this, so after a fan or duct change re-run `MPC_CALIBRATE HEATER=extruder FAN_BREAKPOINTS=7` (the user's Forced_Calibration macro already does this).
+- Kalico's MPC models **one** cooling fan, so dual part fans should be driven by **one** command (one logical fan) to keep the model valid.
+- **Where the fan sections live.** Neither `printer.cfg` nor `tuning.cfg` contains fan sections. They come from Pellcorp's `fan_control.cfg` on the printer, so any change would be an override in `tuning.cfg`.
+
+**Driving 12 V or 5 V fans from the 24 V outputs.**
+- A buck converter (24 → 12 V or 5 V, ≥0.5 A, e.g. an MP1584-class module) on the toolhead would supply the fan's +.
+  - Channel 2 (switched, assumed low-side) can still switch the fan's −.
+  - Channel 1's PWM wire can still drive a 4-wire 12 V fan's PWM input, provided the PWM input is open-collector tolerant (normal for 4-wire fans).
+- Costs: ~3-6 g, a heat source on a hot toolhead, an extra failure point, and a measurement needed of whether channel 1 switches + or −.
+- **Never use series resistors, or two 12 V fans in series**: unequal loads and stall/start-up problems.
+- **Verdict: a bad idea here.** 24 V versions exist for every useful size (4010/4020 axial, 4020/5015 blowers), so buy 24 V. The only exception is a 12 V/5 V-only premium fan (e.g. Noctua) for silence, which is not needed.
+
+## 4. Purchase candidates
+
+| Candidate | Type / size | V / I / P | rpm | Qmax | ΔPmax | Noise | Mass | Wires | Price seen | Status / source |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **Creality 4020 blower** (stock part, 4004110132) | blower 40×40×20 | 24 V / 0.3 A / ~7.2 W | 12 000 | 6.4 CFM | ~390 Pa (ESTIMATED, 250-500) | not credible ("<25 dB") | not found | **4 (PWM + tach)** | TH3D 4020 layer fan $13.99 | SECONDARY / ESTIMATED (section 2) |
+| **Delta BFB0524HH** (-F00 = tach, -R00 = locked-rotor) | blower 51×51×15 | 24 V (14-27.6 V) / 0.11 A typ, 0.16 A max / 2.64 W | 6500 | 4.59 CFM | 0.866 inH2O = 22.00 mmH2O = **215.7 Pa** | 45 dBA (48 max) | 28.1 g | 2 or 3 (no PWM wire) | $9.8-14.7 (distributors) | SECONDARY: [delta-fan.com BFB0524HH-F00](https://www.delta-fan.com/products/BFB0524HH-F00.html), [FansCo Delta sheet](https://www.fansco.com/uploads/2024/01/BFB0524HH-Delta.pdf), [Mouser](https://www.mouser.com/en/ProductDetail/Delta-Electronics/BFB0524HH-F00?qs=Tx9Tc1LIQ%252BEMmOU6Kpl%252BcQ%3D%3D), [Master Electronics](https://masterelectronics.com/en/delta-fans/bfb0524hh-11251815.html) |
+| Delta BFB0524H-R00 | blower 51×51×15 | 24 V / 0.09 A / 2.16 W | 5500 | — | 0.709 inH2O | — | — | 3 | — | SECONDARY ([delta-fan.com](https://www.delta-fan.com/products/dc-centrifugal-fans/BFB0524H-R00.html)); weaker than -HH |
+| GDSTIME GDB5015 24 V | blower 50×50×15 | 24 V / 0.1 A / 2.2 W | 6000 | 5.36 CFM (4.42-5.36) | 0.79-1.21 inH2O (conflicting) | 32-43 dBA | not found | 2 (XH2.54) | — | SECONDARY ([hotend.eu](https://www.hotend.eu/p/gdstime-radial-fan-blower-5015-24v-dual-ball), [3dprintingusa](https://3dprintingusa.com/products/gdstime-5015-24v-premium-blower-fan-with-ball-bearing)); data unreliable |
+| GDSTIME GDB4020 24 V | blower 40×40×20 | 24 V / 0.06-0.07 A / 1.5 W | 6500 | 3.67 CFM | 0.46 inH2O (115 Pa) | 32.5 dBA | — | 2 | — | SECONDARY; too weak, used only as the affinity reference |
+| Sunon MF50152VX-1L01C-Q99 | blower 5015 PWM | 24 V / 1.95 W | — | (as -1L02C?) | — | — | — | **4 (PWM)** | — | SECONDARY (eBay.de title only); the PWM twin of our blower, worth finding a datasheet for |
+| 4010 axial (hotend) | Sunon MF40102VX-1Q03C-A99 | 24 V / 80 mA / 1.92 W | 10 000 | 11 CFM | not listed | 36.8 dBA | — | — | — | SECONDARY ([LCSC](https://www.lcsc.com/product-detail/C456910.html)) |
+| 3010 blower (TH3D) | blower 30×30×10 | 24 V / 0.06 A | 9500 | 1.9 CFM | not listed | 29 dBA | — | — | — | SECONDARY ([TH3D](https://www.th3dstudio.com/product/th3d-3010-blower-fan-24v-dual-ball-bearing/)); too weak for part cooling |
+| 5020 blowers | NMB BM5020-05W-B40 (24 V, 5.6 CFM, 0.74 inH2O, partly obsolete); Mechatronics B5020L24B (6.0 CFM, 0.20 inH2O) | — | — | — | — | — | — | — | — | SECONDARY ([DigiKey](https://www.digikey.co.uk/en/products/detail/mechatronics-fan-group/B5020L24B-BSR/5209733)); no gain over a 5015, heavier |
+| 45×45 blowers | Delta BFB04512VHD (45×45×20, **12 V only**, 6.01 CFM, 14.15 mmH2O); BFB04512HHA (45×45×10, 12 V, 0.555 inH2O) | — | — | — | — | — | — | — | — | SECONDARY; no 24 V 45 mm Delta blower found |
+| "4028 turbo" | no manufacturer datasheet for a 24 V 40×28 *blower* was found in this session | | | | | | | | | not pursued; no data |
+| **CPAP: Wonsmart WS7040-24-V200** (BIQU/BTT "Universal Turbo Kit") | BLDC centrifugal, ~60 mm Ø, 15 mm outlet (Mellow) | 24 V / 0.8-2.7 A / up to 68 W; needs **WS2403DY01V04 driver** (9-29 V, 0-5 V or PWM speed input, 15 g) | ≤45 000 | 14.7 CFM (BTT) / 22-25.5 m³/h (Wonsmart) | **6.5-6.6 kPa** | ~65 dBA class (Wonsmart page title) | 78-80 g + driver 15 g + hose | driver | kit $66.70-75.99 | SECONDARY ([BTT wiki](https://bttwiki.com/Universal%20Turbo%20Kit.html), [Wonsmart](https://www.wonsmartmotor.com/blog/wonsmart-ws7040-24-v200-specifications-and-benefits/), [3DJake](https://www.3djake.com/biqu/universal-turbo-kit)) |
+
+**Outlet dimensions.** These were not obtainable without the drawings (network block). Measure them on the parts, or read them from the datasheet drawings, before the duct CAD is frozen.
+
+## 5. P-Q curve CSVs
+
+Files are in `hardware/toolhead/components/fans/pq-curves/`, generated by `../operating_point.py`. Each holds 11 points from shut-off to free delivery.
+
+| CSV | End points | Shape |
+|---|---|---|
+| `sunon_MF50152VX-1L02C-A99.csv` | 2.265e-3 m³/s, 189.3 Pa (SECONDARY) | ESTIMATED blower |
+| `sunon_MF40202VX-1000U-G99.csv` | 5.097e-3 m³/s, 72.2 Pa (SECONDARY) | ESTIMATED axial |
+| `creality_K1_stock_4020_blower.csv` | 3.020e-3 m³/s (SECONDARY), 390 Pa (**ESTIMATED**) | ESTIMATED blower |
+| `delta_BFB0524HH.csv` (top-3 purchase) | 2.166e-3 m³/s, 215.7 Pa (SECONDARY) | ESTIMATED blower |
+| `gdstime_GDB5015_24V.csv` (backup) | 2.529e-3 m³/s, 196.8 Pa (SECONDARY, low end of the conflicting range) | ESTIMATED blower |
+| `wonsmart_WS7040-24-V200.csv` (top-3 purchase) | 6.937e-3 m³/s, 6600 Pa (SECONDARY) | ESTIMATED cpap |
+
+The stock 4020 CSV doubles as the third purchase candidate, the Creality 4020.
+
+**Header lines.** Every file starts with `# nHeaderLine=N`; skip N lines in the OpenFOAM `csv` reader. The header lines carry the source URLs, conversions and per-end-point status. The header row is `Q_m3_per_s,dP_Pa`.
+
+**For CFD:**
+- **Kinematic pressure.** Incompressible solvers use kinematic pressure, so divide ΔP by ρ (1.20 kg/m³ at 20 °C; ~1.11 at 45 °C chamber).
+- **Density.** At constant rpm, a fan's ΔP scales with ρ, and so does a K·Q² duct. Flow at the operating point therefore barely depends on chamber temperature, while ΔP and fan power do.
+- **PWM duty.** Use the affinity laws: Q ∝ n and ΔP ∝ n².
+
+**Generic shapes used (p/pmax at q/qmax = 0, 0.1 … 1.0), all ESTIMATED:**
+- blower: 1.00, .97, .92, .85, .77, .68, .58, .47, .34, .18, 0
+- axial (with stall saddle): 1.00, .86, .76, .70, .66, .61, .53, .43, .30, .16, 0
+- cpap: 1.00, .99, .97, .93, .87, .79, .69, .57, .42, .23, 0
+
+The stock 3010 hotend fan has no data at all, so no CSV is provided. Characterise it by measurement if it is kept.
+
+## 6. Duct model and operating points (PRE-CFD ESTIMATE)
+
+**Model.** The duct is modelled as ΔP = K·Q², with K = Σζ · ρ / (2 A_out²). All loss coefficients ζ are referred to the outlet velocity, and ρ = 1.20 kg/m³. Fan static pressure must cover the outlet dynamic pressure, so the exit loss is ζ = 1.
+
+| Duct | A_out | Σζ (exit + contraction + bends + friction) | K [Pa/(m³/s)²] | ΔP at 1 CFM |
+|---|---|---|---|---|
+| low resistance | 120 mm² (2 × 60) | 1.0 + 0.1 + 0.2 + 0.1 = 1.4 | 5.83e7 | 13 Pa |
+| **medium** (lead's 2 × 40 mm² example) | 80 mm² | 1.0 + 0.3 + 0.5 + 0.4 = 2.2 | **2.06e8** | 46 Pa |
+| high (narrow focused slots) | 50 mm² (2 × 25) | 1.0 + 0.5 + 1.0 + 1.0 = 3.5 | 8.4e8 | 187 Pa |
+
+**Worked example (medium):** K = 2.2 × 1.2 / (2 × (80e-6)²) = 2.64 / 1.28e-8 = 2.06e8. At Q = 0.89 L/s: ΔP = 2.06e8 × (0.89e-3)² = 163 Pa, and v_out = 0.89e-3 / 80e-6 = 11.1 m/s.
+
+**How the ζ values were chosen:**
+- Bends: two 90° bends at ζ ≈ 0.6-1.0 each at duct velocity, with duct cross-section ≈ 1.5-2 × A_out, so (A_out/A_duct)² ≈ 0.25-0.45 when referred to the outlet.
+- Friction: laminar slot flow (Re ≈ 1000-1500 at D_h ≈ 2 mm, so f ≈ 64/Re ≈ 0.05), L/D_h ≈ 5-20.
+- Contraction: 0.1 (rounded) to 0.5 (sharp).
+
+**Hotend heat sink.** Modelled as K_hs giving 12.5 / 25 / 50 Pa at 2 CFM (ESTIMATED; typical fin pack plus shroud).
+
+**CPAP hose.** 15 mm ID × 1.5 m, Blasius friction (f = 0.316 Re^-0.25), plus fittings ζ = 1.5 at hose velocity.
+
+Results below are from `operating_point.py`. Each cell gives total Q / outlet velocity / fan ΔP.
+
+**A - single part fan, whole outlet area**
+
+| Fan | low K | medium K | high K |
+|---|---|---|---|
+| Creality stock 4020 (ΔPmax ESTIMATED) | 4.04 CFM / 15.9 m/s / 212 Pa | **2.56 CFM / 15.1 m/s** (2.12-2.82 over the 250-500 Pa band) | 1.38 CFM / 13.0 m/s |
+| Delta BFB0524HH | 2.97 / 11.7 | **1.89 / 11.1** | 1.02 / 9.6 |
+| GDSTIME GDB5015 | 3.04 / 12.0 | 1.86 / 11.0 (to 2.23 at the 1.21 inH2O claim) | 0.99 / 9.3 |
+| Sunon MF50152VX-1L02C (owned) | 2.90 / 11.4 | **1.80 / 10.6** (to 1.99 at 0.97 inH2O) | 0.96 / 9.1 |
+| Sunon MF40202VX axial (owned) | 2.07 / 8.1 | 1.16 / 6.8 (operating in the stall region) | 0.60 / 5.6 |
+
+**B - two identical fans, symmetric, each feeding half of the same total outlet area (totals)**
+
+| Fans | low K | medium K | high K |
+|---|---|---|---|
+| 2 × stock 4020 | 4.86 / 19.1 | 2.78 / 16.4 | 1.42 / 13.4 |
+| 2 × Delta BFB0524HH | 3.59 / 14.1 | 2.06 / 12.1 | 1.05 / 9.9 |
+| 2 × Sunon 5015 (owned) | 3.42 / 13.5 | 1.95 / 11.5 | 0.99 / 9.3 |
+
+**Key results:**
+
+1. **Two fans into the same outlet area add little flow** in medium and high-resistance ducts: +5 to +15 %, because each half-duct has 4× the K. The gain only appears if the outlet area grows with the number of fans.
+   - Give each fan its own 80 mm² outlet (160 mm² total) and the flow doubles at the same velocity: 2 × 1.80 = **3.6 CFM** for the owned Sunons, **3.8 CFM** for the Deltas.
+   - Dual symmetric fans therefore buy **flow plus symmetric coverage**, not jet velocity.
+2. **A 6000-6500 rpm 5015 is weaker in pressure than the (estimated) stock 12 000 rpm 4020.** In the same medium duct, one Sunon or Delta 5015 gives ~70-75 % of the stock flow. Two 5015s sharing the stock outlet area still do not beat the single stock fan. Two 5015s with doubled outlet area deliver ~1.4× the stock flow, at lower outlet velocity (~11 vs 15 m/s).
+3. **The 4020 axial is not a ducted part fan.** It delivers 1.2 CFM at 6.8 m/s while operating in its stall region, which is noisy and has an uncertain curve.
+
+**C - dedicated hotend fan.** The Sunon MF40202VX on a heat sink gives **2.10 / 2.88 / 3.95 CFM** (high / medium / low K_hs) at 49-55 Pa, at 27.5 dBA and 39 mA. That is a large flow margin for a heat sink, and the fan is quieter than a 12 000 rpm 3010. On a 30 mm heat sink it needs a 40 → 30 mm transition, which adds loss and roughly 29 g against a few grams for a 3010.
+
+**D - CPAP (WS7040, 100 %, through hose + medium duct).** It gives **8.6 CFM at 50.6 m/s outlet velocity** (fan at 4.7 kPa), and 5.3-10.7 CFM across the K range. Matching the stock fan's medium-duct flow needs only ~30 % speed.
+
+- **Strengths:** pressure reserve. The fan sits off the toolhead; only the hose and duct are on it.
+- **Costs:**
+  - It needs its own driver and up to 2.7 A at 24 V wired from the PSU, not from the toolhead board.
+  - Its speed signal is 0-5 V or PWM. No toolhead output is free, so it would need e.g. the main board's aux-fan output PB1 plus a level interface.
+  - The hose drags on a 20 000 mm/s² CoreXY toolhead.
+  - It is loud.
+  - The K1 Max already has the side aux blower for bulk cooling.
+
+**Electrical and noise budget per configuration:**
+
+| Config | Toolhead channels used | Current (24 V) | Fits stock board? | Noise / mass |
+|---|---|---|---|---|
+| A: stock-type 4020 on ch1 + hotend fan on ch2 | 2 of 2 | 0.3 + 0.04-0.1 A | **yes, as stock** | stock |
+| A': one 5015 2-wire on ch1 | 2 | 0.08 A | on/off only (PB6) unless modified | +28 g, 44-45 dBA |
+| B: 2 × 4-wire blowers paralleled on ch1 (one logical fan) | 2 | 0.6 A (2 × 4020) or ~0.16 A (2 × 5015) | 2 × 4020 = **2× the demonstrated load**, so verify the ch1 switch first. 2 × 5015 is fine on current but needs 4-wire (PWM) parts or an added MOSFET | +2 fans |
+| B independent (L/R differential control) | 3 needed | — | **no**: needs a toolhead expander/CAN board, and breaks the single-fan MPC model | — |
+| C: + MF40202VX hotend | ch2 | 0.039-0.045 A | **yes**, 3-wire with tach is a direct electrical match to PB5/PB4 | quieter, +~25 g |
+| D: CPAP | 0 on toolhead + 1 main-board output + interface | up to 2.7 A from the PSU | needs wiring and an interface | loud, 95 g off-toolhead + hose |
+
+## 7. Recommendation (pre-CFD)
+
+**Recommended: configuration B + C, staged.**
+
+1. **Hotend: Sunon MF40202VX-1000U-G99 (owned)** on channel 2 (`[heater_fan hotend] pin: nozzle_mcu:PB5`, `tachometer_pin: ^nozzle_mcu:PB4`).
+   - 24 V direct, tach compatible, ~3 CFM through a typical heat sink, 27.5 dBA.
+   - Use it if the new toolhead's heat sink can take a 40 mm face. Otherwise keep a 24 V 3010 (stock-type).
+2. **Part cooling: two symmetric blowers, driven as ONE logical fan on channel 1** (same PWM and enable). This keeps M106 / slicer control and Kalico's single-fan MPC model valid. Each blower gets **its own outlet of ≈ 40-60 mm²** (total ≥ 80-120 mm²) so the second fan doubles flow instead of fighting the first.
+   - **2a (preferred if channel 1 is confirmed for 0.6 A):** two **Creality 4020 4-pin blowers**.
+     - Native to channel 1 (PWM wire + enable).
+     - Highest estimated pressure (~390 Pa) gives the most margin for a compact, low-mass toolhead duct.
+     - Cheap and in stock as Creality spares.
+   - **2b (lower current, uses owned parts):** two **24 V 5015 blowers**.
+     - The owned Sunon MF50152VX-1L02C is one. Pair it with a second Sunon, or use 2 × Delta BFB0524HH if a datasheet-backed CFD BC is wanted.
+     - **Both are 2-wire**, so speed control needs either PWM on the enable pin PB6 (feasibility must be measured) or a small add-on low-side MOSFET.
+     - The **4-pin PWM Sunon MF50152VX-1L01C-Q99** avoids the issue, if a datasheet confirms it.
+   - Single-fan A remains the zero-modification fallback, i.e. stock electrics with a better duct.
+3. **CPAP (D): not recommended as the first step.** Revisit only if CFD shows that the B duct cannot reach the target nozzle-tip velocity, or if very high-speed PLA printing is a goal. Because the side aux blower stays, bulk cooling for bridges is already covered.
+4. After any fan or duct change, run `MPC_CALIBRATE ... FAN_BREAKPOINTS=7` and aim the ducts to minimise block impingement. The stock part fan currently adds ~8 W of heat loss at full speed.
+
+**Purchase shortlist:**
+
+| # | Part | Qty | Why | Approx. price |
+|---|---|---|---|---|
+| 1 | Creality official 4020 blower 24 V 4-pin (4004110132) | 2 (+1 to measure) | 4-wire PWM matches channel 1; highest pressure per gram of the small options; needed anyway to replace the ESTIMATED stock curve with a measured one | ~$10-14 each |
+| 2 | Delta BFB0524HH (-F00 for tach) | 2 | Best-documented 24 V 5015 (Delta spec sheet; its P-Q curve can be DIGITIZED once the PDF is reachable); 0.11 A | ~$10-15 each |
+| 3 | (conditional) BIQU/BTT Universal Turbo Kit, WS7040-24-V200 + driver | 1 | Only if CFD shows the 5015/4020 options are pressure-limited | $67-76 |
+
+**Not buying:** GDSTIME 5015/4020 (inconsistent data), 5020 or 45 mm blowers (no gain, or 12 V only), "4028 turbo" parts (no datasheet-backed 24 V blower found), and buck converters.
+
+## 8. Electrical notes for implementation (do not apply yet)
+
+```ini
+# sketch only - overrides would go in tuning.cfg
+[fan]                                   # ch1: one logical part fan (2 blowers in parallel)
+pin: !nozzle_mcu:PB8                    # PWM wire(s), open-collector, inverted
+enable_pin: nozzle_mcu:PB6              # fan supply
+cycle_time: 0.010
+tachometer_pin: ^nozzle_mcu:PB3         # only one fan's FG can be wired here
+tachometer_poll_interval: 0.0008        # 12000 rpm x 2 ppr = 400 Hz
+
+[heater_fan hotend]                     # ch2
+pin: nozzle_mcu:PB5
+tachometer_pin: ^nozzle_mcu:PB4
+heater: extruder
+heater_temp: 50
+```
+
+When paralleling 4-wire fans, tie the PWM wires together, connect only one FG wire, and keep the 24 V/GND per fan.
+
+## 9. Open items and measurements before CFD is trusted
+
+1. **Get the datasheet PDFs** (allow the domains, or download manually):
+   - Delta BFB0524HH spec (Delta spec sheets normally include a P-Q curve)
+   - the Sunon blower sheet MF50151VX-1B00U-A99 and any -1L0xC sheet
+   - Sunon MF40202VX
+   - Wonsmart WS7040 drawing and curve
+
+   Digitise the curves (WebPlotDigitizer or equivalent) and swap the generic shape tables in `operating_point.py` for the digitised points.
+2. **Measure the stock 4020's shut-off pressure.** Cap the outlet and read it with a ±1-2 kPa differential manometer. Also measure free-air flow (bag-fill timing or a vane anemometer in a known-area tube). This replaces the ESTIMATED 390 Pa.
+3. **Probe the nozzle-board channel 1** with a multimeter or scope:
+   - Does PB6 switch +24 V or GND?
+   - Is the PB8 stage open-collector?
+   - What are the MOSFET/transistor part numbers?
+
+   This decides 2a vs 2b and the real current ceiling.
+4. Measure the outlet dimensions of each blower for the duct CAD.
+5. In CFD, test whether the per-fan K assumed here (Σζ 1.4-3.5) is realistic for the actual duct, then re-run the operating points with the CFD-derived K.
