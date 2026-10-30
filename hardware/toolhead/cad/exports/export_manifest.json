@@ -1,0 +1,300 @@
+{
+ "cooling_source": "structure/cooling.py stub",
+ "is_stub": true,
+ "tolerances": {
+  "step_dv": 1e-06,
+  "step_bb": 0.001,
+  "mesh_dv": 0.005,
+  "mesh_bb": 0.05
+ },
+ "parts": {
+  "cooling_module_frame": {
+   "material": "ASA",
+   "category": "printed",
+   "volume_mm3": 5009.449,
+   "bbox_print": [
+    -21.125,
+    -12.65,
+    0.0,
+    21.125,
+    12.65,
+    55.9
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/cooling_module_frame.step",
+     "sha256_16": "5a8ec272701b764a",
+     "solids": 1,
+     "dV_rel": 1.978958625894654e-14,
+     "dBB_mm": 1.4210854715202004e-14,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/cooling_module_frame.3mf",
+     "sha256_16": "1da5a5174844ced5",
+     "objects": 1,
+     "dV_rel": 3.9174880341878654e-05,
+     "dBB_mm": 0.0011199951172002898,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/cooling_module_frame.stl",
+     "sha256_16": "881ce7b09a2ec20e",
+     "watertight": true,
+     "dV_rel": 3.9155166413386645e-05,
+     "dBB_mm": 0.0011199951172002898,
+     "pass": 1.0
+    }
+   }
+  },
+  "cover": {
+   "material": "ASA",
+   "category": "printed",
+   "volume_mm3": 6541.778,
+   "bbox_print": [
+    -24.0,
+    -24.5,
+    0.0,
+    24.0,
+    24.5,
+    29.6
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/cover.step",
+     "sha256_16": "533192a0b9daf84a",
+     "solids": 1,
+     "dV_rel": 1.2095493615975392e-14,
+     "dBB_mm": 1.0658141036401503e-14,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/cover.3mf",
+     "sha256_16": "7eaf4e33d9c35f01",
+     "objects": 1,
+     "dV_rel": 3.302192554463565e-05,
+     "dBB_mm": 3.8146970737784613e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/cover.stl",
+     "sha256_16": "d8e5843f0fb8c0ae",
+     "watertight": true,
+     "dV_rel": 3.3022474556449336e-05,
+     "dBB_mm": 3.8146970737784613e-07,
+     "pass": 1.0
+    }
+   }
+  },
+  "probe_mount": {
+   "material": "PA-CF",
+   "category": "printed",
+   "volume_mm3": 9955.259,
+   "bbox_print": [
+    -17.0,
+    -7.85,
+    -0.0,
+    17.0,
+    7.85,
+    33.3
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/probe_mount.step",
+     "sha256_16": "404860d83a97362a",
+     "solids": 1,
+     "dV_rel": 0.0,
+     "dBB_mm": 7.105427357601002e-15,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/probe_mount.3mf",
+     "sha256_16": "2f10ac03d7656b50",
+     "objects": 1,
+     "dV_rel": 8.522872665498465e-06,
+     "dBB_mm": 7.629394573882564e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/probe_mount.stl",
+     "sha256_16": "3904f00e63eafc96",
+     "watertight": true,
+     "dV_rel": 8.522521089670712e-06,
+     "dBB_mm": 7.629394573882564e-07,
+     "pass": 1.0
+    }
+   }
+  },
+  "fitcheck_coupon": {
+   "material": "ASA",
+   "category": "fitcheck",
+   "volume_mm3": 2702.113,
+   "bbox_print": [
+    -16.0,
+    -25.895,
+    0.0,
+    16.0,
+    25.895,
+    10.8
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/fitcheck_coupon.step",
+     "sha256_16": "3ff7a12e8de4f714",
+     "solids": 1,
+     "dV_rel": 1.0434182224259155e-14,
+     "dBB_mm": 7.105427357601002e-15,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/fitcheck_coupon.3mf",
+     "sha256_16": "d6c0a9b3a1a0d9ba",
+     "objects": 1,
+     "dV_rel": 4.7966791254876244e-05,
+     "dBB_mm": 4.5776367230132564e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/fitcheck_coupon.stl",
+     "sha256_16": "f06518dfac326a09",
+     "watertight": true,
+     "dV_rel": 4.795454528512131e-05,
+     "dBB_mm": 4.5776367230132564e-07,
+     "pass": 1.0
+    }
+   }
+  }
+ },
+ "assembly": {
+  "path": "exports/step/k1max_toolhead_assembly.step",
+  "sha256_16": "c34df573f904ec48",
+  "leaves": 29,
+  "groups": [
+   "keepout_volumes",
+   "printed_parts",
+   "reference_stock_parts",
+   "replaced_stock_parts",
+   "stub_cooling_module"
+  ],
+  "parts": {
+   "cooling_module_frame": {
+    "group": "printed_parts",
+    "volume_mm3": 5009.449
+   },
+   "cover": {
+    "group": "printed_parts",
+    "volume_mm3": 6541.778
+   },
+   "probe_mount": {
+    "group": "printed_parts",
+    "volume_mm3": 9955.259
+   },
+   "stub_duct_placeholder": {
+    "group": "stub_cooling_module",
+    "volume_mm3": 5675.354
+   },
+   "ref_blower_1_BLOWER_4020_STOCK": {
+    "group": "stub_cooling_module",
+    "volume_mm3": 32000.0
+   },
+   "ref_nozzle": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 814.103
+   },
+   "ref_heater": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 3267.16
+   },
+   "ref_sock": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 10087.61
+   },
+   "ref_heatsink": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 13539.279
+   },
+   "ref_fan3010": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 8982.305
+   },
+   "ref_pcb": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 1778.117
+   },
+   "ref_pcb_plate2": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 2373.261
+   },
+   "ref_extruder_envelope": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 80849.232
+   },
+   "ref_extruder_top_cover": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 13982.844
+   },
+   "ref_belt_retainer_1": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 1567.8
+   },
+   "ref_belt_retainer_2": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 1567.8
+   },
+   "ref_x_rod_1": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 10995.574
+   },
+   "ref_x_rod_2": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 10995.574
+   },
+   "ref_microprobe_body": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 4790.315
+   },
+   "ref_probe_pin_extended": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 9.289
+   },
+   "keepout_pcb_component_zone": {
+    "group": "keepout_volumes",
+    "volume_mm3": 19028.268
+   },
+   "keepout_lidar_reserved_optical": {
+    "group": "keepout_volumes",
+    "volume_mm3": 46552.0
+   },
+   "keepout_lidar_reserved_body": {
+    "group": "keepout_volumes",
+    "volume_mm3": 73600.0
+   },
+   "keepout_lidar_laser_sheet": {
+    "group": "keepout_volumes",
+    "volume_mm3": 2168.689
+   },
+   "envelope_xcarriage": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 185101.306
+   },
+   "ref_probe_adapter_785004_REPLACED": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 17399.525
+   },
+   "replaced_stock_cover": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 246782.88
+   },
+   "replaced_stock_duct": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 34974.72
+   },
+   "replaced_stock_4020_pos": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 33062.4
+   }
+  },
+  "pass": true
+ },
+ "failures": []
+}
