@@ -56,8 +56,13 @@
 #       20 PA values), run directly: no file in gcodes, nothing in the job
 #       list. X/Y = front-left corner of the 27 x 139mm frame. Not scanned
 #       or analysed yet: read it by eye (sharpest corners)
-#   LIDAR_TWIST_CALIBRATE [Y=145] [X0=5] [X1=270] [POINTS=7] [PASSES=2]
-#       [SAMPLES=3] [MAX_SPREAD=0.04] [APPLY=1]
+#   LIDAR_TWIST_CALIBRATE [AXIS=X] [Y=145] [X0=5] [X1=270] [POINTS=7]
+#       [PASSES=2] [SAMPLES=3] [MAX_SPREAD=0.04] [APPLY=1]
+#       AXIS=Y [X=100,200] [POINTS=9] [Y0=6] [Y1=264]: the same along Y,
+#       saved as lidar_ytwist, a straight line (LiDAR meshes were tilted
+#       ~8-15 um/100mm along Y against the nozzle and the probe; each
+#       spot's texture scatters +-20 um, so only the slope is kept, with
+#       its uncertainty); LIDAR_BED_MESH takes off both
 #       the gantry tips the toolhead forward/back by an amount that changes
 #       along X, which the LiDAR (21mm in front of the nozzle) reads as
 #       height (~0.2mm across the bed, 2026-10-29). At spots along X the
@@ -455,9 +460,42 @@ def strip_column(rows, half_x=3.0):
 def twist_at(twist, x):
     """LiDAR twist correction (mm) at laser X: linear between the
     LIDAR_TWIST_CALIBRATE spots, the end values outside them."""
-    if not twist:
+    if not twist or "xs" not in twist:
         return 0.0
-    xs, comp = twist["xs"], twist["comp"]
+    return _table_at(twist["xs"], twist["comp"], x)
+
+
+def line_slope(spots, comp, k):
+    """Slope of comp along coordinate k of the spots [(x, y)], one slope
+    for all the lines (spots sharing the other coordinate) with an offset of
+    their own: along Y the lines at different X differ by the X twist.
+    Returns (slope, its standard error, scatter)."""
+    lines = {}
+    for sp, c in zip(spots, comp):
+        lines.setdefault(sp[1 - k], []).append((sp[k], c))
+    pts = []
+    for v in lines.values():
+        ma = sum(a for a, c in v) / len(v)
+        mc = sum(c for a, c in v) / len(v)
+        pts += [(a - ma, c - mc) for a, c in v]
+    sxx = sum(a * a for a, c in pts)
+    if sxx <= 0:
+        return 0.0, 0.0, 0.0
+    slope = sum(a * c for a, c in pts) / sxx
+    dof = max(1, len(pts) - 1 - len(lines))
+    sd = math.sqrt(sum((c - slope * a) ** 2 for a, c in pts) / dof)
+    return slope, sd / math.sqrt(sxx), sd
+
+
+def ytwist_at(twist, y):
+    """The same along laser Y (LIDAR_TWIST_CALIBRATE AXIS=Y, carried in
+    the twist dict as ys/ycomp)."""
+    if not twist or "ys" not in twist:
+        return 0.0
+    return _table_at(twist["ys"], twist["ycomp"], y)
+
+
+def _table_at(xs, comp, x):
     if x <= xs[0]:
         return comp[0]
     for i in range(1, len(xs)):
@@ -539,7 +577,7 @@ def mesh_points(path, rows, xs, ys, half_x=3.0, twist=None, half_y=1.5):
                 spread.append(max(near) - min(near))
             col.append(column_value(fr, y, half_y))
         tw = twist_at(twist, x)
-        cols.append([v - tw for v in col])
+        cols.append([v - tw - ytwist_at(twist, y) for v, y in zip(col, ys)])
     res.update({"filled": 0, "frames": len(path),
                 "spread": round(median(spread), 4) if spread else None,
                 "twist": [round(twist_at(twist, x), 4) for x in xs]})
@@ -804,10 +842,11 @@ def mesh_fine(strips, xs, ys, x_dir=-1.0, half_x=3.0, half_y=2.0,
         edges.append((min(cells), max(cells)))
         for y, r in zip(sy, rr):
             row = acc[yi[round(y, 3)]]
+            ytw = ytwist_at(twist, y)
             for g, c in zip(use, cells):
                 if r[g] == r[g]:
                     a = row[c]
-                    a[0] += r[g] - tilt[g] - tw
+                    a[0] += r[g] - tilt[g] - tw - ytw
                     a[1] += 1
     hmap = [[a[0] / a[1] if a[1] else NAN for a in row] for row in acc]
     # seams: where two strips meet, the step between their last cells
@@ -2526,10 +2565,18 @@ class Lidar:
                               280.0 if fine else 265.0, 260.0)
         xs, ys = self._grid(x0, x1, nx), self._grid(y0, y1, ny)
         twist = self._saved().get("lidar_twist") if o["twist"] else None
+        yt = self._saved().get("lidar_ytwist") if o["twist"] else None
+        if yt:
+            twist = dict(twist or {}, ys=yt["ys"], ycomp=yt["comp"])
         if twist is None and o["twist"]:
             gcmd.respond_info(
-                "LiDAR mesh: no LiDAR twist table yet (AXIS_TWIST_TOUCH_"
-                "CALIBRATE), the mesh keeps the X-beam twist (~0.2mm across X)"
+                "LiDAR mesh: no LiDAR twist table yet (LIDAR_MESH_"
+                "CALIBRATION), the mesh keeps the X-beam twist (~0.2mm across X)"
+                + ("; the touches correct it" if level == 5 else ""))
+        elif yt is None and o["twist"]:
+            gcmd.respond_info(
+                "LiDAR mesh: no Y table yet (LIDAR_MESH_CALIBRATION), the mesh"
+                " can be tilted along Y by ~10-20 um/100mm"
                 + ("; the touches correct it" if level == 5 else ""))
         bm = self.printer.lookup_object("bed_mesh")
         start = self.reactor.monotonic()
@@ -3132,7 +3179,8 @@ class Lidar:
         bm.set_mesh(z_mesh)
         bm.save_profile(profile)
 
-    desc_LIDAR_TWIST_CALIBRATE = ("Measure the LiDAR's X-beam twist against"
+    desc_LIDAR_TWIST_CALIBRATE = ("Measure the LiDAR's X-beam twist (AXIS=X)"
+                                  " or its error along Y (AXIS=Y) against"
                                   " nozzle touches (load cells)")
 
     def cmd_LIDAR_TWIST_CALIBRATE(self, gcmd):
@@ -3140,7 +3188,10 @@ class Lidar:
         cells, then the laser looks at the same spot. The gantry tips the
         toolhead forward/back by an amount that changes along X; the LiDAR
         (21mm in front of the nozzle) reads that as height. LiDAR - nozzle
-        relative to its mean is the correction LIDAR_BED_MESH takes off."""
+        relative to its mean is the correction LIDAR_BED_MESH takes off.
+        AXIS=Y: the same at spots along Y (one X), saved as lidar_ytwist:
+        LiDAR meshes were tilted along Y by 10-20 um/100mm against the
+        nozzle and the probe (2026-10-29, 2026-11-01)."""
         if not self.service:
             raise gcmd.error("LiDAR: LIDAR_TWIST_CALIBRATE needs the lidar"
                              " service")
@@ -3153,62 +3204,106 @@ class Lidar:
             raise gcmd.error("LiDAR: no [load_cell_probe]")
         lc = lcp.get_printer_probe()
         z = gcmd.get_float("Z", self.scan_z)
-        y = gcmd.get_float("Y", 145.0)
-        x0 = gcmd.get_float("X0", self.MESH_X[0])
-        x1 = gcmd.get_float("X1", min(self.MESH_X[1], self._reach_x(
-            y - 1.0, y + 1.0, z, 0.3)[1]))
+        axis = gcmd.get("AXIS", "X").upper()
+        if axis not in ("X", "Y"):
+            raise gcmd.error("LiDAR: AXIS is X or Y")
         n = gcmd.get_int("POINTS", 7, minval=3, maxval=15)
+        if axis == "X":
+            y = gcmd.get_float("Y", 145.0)
+            x0 = gcmd.get_float("X0", self.MESH_X[0])
+            x1 = gcmd.get_float("X1", min(self.MESH_X[1], self._reach_x(
+                y - 1.0, y + 1.0, z, 0.3)[1]))
+            spots = [(x, y) for x in self._grid(x0, x1, n)]
+        else:
+            # the Y error is small (~10 um/100mm) next to the texture under
+            # each spot (+-20 um between a nozzle touch and the laser's
+            # view of the same spot, the same in every pass): only many
+            # spots help, so two lines and a straight-line fit
+            try:
+                lx = [float(v) for v in gcmd.get("X", "100,200").split(",")]
+            except ValueError:
+                raise gcmd.error("LiDAR: X is one value or a list (X=100,200)")
+            n = gcmd.get_int("POINTS", 9, minval=3, maxval=15)
+            y0 = gcmd.get_float("Y0", self.MESH_Y[0] + 1.0)
+            y1 = gcmd.get_float("Y1", self.MESH_Y[1] - 1.0)
+            spots = []
+            for i, x in enumerate(lx):
+                ys = self._grid(y0, y1, n)
+                spots += [(x, y) for y in (ys if i % 2 == 0 else ys[::-1])]
+        # the coordinate along the measured axis
+        k = 0 if axis == "X" else 1
         passes = gcmd.get_int("PASSES", 2, minval=1, maxval=4)
         samples = gcmd.get_int("SAMPLES", 3, minval=1)
         max_spread = gcmd.get_float("MAX_SPREAD", 0.04, above=0.0)
         apply = gcmd.get_int("APPLY", 1)
-        xs = self._grid(x0, x1, n)
         # the nozzle touches at (x, y), the laser looks at y-1..y+1
-        self._check_reach(gcmd, [(x, y - 1.0, x, y + 1.0) for x in xs], z)
-        self._check_reach(gcmd, [(x, y, x, y) for x in xs])
+        self._check_reach(gcmd, [(x, y - 1.0, x, y + 1.0) for x, y in spots],
+                          z)
+        self._check_reach(gcmd, [(x, y, x, y) for x, y in spots])
         bm = self.printer.lookup_object("bed_mesh")
         old_mesh = bm.get_mesh()
         gcode_move = self.printer.lookup_object("gcode_move")
         z_off = gcode_move.get_status(
             self.reactor.monotonic())["homing_origin"][2]
         run = self.gcode.run_script_from_command
-        gcmd.respond_info("LiDAR twist: %d spots X%.0f-X%.0f at Y%.0f, %d"
-                          " passes" % (n, x0, x1, y, passes))
-        diffs = dict((x, []) for x in xs)
+        gcmd.respond_info("LiDAR twist (%s): %d spots X%.0f-%.0f Y%.0f-%.0f,"
+                          " %d passes" % (
+                              axis, len(spots), min(sp[0] for sp in spots),
+                              max(sp[0] for sp in spots),
+                              min(sp[1] for sp in spots),
+                              max(sp[1] for sp in spots), passes))
+        diffs = dict((sp, []) for sp in spots)
         dists = []
         bm.set_mesh(None)
         try:
             run("G90\nG0 Z5 F900")
             # the first nozzle tap after a wipe reads off: throw it away
             run("G0 X%.2f Y%.2f F9000\nG0 Z2 F900\nLOAD_CELL_PROBE SAMPLES=1"
-                "\nG0 Z5 F900" % (xs[0], y))
+                "\nG0 Z5 F900" % spots[0])
             for p in range(passes):
-                for x in (xs if p % 2 == 0 else xs[::-1]):
+                for x, y in (spots if p % 2 == 0 else spots[::-1]):
                     run("G0 Z5 F900\nG0 X%.2f Y%.2f F9000\nG0 Z2 F900\n"
                         "LOAD_CELL_PROBE SAMPLES=%d SAMPLES_RESULT=median\n"
                         "G0 Z5 F900" % (x, y, samples))
                     nz = lc.last_z_result
                     h = self.twist_reading(x, y, z)
-                    diffs[x].append(h - nz)
+                    diffs[(x, y)].append(h - nz)
                     # LiDAR distance with the nozzle tip on the surface
                     dists.append(-h - (z + z_off - nz))
-                    gcmd.respond_info("  X%.1f: nozzle z %.4f, LiDAR %.4f" % (
-                        x, nz, h))
+                    gcmd.respond_info("  X%.1f Y%.1f: nozzle z %.4f, LiDAR"
+                                      " %.4f" % (x, y, nz, h))
             run("G0 Z5 F900")
         finally:
             bm.set_mesh(old_mesh)
         spread = max(max(v) - min(v) for v in diffs.values())
-        means = [sum(diffs[x]) / len(diffs[x]) for x in xs]
+        means = [sum(diffs[sp]) / len(diffs[sp]) for sp in spots]
         avg = sum(means) / len(means)
         comp = [round(m - avg, 5) for m in means]
+        along = [sp[k] for sp in spots]
+        slope, err, sd = line_slope(spots, comp, k)
+        c0 = sum(comp) / len(comp) - slope * sum(along) / len(along)
         gcmd.respond_info(
-            "LiDAR twist (LiDAR - nozzle, um): %s; pass spread %.3fmm" % (
-                ", ".join("X%.0f %+.0f" % (x, c * 1000.0)
-                          for x, c in zip(xs, comp)), spread))
+            "LiDAR twist (LiDAR - nozzle, um): %s; slope %+.1f +-%.1f"
+            " um/100mm, scatter %.0f um, pass spread %.3fmm" % (
+                ", ".join("%s%.0f %+.0f" % (axis, a, c * 1000.0)
+                          for a, c in zip(along, comp)),
+                slope * 1e5, err * 1e5, sd * 1000.0, spread))
         if passes > 1 and spread > max_spread:
             raise gcmd.error("LiDAR twist: passes disagree by %.3fmm (more"
                              " than MAX_SPREAD), not saved" % (spread,))
-        self.twist_save(gcmd, xs, comp, y, z, spread, dists, apply)
+        if axis == "X":
+            self.twist_save(gcmd, along, comp, spots[0][1], z, spread, dists,
+                            apply)
+        else:
+            # the straight line through all spots, at the ends of the range
+            # (ytwist_at holds the end values beyond them)
+            ye = [min(along), max(along)]
+            line = [round(slope * a + c0, 5) for a in ye]
+            self.twist_save(gcmd, ye, line, sorted(set(sp[0] for sp in spots)),
+                            z, spread, dists, apply, axis,
+                            extra={"slope": round(slope, 7),
+                                   "slope_err": round(err, 7),
+                                   "scatter": round(sd, 5)})
 
     # also used by AXIS_TWIST_TOUCH_CALIBRATE (twist_touch.py), which measures
     # the probe and the LiDAR against the same nozzle touches
@@ -3238,15 +3333,24 @@ class Lidar:
                 "LiDAR twist: nothing seen at X%.1f Y%.1f" % (x, y))
         return h
 
-    def twist_save(self, gcmd, xs, comp, y, z, spread, dists, apply=1):
+    def twist_save(self, gcmd, xs, comp, y, z, spread, dists, apply=1,
+                   axis="X", extra=None):
         """Save a twist table (comp = LiDAR - nozzle relative to the mean,
-        per laser X) and log the LiDAR distance with the nozzle on the bed
-        (dists, mm)."""
+        per laser X; axis Y: xs are laser Y, y the X they were taken at)
+        and log the LiDAR distance with the nozzle on the bed (dists,
+        mm)."""
         run = self.gcode.run_script_from_command
         ext, bed = self._temps()
         stamp = time.strftime("%Y-%m-%dT%H:%M")
-        twist = {"xs": xs, "comp": comp, "y": y, "z": z,
-                 "spread": round(spread, 4), "time": stamp}
+        if axis == "X":
+            var = "lidar_twist"
+            twist = {"xs": xs, "comp": comp, "y": y, "z": z,
+                     "spread": round(spread, 4), "time": stamp}
+        else:
+            var = "lidar_ytwist"
+            twist = {"ys": xs, "comp": comp, "x": y, "z": z,
+                     "spread": round(spread, 4), "time": stamp}
+            twist.update(extra or {})
         # kept as data for the Z offset question (nothing uses it yet)
         dist = round(sum(dists) / len(dists), 4)
         log = list(self._saved().get("lidar_zero_log") or [])[-19:]
@@ -3255,12 +3359,12 @@ class Lidar:
                           " (extruder %s, bed %s)" % (dist, ext, bed))
         if not apply:
             return
-        for var, val in (("lidar_twist", twist), ("lidar_zero_log", log)):
+        for v, val in ((var, twist), ("lidar_zero_log", log)):
             # no spaces: one G-code parameter
             run('SAVE_VARIABLE VARIABLE=%s VALUE="%s"' % (
-                var, repr(val).replace(" ", "")))
-        gcmd.respond_info("LiDAR twist saved (lidar_twist), used by"
-                          " LIDAR_BED_MESH")
+                v, repr(val).replace(" ", "")))
+        gcmd.respond_info("LiDAR twist saved (%s), used by LIDAR_BED_MESH"
+                          % (var,))
 
     # ---------------------------------------------------- first-layer check
     desc_FIRST_LAYER_SCAN = ("First-layer check: PHASE=before (bare plate"
@@ -3363,6 +3467,40 @@ class Lidar:
                 plan["y0"], plan["y1"], plan["step"],
                 self.reactor.monotonic() - t0))
 
+    FL_PRIME_RETRACT = 0.5   # mm, after the prime line (like the line purge)
+
+    def _fl_prime(self, fl, e):
+        """Prime line after the first-layer scan: e mm of filament along a
+        25 mm line 8 mm in front of the objects (between them and the line
+        purge, 15 mm in front), 0.5 mm high like the purge, then a short
+        retract and a sideways flick for the string. Called lifted, hot.
+        False (nothing done) if there is no room in front."""
+        pts = [p for o in fl.get("objects") or [] for p in o["polygon"]]
+        if not pts:
+            return False
+        y = min(p[1] for p in pts) - 8.0
+        cx = (min(p[0] for p in pts) + max(p[0] for p in pts)) / 2.0
+        a, b = cx - 12.5, cx + 12.5
+        if y < 5.0:
+            return False
+
+        class _G:
+            error = self.printer.command_error
+        try:
+            self._check_reach(_G(), [(a, y, b + 5.0, y)])
+        except self.printer.command_error:
+            return False
+        gm = self.printer.lookup_object("gcode_move")
+        lift = gm.get_status(self.reactor.monotonic())["gcode_position"][2]
+        run = self.gcode.run_script_from_command
+        run("G90\nG0 X%.3f Y%.3f F%.0f\nG0 Z0.5 F600" % (
+            a, y, self.speed * 60.0))
+        # 10 mm/s: ~0.4 mm2 of line at 0.5 mm, ~4 mm3/s
+        run("M83\nG1 X%.3f E%.3f F600" % (b, e))
+        run("G1 E-%.2f F2100\nG0 X%.3f F6000\nG90\nG0 Z%.3f F600" % (
+            self.FL_PRIME_RETRACT, b + 5.0, max(lift, 1.0)))
+        return True
+
     def _fl_after(self, gcmd):
         fl = self.fl
         if fl is None or not fl.get("armed"):
@@ -3379,6 +3517,9 @@ class Lidar:
         fl["armed"] = False
         retract = gcmd.get_float("RETRACT", 1.0, minval=0.0, maxval=3.0)
         cool = gcmd.get_float("COOL", 30.0, minval=0.0, maxval=80.0)
+        # mm of filament on top of the retract to refill the nozzle after
+        # the pause (it oozes while it waits), as a line off the part
+        prime = gcmd.get_float("PRIME", 3.0, minval=0.0, maxval=15.0)
         run = self.gcode.run_script_from_command
         heater = self.printer.lookup_object("toolhead").get_extruder() \
             .get_heater()
@@ -3408,13 +3549,18 @@ class Lidar:
                 # again, then down and unretracted
                 if cool and target > 0:
                     run("M109 S%.0f" % (target,))
+                back = retract
+                if prime and self._fl_prime(fl, retract + prime):
+                    # the prime line refilled it and left this much
+                    # retracted for the travel back
+                    back = self.FL_PRIME_RETRACT
                 run("G90\nG0 X%.3f Y%.3f F%.0f" % (pos[0], pos[1],
                                                      self.speed * 60.0))
                 run("RESTORE_GCODE_STATE NAME=_fl_after MOVE=1"
                     " MOVE_SPEED=10")
-                if retract:
+                if back:
                     run("SAVE_GCODE_STATE NAME=_fl_u\nM83\nG1 E%.2f F1800\n"
-                        "RESTORE_GCODE_STATE NAME=_fl_u" % (retract,))
+                        "RESTORE_GCODE_STATE NAME=_fl_u" % (back,))
             else:
                 run("RESTORE_GCODE_STATE NAME=_fl_after")
             self.fl = None

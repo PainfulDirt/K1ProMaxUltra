@@ -62,13 +62,13 @@ orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59
 | `Forced_Calibration` | on | due calibrations are not run before prints |
 | `First_Layer_Check` | off | on: the LiDAR scans the bare plate under the objects before the purge and the first layer when layer 2 starts, and reports the real first-layer thickness (~3 min for a 100 mm part) |
 | `First_Layer_Learn` | off | on: the Z offset learned per filament from those checks is applied after the nozzle touch |
-| `LiDAR_Mesh` | off | on: START_PRINT meshes with the LiDAR instead of the Microprobe (see *LiDAR bed mesh*) |
+| `LiDAR_Mesh` | off (on here since 2026-11-01) | on: START_PRINT meshes with the LiDAR instead of the Microprobe, ~12 min faster, same first layer (see *LiDAR bed mesh*); the Microprobe takes over when the LiDAR can't |
 
 Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches temperature) is retired: Adaptive Glass Soak replaces it. `k1max-boot.sh` renames it to `_Bed_Warp_Stabilisation`, which hides it in Fluidd, and keeps it off. It does this at every boot and after every update, because Pellcorp updates restore it.
 
 ### LiDAR bed mesh
 
-`LIDAR_MESH LEVEL=1-5` (`ADAPTIVE=1` for the printed objects only) meshes with the LiDAR, with its own X-beam twist table (`LIDAR_TWIST_CALIBRATION`). Measured 2026-11-01 on a cold plate (rms differences, raw / with a plane removed):
+`LIDAR_MESH LEVEL=1-5` (`ADAPTIVE=1` for the printed objects only) meshes with the LiDAR, with its own correction tables (`LIDAR_MESH_CALIBRATION`: X-beam twist and the error along Y). Measured 2026-11-01 on a cold plate (rms differences, raw / with a plane removed):
 
 | Level | | Points | Time (full bed) | vs level 4 | vs level 5 |
 |---|---|---|---|---|---|
@@ -79,9 +79,60 @@ Pellcorp's older **Bed_Warp_Stabilisation** (a fixed timer after the bed reaches
 | 5 | level 4 + 5×5 nozzle touches (load cells), fitted to them | 30×30 | 13.5 min | | |
 | Microprobe | 10×11 (Klipper's mesh, axis twist compensation) | | ~13 min | | 16 / 16 µm |
 
-The nozzle touches of level 5 show a **Y tilt in the LiDAR-only meshes**: about +37 µm per 100 mm (~0.1 mm front to back) against both the nozzle and the Microprobe, which agree with each other (no plane, 16 µm rms). Levels 1-4 therefore aren't better than the Microprobe yet; a LiDAR Y correction (like the X twist table, from nozzle touches along Y) is the next step.
+**Along Y the LiDAR reads a slope the nozzle doesn't**: +22 ± 4 µm per 100 mm (~57 µm front to back), measured by `LIDAR_MESH_CALIBRATION` with nozzle touches and LiDAR readings on the same spots, in alternating passes so the printer's drift cancels. Only the slope is kept: each spot's texture scatters ±13-20 µm between the nozzle's touch and the laser's view, more than the effect itself between neighbouring spots. Comparing meshes taken one after the other can't measure it: in the first hour after switching on, the printer itself moved by up to ~35 µm/100 mm between two meshes 20 minutes apart (2026-11-01). 
 
-With the `LiDAR_Mesh` switch on, START_PRINT runs `LIDAR_BED_MESH LEVEL=<print_level> ADAPTIVE=1 FALLBACK=1` (`variable_print_level` in `LIDAR_MESH`, default 3; the switch is off by default until the Y tilt above is corrected). The area always includes the zero reference spot: the LiDAR has no absolute height, so the mesh is made 0 where Z is homed and touched. When the LiDAR can't do it (objects beyond what it sees, X 5–269 × Y 5–265; the service down; a failed scan) the Microprobe meshes instead and the print goes on. `MESH_COMPARE A= B=` compares two profiles, `MESH_BENCHMARK_RUN` all methods on a hot plate.
+**Tested with prints (2026-11-01):** 9 pads of 30×30 mm across the bed (X/Y 60, 150, 240), PLA, the first layer of each measured by `First_Layer_Check`, same file and settings, only the mesh changed:
+
+| Mesh | Mesh time | Pads, rms around their mean | X tilt | Y tilt |
+|---|---|---|---|---|
+| LiDAR level 3, X twist table from 10-29 | 80 s | 21.7 µm | -3.5 | -0.9 µm/100 mm |
+| Microprobe, twist table from 10-29 | ~13 min | 14.7 µm | -5.2 | +0.2 |
+| LiDAR level 3, both tables measured that day | 80 s | **16.8 µm** | -3.3 | -3.5 |
+| Microprobe, twist table measured that day | ~13 min | 17.7 µm | -10.6 | +0.4 |
+
+With fresh tables (`AXIS_TWIST_TOUCH_CALIBRATE` for both X tables, `LIDAR_MESH_CALIBRATION` for the Y line) the LiDAR mesh is as good as the Microprobe's and a print starts ~12 minutes sooner, so it is the mesh this printer uses now. The old X table showed up as ~18 µm between the middle and the sides: rerun the calibrations after changes to the plate, the gantry or the LiDAR. All four prints had the middle column ~30 µm thinner, with either mesh: not the mesh (still open).
+
+With the `LiDAR_Mesh` switch on, START_PRINT runs `LIDAR_BED_MESH LEVEL=<print_level> ADAPTIVE=1 FALLBACK=1` (`variable_print_level` in `LIDAR_MESH`, default 3). The switch is off in a fresh install: run `LIDAR_MESH_CALIBRATION` first. The area always includes the zero reference spot: the LiDAR has no absolute height, so the mesh is made 0 where Z is homed and touched. When the LiDAR can't do it (objects beyond what it sees, X 5–269 × Y 5–265; the service down; a failed scan) the Microprobe meshes instead and the print goes on. `MESH_COMPARE A= B=` compares two profiles, `MESH_BENCHMARK_RUN` all methods on a hot plate.
+
+### LiDAR vs Microprobe
+
+Everything measured on this printer (glass bed + textured PEI, cold plate unless noted), 2026-10-29 to 2026-11-01.
+
+**Speed and reach**
+
+| | LiDAR | Microprobe |
+|---|---|---|
+| Full-bed mesh | 22 s (7×7) · 40 s (12×12) · 1.8 min (20×20) · 4.9 min (30×30) | ~7 min (9×9) · ~13 min (12×12) |
+| Mesh in START_PRINT (9 pads over X/Y 45-255) | 80 s (level 3, 17×17) | ~13 min |
+| Whole test print, start to end | 28 min | 40 min |
+| Area it can mesh | X 5-269 × Y 5-265 (to X 283 with levels 4-5) | X 5-295 × Y 20-295 |
+| Blind spot | the right ~30 mm and the back ~35 mm (the laser looks 36 mm left of and 21 mm in front of the nozzle) | the front ~20 mm (it sits 20.3 mm behind the nozzle) |
+| How it measures | looks down, no contact, a 29 mm wide line, ~1500 points per frame | touches each point with a pin, 3 samples |
+
+**Accuracy**
+
+| | LiDAR | Microprobe |
+|---|---|---|
+| Same mesh twice (level 3, 9 min apart) | 9.8 µm rms | not measured |
+| LiDAR mesh vs Microprobe mesh (one after the other) | 16-18 µm rms apart | (the same comparison) |
+| X-beam twist it sees (the toolhead tips along X) | +0.06 to -0.10 mm across X (in front of the nozzle) | +0.14 to -0.13 mm across X (behind it: opposite sign) |
+| Error along Y, against the nozzle | +22 ± 4 µm/100 mm, taken off by its Y line | none seen (prints flat in Y) |
+| Absolute height | no: relative, made 0 where the nozzle touches (True Zero) | yes, relative to the Z home |
+| Calibration it needs | position (`LIDAR_OFFSET_CALIBRATION`), X twist + Y line (`LIDAR_MESH_CALIBRATION`, ~16 min) | Z offset, X twist (`AXIS_TWIST_TOUCH_CALIBRATE`) |
+| Odd results seen | none since the skew fix (2026-11-01); needs the helper computer running (else the probe meshes) | one early trigger in a twist run ("triggered prior to movement", 2026-11-01) |
+
+**First layer, printed** (9 pads 30×30 mm at X/Y 60, 150, 240, PLA, bed 70 °C, thickness by `First_Layer_Check`, sliced 0.200 mm):
+
+| | LiDAR (fresh tables) | Microprobe (fresh table) |
+|---|---|---|
+| Pads, back row (X 60 / 150 / 240) | 204 / 185 / 199 µm | 222 / 191 / 208 µm |
+| Pads, middle row | 196 / 161 / 179 µm | 214 / 168 / 180 µm |
+| Pads, front row | 212 / 179 / 216 µm | 219 / 190 / 210 µm |
+| Spread, rms around the mean | **16.8 µm** | 17.7 µm |
+| Tilt X / Y | -3.3 / -3.5 µm/100 mm | -10.6 / +0.4 µm/100 mm |
+| With the twist tables from 3 days earlier | 21.7 µm (an 18 µm X shape) | 14.7 µm |
+
+The mean thickness of a print (192 vs 200 µm here) follows the True Zero touch, not the mesh. The thin middle column (X 150) shows up with both and is not the mesh.
 
 **Buttons** are in Fluidd's *Macros* panel and on the screen. They always run, whatever the switches say.
 
@@ -96,6 +147,7 @@ With the `LiDAR_Mesh` switch on, START_PRINT runs `LIDAR_BED_MESH LEVEL=<print_l
 | `BACKUP_TO_GITHUB` | saves the config overrides and pushes them here |
 | `PRINTER_CHECK_UPDATES`, `PRINTER_UPDATE_PELLCORP`, `PRINTER_UPDATE_KALICO` | see *Updates* |
 | `LIDAR_PA_CALIBRATION` | `EXTRUDER_TEMP=`, `BED_TEMP=` (default 250/70, PETG): prints 9 lines at PA 0.00–0.08 around X 130–154, Y 100–220 (keep that area clear) as a normal print with START_PRINT, scans them with the LiDAR, and applies the PA it measures. Put the result in the filament profile. |
+| `LIDAR_MESH_CALIBRATION` | calibrates the LiDAR for bed meshes against nozzle touches (load cells): the X-beam twist along Y145 and the error along Y (straight line, from lines at X100 and X200) (~16 min, nozzle at 150 °C, one wipe; keep Y145 and X100/X200 clear). Rerun after changing the plate, the LiDAR mount or the gantry. `LIDAR_TWIST_CALIBRATION AXIS=X\|Y` does one of them. |
 | `LIDAR_OFFSET_CALIBRATION`, `CREALITY_PA_TEST` | `EXTRUDER_TEMP=`, `BED_TEMP=` (default 250/70): print a test pattern for the LiDAR position, or Creality's PA pattern read by eye |
 
 ## Updates
@@ -144,9 +196,9 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Roadmap
 
 **LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check, first-layer thickness check, LiDAR bed mesh levels 1-5 used by START_PRINT, combined probe + LiDAR twist calibration, XY skew, open driver with the middleware retired)
-- **True first-layer thickness: done (2026-10-29).** `First_Layer_Check`: bare plate before, first layer after, the difference is the real thickness (test print 0.194 mm for 0.200). Left: store the PLA line ramp per filament for parts under 40 mm, and use `First_Layer_Learn` once enough prints are checked.
+- **True first-layer thickness: done (2026-10-29).** `First_Layer_Check`: bare plate before, first layer after, the difference is the real thickness (test print 0.194 mm for 0.200). Since 2026-11-01 a short prime line in front of the objects refills the nozzle after the pause for the scan, so layer 2 starts clean (`PRIME=3` mm). Left: store the PLA line ramp per filament for parts under 40 mm.
 - **Flow / extrusion multiplier.** Measure single-line cross-sections (height × width) against what was commanded, per filament. The PA test already measures these areas.
-- **Bed mesh: done (2026-10-29, in START_PRINT 2026-11-01).** LiDAR mesh levels 1-5 agree with the Microprobe to 17 µm rms once both have their own twist table; the `LiDAR_Mesh` switch makes START_PRINT use it, with the Microprobe as fallback. Measured 2026-11-01: levels 1-4 carry a Y tilt of ~37 µm/100 mm against the nozzle and the probe (level 5 removes it with its touches). Left: a LiDAR Y correction from nozzle touches, then `MESH_BENCHMARK_RUN` on a hot, settled plate to choose the print level, then first layers printed on the LiDAR mesh vs the probe mesh.
+- **Bed mesh: done (2026-10-29, in START_PRINT 2026-11-01).** LiDAR mesh levels 1-5 agree with the Microprobe to 17 µm rms once both have their own twist table; the `LiDAR_Mesh` switch makes START_PRINT use it, with the Microprobe as fallback. Y correction (2026-11-01): `LIDAR_MESH_CALIBRATION` measures the LiDAR's slope along Y against the nozzle (+22 ± 4 µm/100 mm) besides the X twist. Printed A/B the same day: with fresh tables the LiDAR mesh matched the Microprobe (16.8 vs 17.7 µm rms over 9 pads) and is START_PRINT's mesh now. Left: `MESH_BENCHMARK_RUN` on a hot, settled plate to see whether level 2 is enough, and why the middle of the bed prints ~30 µm thin with either mesh.
 - **Strings and blobs before a print.** A quick scan of the print area after the purge; warn or stop if something is lying where the part goes.
 - **Axis twist: done (2026-10-29).** The probe (behind the nozzle) and the LiDAR (in front) see the X-beam twist with opposite signs; nozzle touches calibrate both tables in one run (`LIDAR_TWIST_CALIBRATION`).
 - **Faster scanning, part 2.** Done so far (2026-10-07): with the helper service, scans plan their rows just ahead of the toolhead and take one frame per row standing still ("dwell" mode), 0.38 s per row instead of 1.3 s, equally repeatable (15.5 vs 14.5 µm between passes). Measured limits: the LiDAR delivers ~4.3 frames/s, and a frame is ~0.19 s old when it arrives. Scanning while moving was tried and dropped: textured PEI changes by ~76 µm between rows only 0.1 mm apart, so frames have to be taken at exactly the same Y in both scans. Locking the pauses to the LiDAR's frame rhythm: done (2026-10-12, below). Left: using every point's own Y and full X resolution on the helper.
