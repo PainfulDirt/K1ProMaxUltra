@@ -9,7 +9,10 @@ Run with the toolchain venv:   /opt/k1th/venv/bin/python run_case.py CONFIG.json
     --workdir DIR    where cases are written (default $K1_CFD_WORKDIR or the session scratchpad)
     --name NAME      case name (default <config name>_L<level>)
     --np N           MPI ranks (default 4; 1 = serial)
-    --steps S        comma list from mesh,solve,post (default all)
+    --steps S        comma list from mesh,solve,post,thermal (default mesh,solve,post). "thermal" (added
+                     for the duct study) restarts the converged flow for cfg.thermal.iters more
+                     iterations with a passive temperature scalar (scalarTransport function object,
+                     D = nu/Pr + nut/Prt) and writes results["thermal"]; needs cfg["thermal"].
     --set key=value  override any config entry, dotted path, JSON value
                      (e.g. --set solver.max_iter=800 --set surfaces.inlet.bc.Q_m3_s=5e-4)
 
@@ -99,6 +102,9 @@ DEFAULTS = {
         "watchdog": True, "min_iter": 300, "window": 100,
         "tol_Q": 0.002, "tol_p": 0.005, "tol_probe": 0.01, "probe_floor": 0.1,
         "res_p_max": 1e-3, "res_U_max": 1e-3, "poll_s": 10,
+        # optional (duct study): average U, p and wall shear over iterations >= average_start
+        # (fieldAverage); post-processing then uses the means. None = off (validation behaviour).
+        "average_start": None,
     },
 }
 FACES = {"xmin": "(0 4 7 3)", "xmax": "(1 2 6 5)", "ymin": "(0 1 5 4)",
@@ -279,7 +285,14 @@ def write_case(cfg, case: Path, level: int, np_: int, solver_only: bool = False)
                        f'regionType patch; name {p}; operation {op}; fields ({fld}); }}')
     if walls:
         fos.append('    wallShearStress { type wallShearStress; libs ("libfieldFunctionObjects.so"); '
+                   'executeControl timeStep; executeInterval 1; '
                    f'writeControl writeTime; log false; patches ({" ".join(walls)}); }}')
+    if sol.get("average_start") is not None:
+        avg = " ".join(f"{f} {{ mean on; prime2Mean off; base iteration; }}"
+                       for f in (["U", "p"] + (["wallShearStress"] if walls else [])))
+        fos.append('    fieldAverage1 { type fieldAverage; libs ("libfieldFunctionObjects.so"); '
+                   f'writeControl writeTime; timeStart {sol["average_start"]}; restartOnRestart false; '
+                   f'fields ( {avg} ); }}')
         fos.append('    yPlus { type yPlus; libs ("libfieldFunctionObjects.so"); writeControl writeTime; log false; }')
     plocs = monitor_points(cfg)
     if plocs:
@@ -435,7 +448,11 @@ def stability(cfg, case):
             out[f"{tag}_{name}"] = float((w.max() - w.min()) / max(abs(w.mean()), 1e-30))
     pr = read_probes(case)
     if pr is not None and len(pr[0]) >= W:
-        mag = np.linalg.norm(pr[1][-W:], axis=2)          # [W, nprobe]
+        vals = pr[1][-W:]
+        ok = np.all(np.abs(vals) < 1e6, axis=(0, 2))       # probes inside solids report VGREAT
+        if not ok.any():
+            ok[:] = True
+        mag = np.linalg.norm(vals[:, ok], axis=2)          # [W, nprobe]
         mean = mag.mean(axis=0)
         ref = np.maximum(mean, sol["probe_floor"] * max(mean.max(), 1e-12))
         rr = (mag.max(axis=0) - mag.min(axis=0)) / ref
@@ -497,6 +514,85 @@ def step_solve(cfg, case, np_, meta):
     if np_ > 1:
         t["reconstructPar"] = run_foam("reconstructPar -latestTime", case, "log.reconstructPar")
     meta["watchdog_stop_iter"] = stopped
+    return t
+
+
+# --------------------------------------------------------------------------- thermal proxy (optional)
+THERMAL_DEFAULTS = {"T_inf": 45.0, "walls": {}, "Pr": 0.71, "Prt": 0.85, "iters": 150,
+                    "k_air": 0.0275, "cp": 1007.0}
+
+
+def latest_time_dir(case: Path):
+    ts = [d for d in case.iterdir() if d.is_dir() and re.fullmatch(r"[0-9.eE+-]+", d.name)]
+    return max(ts, key=lambda d: float(d.name))
+
+
+def step_thermal(cfg, case, np_, meta):
+    """Passive-scalar heat-transfer proxy on the converged flow (restart, iters more SIMPLE iterations).
+    T: fan inlets and open boundaries at T_inf, walls listed in thermal.walls at fixed T, all other walls
+    adiabatic. Steady, no buoyancy, no radiation, no conduction in solids."""
+    th = deep_update(copy.deepcopy(THERMAL_DEFAULTS), cfg.get("thermal", {}))
+    cfg["thermal"] = th
+    bnd = read_boundary(case)
+    last = latest_time_dir(case)
+    t0 = float(last.name)
+    ents = []
+    for name, b in bnd.items():
+        s = cfg["surfaces"].get(name)
+        kind = surface_kind(s) if s else meta["block_types"].get(name, "wall")
+        if b["type"] in ("symmetry", "symmetryPlane", "empty"):
+            ents.append(f"    {name} {{ type {b['type']}; }}")
+        elif kind == "inlet":
+            ents.append(f"    {name} {{ type fixedValue; value uniform {th['T_inf']}; }}")
+        elif kind == "atmosphere":
+            ents.append(f"    {name} {{ type inletOutlet; inletValue uniform {th['T_inf']}; value uniform {th['T_inf']}; }}")
+        elif name in th["walls"]:
+            ents.append(f"    {name} {{ type fixedValue; value uniform {th['walls'][name]}; }}")
+        else:
+            ents.append(f"    {name} {{ type zeroGradient; }}")
+    (last / "T").write_text("FoamFile { version 2.0; format ascii; class volScalarField; object T; }\n\n"
+                            f"dimensions [0 0 0 1 0 0 0];\ninternalField uniform {th['T_inf']};\n\n"
+                            "boundaryField\n{\n" + "\n".join(ents) + "\n}\n")
+    sch = (case / "system/fvSchemes").read_text()
+    if "div(phi,T)" not in sch:
+        sch = sch.replace("div(phi,k)", "div(phi,T)      bounded Gauss limitedLinear 1;\n    div(phi,k)", 1)
+        (case / "system/fvSchemes").write_text(sch)
+    sol = (case / "system/fvSolution").read_text()
+    sol = sol.replace('"(U|k|omega)"\n', '"(U|k|omega|T)"\n', 1)
+    (case / "system/fvSolution").write_text(sol)
+    end = int(round(t0)) + int(th["iters"])
+    fo = (f'    scalarT {{ type scalarTransport; libs ("libsolverFunctionObjects.so"); field T; phi phi; '
+          f'alphaD {1.0 / th["Pr"]:.6g}; alphaDt {1.0 / th["Prt"]:.6g}; nCorr 2; resetOnStartUp false; '
+          f'writeControl writeTime; schemesField T; }}')
+    hb = []
+    inl = [k for k, s in cfg["surfaces"].items() if surface_kind(s) == "inlet"]
+    atm = [k for k, t in meta["block_types"].items() if t == "atmosphere"]
+    for pn in inl + atm:
+        hb.append(f'    hflux_{pn} {{ type surfaceFieldValue; libs ("libfieldFunctionObjects.so"); writeControl timeStep; '
+                  f'writeInterval 1; log false; writeFields false; regionType patch; name {pn}; operation weightedSum; '
+                  f'weightField phi; fields (T); }}')
+    cd = (case / "system/controlDict").read_text()
+    cd = re.sub(r"\nstopAt\s+\w+;", "\nstopAt          endTime;", cd)
+    cd = re.sub(r"\nendTime\s+[^;]+;", f"\nendTime         {end};", cd)
+    cd = re.sub(r"\nwriteInterval\s+[^;]+;", f"\nwriteInterval   {int(th['iters'])};", cd)
+    if "scalarT" not in cd:
+        cd = cd.replace("functions\n{", "functions\n{\n" + fo + "\n" + "\n".join(hb), 1)
+    (case / "system/controlDict").write_text(cd)
+    for d in case.glob("processor*"):
+        shutil.rmtree(d)
+    t = {}
+    if np_ > 1:
+        t["decomposePar"] = run_foam("decomposePar -force -latestTime", case, "log.decomposePar.thermal")
+    sol_ = dict(cfg["solver"], watchdog=False)
+    cfg2 = dict(cfg, solver=sol_)
+    shutil.copy(case / "log.simpleFoam", case / "log.simpleFoam.flow")
+    t["simpleFoam_thermal"], _ = run_solver_watched(cfg2, case, np_)
+    if np_ > 1:
+        t["reconstructPar"] = run_foam("reconstructPar -latestTime", case, "log.reconstructPar.thermal")
+    shutil.copy(case / "log.simpleFoam", case / "log.simpleFoam.thermal")
+    shutil.copy(case / "log.simpleFoam.flow", case / "log.simpleFoam")      # convergence report = flow run
+    meta["thermal_restart_from"] = t0
+    meta["thermal_end"] = end
     return t
 
 
@@ -580,6 +676,12 @@ def main(argv=None):
         meta["solve_time_s"] = step_solve(cfg, case, a.np, meta)
         timing["solve"] = time.time() - t0
         (case / "results/case_meta.json").write_text(json.dumps(meta, indent=2))
+    if "thermal" in steps:
+        t0 = time.time()
+        meta["thermal_time_s"] = step_thermal(cfg, case, a.np, meta)
+        timing["thermal"] = time.time() - t0
+        (case / "results/case_meta.json").write_text(json.dumps(meta, indent=2))
+        (case / "results/config_resolved.json").write_text(json.dumps(cfg, indent=2))
     if "post" in steps:
         from postprocess import postprocess
         t0 = time.time()

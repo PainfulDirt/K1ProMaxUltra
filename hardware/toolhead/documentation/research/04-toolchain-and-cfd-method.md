@@ -277,3 +277,40 @@ $K1_PY validation/run_validation.py                                     # full v
 - Thin-walled ducts dominate the cell count. Prism layers are off by default.
 - Steady solver: weakly unsteady wakes show up as plateaued residuals. Use the monitor ranges, and if needed run pimpleFoam time-averaged.
 - Probe sampling uses VTK point interpolation (cell → point), so values within about one cell of walls are smoothed.
+
+## 13. Pipeline extensions for the duct study (Duct-Design & CFD agent) [RAN]
+
+These are backward compatible: a config without the new keys runs exactly as before, which is what the
+validation case does. The duct results and report are in `documentation/cfd-report.md`.
+
+- **Wall-region probes** (`probes.walls`, `postprocess.wall_region_metrics`): statistics over part of a
+  wall patch, filtered by radius about the nozzle axis (`r_min`/`r_max`), height (`z_min`/`z_max`) and the
+  outward normal of the solid surface (`normal`). Each region reports:
+  - area;
+  - area-weighted wall shear stress and y+;
+  - area-weighted |U| sampled `delta_mm` (default 0.3 mm) off the wall along the face normal, using
+    cell-constant sampling.
+
+  Uses: part-top discs r ≤ 5 / r ≤ 10, the side faces' top 3 mm, the nozzle cone and the sock bottom.
+- **Thermal proxy** (`--steps thermal`, `run_case.step_thermal`, `postprocess.thermal_metrics`):
+  1. Restarts the converged flow case for `thermal.iters` more SIMPLE iterations, with the
+     `scalarTransport` function object solving a passive temperature T (D = ν/Pr + ν_t/Pr_t, with
+     Pr 0.71 and Pr_t 0.85).
+  2. Boundary conditions: fan inlets and open boundaries at `T_inf`; the walls listed in
+     `thermal.walls` at a fixed temperature; every other wall adiabatic.
+  3. Wall heat flux per face: q = ρ c_p (ν/Pr + ν_t,w/Pr_t)(T_w − T_P)/d_n, which is the face
+     diffusivity the function object itself uses. Then h = q/(T_w − T_inf).
+  4. Cross-check: the global enthalpy balance through the open boundaries (`hflux_*` function objects).
+
+  The flow log is kept as `log.simpleFoam`, and the thermal restart log as `log.simpleFoam.thermal`.
+  The template files are not changed: `div(phi,T)` and the T solver are added to the case copy only.
+- **Case driver** (`simulations/cfd/cases/run_cases.py`): geometry → pipeline → results copy →
+  `summary.csv/json`. It re-uses the mesh of the same design for a different fan curve, so only the
+  solve and post steps run again.
+- **Mesh settings for the toolhead cases** (`cad/source/ducts/export_for_cfd.py`):
+  - same base cell (3.2 mm at L1, 2.54 mm at L2) and `n_between` 2 as the validation case;
+  - duct, sock and part-top surfaces at level 3; nozzle at level 4;
+  - level-2 box around the toolhead, level-3 box over the jets (r ≤ 17, Z −0.2…6.5), and a level-4 box
+    at the tip (13 × 13 × 1.7 mm).
+
+  Section 4 of the CFD report gives the cell counts.

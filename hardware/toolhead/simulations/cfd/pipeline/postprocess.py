@@ -129,6 +129,12 @@ def load_case(case: Path):
     internal = ds["internalMesh"]
     bnd = ds["boundary"]
     patches = {bnd.get_block_name(i): bnd[i] for i in range(bnd.n_blocks)}
+    # iteration-averaged fields (solver.average_start) replace the instantaneous ones when present
+    for blk in [internal] + list(patches.values()):
+        for data in (blk.cell_data, blk.point_data):
+            for inst, mean in (("U", "UMean"), ("p", "pMean"), ("wallShearStress", "wallShearStressMean")):
+                if mean in data.keys():
+                    data[inst] = np.asarray(data[mean])
     return internal, patches, float(r.time_values[-1])
 
 
@@ -233,6 +239,123 @@ def plane_metrics(internal, pl, rho):
         res["symmetry_min_over_max"] = float(np.nanmin(means) / np.nanmax(means))
         res["symmetry_cv"] = float(np.nanstd(means) / np.nanmean(means))
     return res
+
+
+def wall_region_metrics(cells, patch, reg, rho):
+    """Statistics over a filtered part of a wall patch (added for the duct study, backward compatible).
+
+    reg: {"name", "patch", optional "r_max", "r_min" (mm, radius about the Z axis), "z_min", "z_max" (mm),
+          "normal": [..] (outward normal of the SOLID surface, i.e. pointing into the fluid; faces kept if
+          n . normal > 0.9), "delta_mm" (near-wall sampling offset, default 0.3)}.
+    Returns area, area-weighted wall shear stress (Pa), y+, and area-weighted |U| sampled delta_mm off the wall
+    along the face normal (cell-constant field). OpenFOAM face normals point out of the fluid, so the
+    into-fluid direction is -n_OF."""
+    pd = patch.compute_cell_sizes(length=False, volume=False)
+    A = np.abs(pd["Area"])
+    nrm = patch.compute_normals(cell_normals=True, point_normals=False, auto_orient_normals=False,
+                                consistent_normals=False, split_vertices=False)["Normals"]
+    C = patch.cell_centers().points
+    m = np.ones(len(C), bool)
+    r = np.hypot(C[:, 0], C[:, 1]) / MM
+    if "r_max" in reg:
+        m &= r <= reg["r_max"]
+    if "r_min" in reg:
+        m &= r >= reg["r_min"]
+    if "z_min" in reg:
+        m &= C[:, 2] / MM >= reg["z_min"]
+    if "z_max" in reg:
+        m &= C[:, 2] / MM <= reg["z_max"]
+    into = -nrm
+    if "normal" in reg:
+        m &= into @ np.asarray(reg["normal"], float) > 0.9
+    out = {"patch": reg["patch"], "n_faces": int(m.sum()), "area_mm2": float(A[m].sum() / MM ** 2)}
+    if not m.any():
+        return out
+    Am = A[m]
+    for fld, key in (("wallShearStress", "wss_mean_Pa"), ("yPlus", "yplus_mean")):
+        if fld in patch.cell_data:
+            v = patch.cell_data[fld][m]
+            mag = np.linalg.norm(v, axis=1) if v.ndim == 2 else v
+            out[key] = float((mag * Am).sum() / Am.sum() * (rho if key.startswith("wss") else 1.0))
+    d = reg.get("delta_mm", 0.3) * MM
+    U, p, valid = sample(cells, C[m] + into[m] * d)
+    if valid.any():
+        w = Am * valid
+        out["Unear_mean"] = float((np.linalg.norm(U, axis=1) * w).sum() / w.sum())
+        out["Unear_valid_fraction"] = float(valid.mean())
+        out["delta_mm"] = d / MM
+    return out
+
+
+def thermal_metrics(cfg, case, internal_cells, patches, rho):
+    """Heat-transfer proxy (run_case --steps thermal): wall heat flux from the passive scalar T.
+    q = rho cp (nu/Pr + nut_w/Prt) (T_w - T_P) / d_n per wall face (the same face diffusivity the
+    scalarTransport function object uses), h = q / (T_w - T_inf). Checked against the global enthalpy
+    balance of the open boundaries."""
+    th = cfg["thermal"]
+    nu = cfg["fluid"]["nu"]
+    cp = th["cp"]
+    Tinf = th["T_inf"]
+    out = {"model": "passive scalar on the RANS flow (scalarTransport FO), D = nu/Pr + nut/Prt",
+           "T_inf_C": Tinf, "walls_C": th["walls"], "Pr": th["Pr"], "Prt": th["Prt"], "cp": cp,
+           "regions": {}}
+    cc = internal_cells.cell_centers().points
+    Tc = internal_cells.cell_data["T"]
+    regs = [r for r in cfg["probes"].get("walls", []) if r["patch"] in th["walls"]]
+    regs += [{"name": f"{p}_patch", "patch": p} for p in th["walls"]]
+    cache = {}
+    for reg in regs:
+        pn = reg["patch"]
+        if pn not in patches:
+            continue
+        if pn not in cache:
+            patch = patches[pn]
+            pdc = patch.compute_cell_sizes(length=False, volume=False)
+            A = np.abs(pdc["Area"])
+            nrm = patch.compute_normals(cell_normals=True, point_normals=False, auto_orient_normals=False,
+                                        consistent_normals=False, split_vertices=False)["Normals"]
+            C = patch.cell_centers().points
+            into = -nrm
+            ids = internal_cells.find_containing_cell(C + into * 1e-7)
+            ok = ids >= 0
+            Tw = float(th["walls"][pn])
+            nutw = patch.cell_data["nut"] if "nut" in patch.cell_data else np.zeros(len(C))
+            dn = np.full(len(C), np.nan)
+            TP = np.full(len(C), np.nan)
+            dn[ok] = np.einsum("ij,ij->i", cc[ids[ok]] - C[ok], into[ok])
+            TP[ok] = Tc[ids[ok]]
+            Deff = nu / th["Pr"] + nutw / th["Prt"]
+            q = rho * cp * Deff * (Tw - TP) / dn
+            cache[pn] = (A, C, into, q, ok & (dn > 0), Tw)
+        A, C, into, q, ok, Tw = cache[pn]
+        m = ok.copy()
+        r = np.hypot(C[:, 0], C[:, 1]) / MM
+        if "r_max" in reg:
+            m &= r <= reg["r_max"]
+        if "z_min" in reg:
+            m &= C[:, 2] / MM >= reg["z_min"]
+        if "z_max" in reg:
+            m &= C[:, 2] / MM <= reg["z_max"]
+        if "normal" in reg:
+            m &= into @ np.asarray(reg["normal"], float) > 0.9
+        if not m.any():
+            continue
+        Am = A[m]
+        Q = float((q[m] * Am).sum())
+        out["regions"][reg["name"]] = {"area_mm2": float(Am.sum() / MM ** 2), "Q_W": Q,
+                                       "q_mean_W_m2": Q / float(Am.sum()),
+                                       "h_mean_W_m2K": Q / float(Am.sum()) / (Tw - Tinf),
+                                       "T_wall_C": Tw, "valid_fraction": float(ok.mean())}
+    # global balance over open boundaries + fan inlets: rho cp sum(phi T)
+    tot, tin = 0.0, 0.0
+    for k in list(cfg["surfaces"].keys()) + ["atmosphere"]:
+        s_ = series(case, f"hflux_{k}")
+        if s_ is not None:
+            tot += float(s_[-1, 1])
+    qsum = sum(v["Q_W"] for k, v in out["regions"].items() if k.endswith("_patch"))
+    out["balance"] = {"Q_walls_W": qsum, "Q_out_open_boundaries_W": rho * cp * tot,
+                      "rel_error": (rho * cp * tot - qsum) / qsum if qsum else None}
+    return out
 
 
 def polyline(points_mm, ds_mm=0.25):
@@ -394,6 +517,11 @@ def postprocess(cfg, case: Path, meta):
            "units": {"p": "Pa gauge (rho*p_kinematic)", "length": "mm", "Q": "m^3/s", "U": "m/s"},
            "fluid": cfg["fluid"]}
     out["convergence"] = convergence(cfg, case, inlets, meta)
+    if cfg["solver"].get("average_start") is not None:
+        out["averaging"] = {"fields": "U, p, wallShearStress are means over iterations",
+                            "from_iteration": cfg["solver"]["average_start"],
+                            "to_iteration": out["convergence"]["iterations"],
+                            "used": "UMean" in internal.cell_data.keys()}
 
     out["inlets"] = {}
     for name in inlets:
@@ -451,6 +579,14 @@ def postprocess(cfg, case: Path, meta):
 
     out["walls"] = {w: {k: v for k, v in patch_stats(patches[w], rho).items()
                         if k not in ("Q_out_m3_s",)} for w in walls if w in patches}
+    if cfg["probes"].get("walls"):
+        out["wall_regions"] = {reg["name"]: wall_region_metrics(cells, patches[reg["patch"]], reg, rho)
+                               for reg in cfg["probes"]["walls"] if reg["patch"] in patches}
+    if cfg.get("thermal") and "T" in cells.cell_data:
+        try:
+            out["thermal"] = thermal_metrics(cfg, case, cells, patches, rho)
+        except Exception as e:  # noqa: BLE001
+            out["thermal_error"] = repr(e)
     out["losses"] = {}
     for a, b in cfg.get("loss_pairs", []):
         if a in out["inlets"] and b in out["planes"] and "p_total_fluxavg_Pa" in out["planes"][b]:

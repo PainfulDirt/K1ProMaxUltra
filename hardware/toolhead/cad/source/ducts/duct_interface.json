@@ -1,0 +1,154 @@
+{
+  "schema": "k1-toolhead duct interface",
+  "version": "v1",
+  "final_mount_points": false,
+  "frame": "nozzle frame: origin nozzle tip, +X right, +Y rear, +Z up, mm",
+  "duct_param_set": "S1",
+  "label": "S: 1x4020 front bay (stock-like pose), front plenum + horseshoe manifold, 5 wedge ports",
+  "fans": {
+    "F": {
+      "type": "4020",
+      "spec": "Creality K1 stock 4020 blower (24 V 0.3 A, 4-wire PWM)",
+      "envelope_box": {
+        "xmin": -21.3,
+        "xmax": 18.7,
+        "ymin": -56.5,
+        "ymax": -36.5,
+        "zmin": 23.4,
+        "zmax": 63.4
+      },
+      "intake_normal": [
+        0,
+        -1,
+        0
+      ],
+      "outlet_centre": [
+        12.2,
+        -46.5,
+        23.4
+      ],
+      "outlet_blow_dir": [
+        0,
+        0,
+        -1
+      ],
+      "outlet_size_mm": [
+        13.0,
+        17.0
+      ],
+      "screw_bosses": [
+        {
+          "xyz": [
+            -18.65,
+            -46.5,
+            60.3
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "d": 3.4,
+          "through_length": 20.0,
+          "status": "stock 4020 diagonal screw pair (02:C7, Henlor), same as structure/cooling.py stub"
+        },
+        {
+          "xyz": [
+            16.05,
+            -46.5,
+            25.6
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "d": 3.4,
+          "through_length": 20.0,
+          "status": "stock 4020 diagonal screw pair (02:C7, Henlor), same as structure/cooling.py stub"
+        }
+      ],
+      "mass_g": 24.0,
+      "status": "ESTIMATED outlet size and hole positions (generic frames); measure (M7)"
+    }
+  },
+  "fan_mounting": "fans are held by the cooling-module frame (Structure) through their own corner holes; screw_bosses give hole centre, axis and length through the fan frame. The duct's fan socket slides over the fan outlet nozzle (4 mm deep, 1.0 mm clearance per side, ESTIMATED).",
+  "duct_attach_points": [
+    {
+      "id": "T_left",
+      "hole_centre": [
+        -7.5,
+        -37.75,
+        19.5
+      ],
+      "screw": "M3",
+      "screw_axis": [
+        0,
+        1,
+        0
+      ],
+      "mating_face": {
+        "face_y": -36.5
+      },
+      "tab_size_mm": [
+        7.0,
+        2.5,
+        7.0
+      ],
+      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+    },
+    {
+      "id": "T_right",
+      "hole_centre": [
+        24.0,
+        -37.75,
+        22.5
+      ],
+      "screw": "M3",
+      "screw_axis": [
+        0,
+        1,
+        0
+      ],
+      "mating_face": {
+        "face_y": -36.5
+      },
+      "tab_size_mm": [
+        7.0,
+        2.5,
+        7.0
+      ],
+      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+    }
+  ],
+  "duct_envelope": {
+    "min": [
+      -21.3,
+      -57.2,
+      2.2
+    ],
+    "max": [
+      31.0,
+      27.5,
+      63.4
+    ]
+  },
+  "keep_clear_for_duct": "the duct body's space: see duct_envelope and the STEP; the frame must not enter the duct air path or come within 3 mm of the sock (interfaces.HOT_ZONE_CLEARANCE)",
+  "duct_materials": "nozzle end PC or PA-CF (DD-07); printed upright, fan socket up",
+  "duct_mass_g": 9.29,
+  "keepout_violations_mm3": {},
+  "soft_limit_excess_mm": {
+    "FRONT_LIMIT_Y": 2.2,
+    "width_right_of_nozzle_mm": 31.0,
+    "width_left_of_nozzle_mm": 21.3
+  },
+  "intake_window_3010": {
+    "ok": true,
+    "gap_mm": 5.0,
+    "stock_gap_mm": -1.3,
+    "open_side_area_mm2": 300.0,
+    "note": "gap between PCB component zone front and the part-fan rear face over the 3010; stock is -1.3 mm (fan overlaps the ESTIMATED zone), so >= stock keeps the stock intake path"
+  },
+  "generated_by": "cad/source/ducts/duct_generator.py::write_interface_file",
+  "status_note": "v0: PROVISIONAL. Fan pose (front bay, stock-like) and the duct envelope are stable; attach-point positions will move with the CFD iterations. Do not machine/print the frame against these until final_mount_points is true."
+}
