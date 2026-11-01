@@ -113,10 +113,11 @@ Everything measured on this printer (glass bed + textured PEI, cold plate unless
 
 | | LiDAR | Microprobe |
 |---|---|---|
-| Same mesh twice (level 3, 9 min apart) | 9.8 µm rms | not measured |
+| **Against 36 nozzle touches** (`MESH_BENCHMARK`, bed 70 °C, grid tables) | **18.3-18.5 µm rms** (levels 1-3: 21 s, 35 s, 95 s) | **18.9 µm rms** (764 s) |
+| Same mesh twice (level 3, 9 min apart) | 9.8 µm rms; level 2 twice: 8.3 µm | not measured |
 | LiDAR mesh vs Microprobe mesh (one after the other) | 16-18 µm rms apart | (the same comparison) |
 | X-beam twist it sees (the toolhead tips along X) | +0.06 to -0.10 mm across X (in front of the nozzle) | +0.14 to -0.13 mm across X (behind it: opposite sign) |
-| Error along Y, against the nozzle | +22 ± 4 µm/100 mm, taken off by its Y line | none seen (prints flat in Y) |
+| Error along Y, against the nozzle | a curve rising ~50 µm front to back on a 70 °C bed (grid), +22 µm/100 mm on a cold one: taken off by its Y table; the same at 60, 70 and 100 °C within 10-14 µm | none seen (prints flat in Y) |
 | Absolute height | no: relative, made 0 where the nozzle touches (True Zero) | yes, relative to the Z home |
 | Calibration it needs | position (`LIDAR_OFFSET_CALIBRATION`), X twist + Y line (`LIDAR_MESH_CALIBRATION`, ~16 min) | Z offset, X twist (`AXIS_TWIST_TOUCH_CALIBRATE`) |
 | Odd results seen | none since the skew fix (2026-11-01); needs the helper computer running (else the probe meshes) | one early trigger in a twist run ("triggered prior to movement", 2026-11-01) |
@@ -147,7 +148,7 @@ The mean thickness of a print (192 vs 200 µm here) follows the True Zero touch,
 | `BACKUP_TO_GITHUB` | saves the config overrides and pushes them here |
 | `PRINTER_CHECK_UPDATES`, `PRINTER_UPDATE_PELLCORP`, `PRINTER_UPDATE_KALICO` | see *Updates* |
 | `LIDAR_PA_CALIBRATION` | `EXTRUDER_TEMP=`, `BED_TEMP=` (default 250/70, PETG): prints 9 lines at PA 0.00–0.08 around X 130–154, Y 100–220 (keep that area clear) as a normal print with START_PRINT, scans them with the LiDAR, and applies the PA it measures. Put the result in the filament profile. |
-| `LIDAR_MESH_CALIBRATION` | calibrates the LiDAR for bed meshes against nozzle touches (load cells): the X-beam twist along Y145 and the error along Y (straight line, from lines at X100 and X200) (~16 min, nozzle at 150 °C, one wipe; keep Y145 and X100/X200 clear). Rerun after changing the plate, the LiDAR mount or the gantry. `LIDAR_TWIST_CALIBRATION AXIS=X\|Y` does one of them. |
+| `LIDAR_MESH_CALIBRATION` | calibrates the LiDAR for bed meshes against nozzle touches (load cells): the X-beam twist along Y145 and the error along Y (straight line, from lines at X100 and X200) (~16 min, nozzle at 150 °C, one wipe; keep Y145 and X100/X200 clear). Rerun after changing the plate, the LiDAR mount or the gantry. Best on a bed heated like for a print: the bed heater is off only during each touch. `GRID=7,5` measures a whole grid instead (~25 min): at every point the nozzle taps until 3 readings agree, then the LiDAR looks at the same spot; the difference splits into an X curve and a Y curve over the whole bed (saved) and what is left after both (reported, with suspect points). Method after [Axis Twist Mesh](https://github.com/sterling5241/axis-mesh). Every run is kept with its bed temperature, and every LiDAR mesh uses the weighted mean of all runs on a hot bed (45 °C and up) or on a cold one: grids at 60, 70 and 100 °C agreed within the scatter between runs (10-14 µm), so more runs give better tables. `BED_TEMPS=60,70,100` heats, soaks and calibrates at each of them; `RESET=1` forgets the earlier runs (after changing the plate, the LiDAR mount or the gantry). `LIDAR_TWIST_CALIBRATION AXIS=X\|Y` does one line. |
 | `LIDAR_OFFSET_CALIBRATION`, `CREALITY_PA_TEST` | `EXTRUDER_TEMP=`, `BED_TEMP=` (default 250/70): print a test pattern for the LiDAR position, or Creality's PA pattern read by eye |
 
 ## Updates
@@ -235,6 +236,7 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Credits
 
 - [Pellcorp / Simple AF](https://github.com/pellcorp/creality), [Kalico](https://github.com/KalicoCrew/kalico), and Pellcorp's [load-cell work](https://github.com/pellcorp/creality/issues/1500) built on OpenCentauri's hx711s driver
+- The LiDAR grid calibration (`LIDAR_GRID_CALIBRATE`) follows [Axis Twist Mesh](https://github.com/sterling5241/axis-mesh) by sterling5241: its agreeing-taps method and its analysis (X curve, Y curve, interaction, suspect points, edge checks), used with the author's permission
 - `twist_touch.py`, `keep_out.py` and `lidar.py` are GPLv3, like Klipper and Kalico
 
 Use at your own risk. This drives a hot nozzle into the bed on purpose.

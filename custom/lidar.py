@@ -56,6 +56,12 @@
 #       20 PA values), run directly: no file in gcodes, nothing in the job
 #       list. X/Y = front-left corner of the 27 x 139mm frame. Not scanned
 #       or analysed yet: read it by eye (sharpest corners)
+#   LIDAR_GRID_CALIBRATE [COUNT=7,5] [X0=10] [X1=269] [Y0=6] [Y1=264]
+#       [PASSES=2] [TOLERANCE=0.010] [MAX_TAPS=7] [MAX_SPREAD=0.04] [APPLY=1]
+#       the LiDAR against nozzle taps (3 agreeing) on a grid, the laser on
+#       the same spot before moving on; X curve -> lidar_twist, Y curve ->
+#       lidar_ytwist, the rest reported and kept as data (lidar_grid). After
+#       Axis Twist Mesh (github.com/sterling5241/axis-mesh, with permission)
 #   LIDAR_TWIST_CALIBRATE [AXIS=X] [Y=145] [X0=5] [X1=270] [POINTS=7]
 #       [PASSES=2] [SAMPLES=3] [MAX_SPREAD=0.04] [APPLY=1]
 #       AXIS=Y [X=100,200] [POINTS=9] [Y0=6] [Y1=264]: the same along Y,
@@ -487,12 +493,193 @@ def line_slope(spots, comp, k):
     return slope, sd / math.sqrt(sxx), sd
 
 
+# --- Grid calibration against the nozzle (LIDAR_GRID_CALIBRATE). The method
+# and this analysis follow Axis Twist Mesh by sterling5241
+# (github.com/sterling5241/axis-mesh), used with the author's permission:
+# agreeing nozzle taps, the sensor on the same spot before moving on, the
+# difference split into an X curve, a Y curve and the rest.
+MIN_AGREEING_TAPS = 3
+
+
+def drift_fit_spots(meas):
+    """meas: {spot: [(time, value), ...]} over passes in alternating order.
+    Fits a value per spot + one linear drift in time (the sensor against
+    the nozzle warms up on a hot bed: ~6 um/min seen on 2026-11-01).
+    Returns ({spot: value at the mean time}, drift per s, spread), spread =
+    the largest disagreement between the passes once the drift is out."""
+    num = den = 0.0
+    for v in meas.values():
+        mt = sum(t for t, d in v) / len(v)
+        md = sum(d for t, d in v) / len(v)
+        num += sum((t - mt) * (d - md) for t, d in v)
+        den += sum((t - mt) ** 2 for t, d in v)
+    k = num / den if den > 0 else 0.0
+    tm = sum(t for v in meas.values() for t, d in v) / sum(
+        len(v) for v in meas.values())
+    vals, spread = {}, 0.0
+    for sp, v in meas.items():
+        r = [d - k * (t - tm) for t, d in v]
+        vals[sp] = sum(r) / len(r)
+        spread = max(spread, max(r) - min(r))
+    return vals, k, spread
+
+
+def agreeing_value(taps, k, tolerance):
+    """Mean of the k readings closest together if they lie within
+    tolerance of each other, else None (tap again)."""
+    if len(taps) < k:
+        return None
+    ordered = sorted(taps)
+    best = None
+    for i in range(len(ordered) - k + 1):
+        group = ordered[i:i + k]
+        spread = group[-1] - group[0]
+        if spread <= tolerance and (best is None or spread < best[0]):
+            best = (spread, group)
+    return sum(best[1]) / k if best is not None else None
+
+
+def grid_analyze(xs, ys, d, tolerance=0.010):
+    """d[(i, j)] = sensor - nozzle (mm) at (xs[i], ys[j]), points may be
+    missing. The mean is the constant offset; the rest is fitted as an X
+    curve + a Y curve (backfitting: on a full grid the first pass is the
+    row/column-mean least-squares fit), and what is left after both is the
+    interaction. Also flags suspect points and edge rows/columns."""
+    nx, ny = len(xs), len(ys)
+    present = sorted(d, key=lambda k: (k[1], k[0]))
+    mean = sum(d[k] for k in present) / len(present)
+    res = [[d[(i, j)] - mean if (i, j) in d else None for i in range(nx)]
+           for j in range(ny)]
+    cols = dict((i, [j for j in range(ny) if res[j][i] is not None])
+                for i in range(nx))
+    rows = dict((j, [i for i in range(nx) if res[j][i] is not None])
+                for j in range(ny))
+    if any(not v for v in cols.values()) or any(not v for v in rows.values()):
+        raise ValueError("a whole row or column of the grid is missing")
+    full = len(present) == nx * ny
+    x_eff, y_eff = [0.0] * nx, [0.0] * ny
+    for _ in range(1 if full else 50):
+        x_eff = [sum(res[j][i] - y_eff[j] for j in cols[i]) / len(cols[i])
+                 for i in range(nx)]
+        m = sum(len(cols[i]) * x_eff[i] for i in range(nx)) / len(present)
+        x_eff = [v - m for v in x_eff]
+        y_eff = [sum(res[j][i] - x_eff[i] for i in rows[j]) / len(rows[j])
+                 for j in range(ny)]
+    inter = [[None if res[j][i] is None else res[j][i] - x_eff[i] - y_eff[j]
+              for i in range(nx)] for j in range(ny)]
+
+    def rms(vals):
+        vals = list(vals)
+        return math.sqrt(sum(v * v for v in vals) / len(vals))
+    iv = [inter[j][i] for i, j in present]
+    return {"count": len(present), "mean_offset": mean,
+            "rms_residual": rms(res[j][i] for i, j in present),
+            "x_effect": x_eff, "y_effect": y_eff,
+            "x_effect_range": max(x_eff) - min(x_eff),
+            "y_effect_range": max(y_eff) - min(y_eff),
+            "interaction": inter, "interaction_rms": rms(iv),
+            "interaction_max": max(abs(v) for v in iv),
+            "suspect_points": _grid_suspects(inter, xs, ys, tolerance),
+            "edge_warnings": _grid_edges("X", xs, x_eff)
+            + _grid_edges("Y", ys, y_eff)}
+
+
+def _grid_suspects(inter, xs, ys, tolerance):
+    """Points of the interaction far off the median of their neighbours
+    (robust MAD threshold): likely one bad reading."""
+    nx, ny = len(xs), len(ys)
+    if nx < 3 or ny < 3:
+        return []
+    dev = {}
+    for j in range(ny):
+        for i in range(nx):
+            if inter[j][i] is None:
+                continue
+            nb = [inter[jj][ii] for jj in range(max(0, j - 1), min(ny, j + 2))
+                  for ii in range(max(0, i - 1), min(nx, i + 2))
+                  if (ii, jj) != (i, j) and inter[jj][ii] is not None]
+            if len(nb) >= 3:
+                dev[(i, j)] = inter[j][i] - median(nb)
+    if len(dev) < 5:
+        return []
+    sigma = 1.4826 * median([abs(v) for v in dev.values()])
+    limit = max(4.0 * sigma, 2.0 * tolerance)
+    return [(xs[i], ys[j], round(v, 4)) for (i, j), v in sorted(
+        dev.items(), key=lambda kv: kv[0][::-1]) if abs(v) > limit]
+
+
+def _grid_edges(axis, pos, eff):
+    """An outer row/column whose effect breaks from the trend of the two
+    next to it far more than the interior curve does."""
+    n = len(eff)
+    if n < 5:
+        return []
+    second = [eff[k - 1] - 2 * eff[k] + eff[k + 1] for k in range(1, n - 1)]
+    limit = max(3.0 * median([abs(v) for v in second[1:-1]]), 0.02)
+    out = []
+    for edge, a, b in ((0, 1, 2), (n - 1, n - 2, n - 3)):
+        jump = eff[edge] - (2 * eff[a] - eff[b])
+        if abs(jump) > limit:
+            out.append((axis, pos[edge], round(jump, 4)))
+    return out
+
+
 def ytwist_at(twist, y):
     """The same along laser Y (LIDAR_TWIST_CALIBRATE AXIS=Y, carried in
     the twist dict as ys/ycomp)."""
     if not twist or "ys" not in twist:
         return 0.0
     return _table_at(twist["ys"], twist["ycomp"], y)
+
+
+CAL_HOT = 45.0    # C: calibrations at or above it form the hot group
+CAL_RUNS = 5      # runs kept per bed temperature
+
+
+def cal_runs(entry):
+    """The runs of one lidar_cal_by_temp entry (an entry from before
+    2026-11-02 is one run)."""
+    if "runs" in entry:
+        return list(entry["runs"])
+    return [dict((k, entry[k]) for k in ("twist", "ytwist", "time")
+                 if k in entry)]
+
+
+def average_tables(tabs, key):
+    """Weighted mean of tables [(table, weight)] at the union of their
+    points (key "xs" or "ys", values "comp")."""
+    pts = sorted(set(p for t, w in tabs for p in t[key]))
+    tw = sum(w for t, w in tabs)
+    return {key: pts, "comp": [round(sum(
+        w * _table_at(t[key], t["comp"], p) for t, w in tabs) / tw, 5)
+        for p in pts]}
+
+
+def tables_for_temp(store, temp):
+    """The LiDAR tables for bed temperature temp from lidar_cal_by_temp
+    ({"70": {"runs": [{"twist": ..., "ytwist": ...}, ...]}, ...}): the
+    weighted mean of every run of its group (hot: bed >= CAL_HOT, else
+    cold; per table, the other group's if its own has none). Between 60 and 100C the
+    tables agreed within the scatter between runs (2026-11-01), so more
+    runs beat picking the nearest temperature. Returns (twist, ytwist,
+    note)."""
+    runs = [(float(t), r) for t, e in (store or {}).items()
+            for r in cal_runs(e)]
+    hot = temp >= CAL_HOT
+    out, notes = [], []
+    for name, key in (("twist", "xs"), ("ytwist", "ys")):
+        have = [x for x in runs if x[1].get(name)]
+        group = [x for x in have if (x[0] >= CAL_HOT) == hot] or have
+        tabs = [(r[name], float(r[name].get("w", 1))) for t, r in group]
+        if not tabs:
+            out.append(None)
+            continue
+        out.append(average_tables(tabs, key))
+        temps = sorted(set(t for t, r in group))
+        notes.append("%s %d run%s (%sC)" % (
+            name, len(tabs), "" if len(tabs) == 1 else "s",
+            "/".join("%.0f" % t for t in temps)))
+    return out[0], out[1], ", ".join(notes)
 
 
 def _table_at(xs, comp, x):
@@ -1707,8 +1894,8 @@ class Lidar:
                     "LIDAR_PA_CALIBRATE", "LIDAR_PA_CREALITY",
                     "LIDAR_OFFSET_CALIBRATE", "LIDAR_TIMING",
                     "LIDAR_BED_MESH", "LIDAR_TWIST_CALIBRATE",
-                    "MESH_COMPARE", "MESH_BENCHMARK", "FIRST_LAYER_SCAN",
-                    "SKEW_SCAN", "SKEW_CALIBRATE"):
+                    "LIDAR_GRID_CALIBRATE", "MESH_COMPARE", "MESH_BENCHMARK",
+                    "FIRST_LAYER_SCAN", "SKEW_SCAN", "SKEW_CALIBRATE"):
             self.gcode.register_command(
                 cmd, getattr(self, "cmd_" + cmd),
                 desc=getattr(self, "desc_" + cmd))
@@ -2417,6 +2604,45 @@ class Lidar:
         sv = self.printer.lookup_object("save_variables", None)
         return getattr(sv, "allVariables", None) or {}
 
+    def _bed_temp_for_tables(self):
+        """The bed temperature the tables are chosen for: its target, or
+        the bed's own temperature when it isn't heated."""
+        bed = self.printer.lookup_object("heater_bed", None)
+        if bed is None:
+            return 25.0
+        st = bed.get_status(self.reactor.monotonic())
+        return st.get("target") or st.get("temperature", 25.0)
+
+    def _lidar_tables(self):
+        """(X twist, Y table, note) for the current bed temperature: from
+        the calibrations per temperature (lidar_cal_by_temp) when there are
+        any, else the last calibration (lidar_twist, lidar_ytwist)."""
+        sv = self._saved()
+        store = sv.get("lidar_cal_by_temp")
+        if store:
+            t = self._bed_temp_for_tables()
+            tw, yt, note = tables_for_temp(store, t)
+            tw = tw or sv.get("lidar_twist")
+            yt = yt or sv.get("lidar_ytwist")
+            return tw, yt, "bed %.0fC: %s" % (t, note)
+        return sv.get("lidar_twist"), sv.get("lidar_ytwist"), ""
+
+    def _store_by_temp(self, tables):
+        """Keep tables {"twist": ..., "ytwist": ...} (either, with their
+        weight "w") as one more run under the bed temperature they were
+        measured at (lidar_cal_by_temp; 5C steps, the last CAL_RUNS runs);
+        meshes average the runs (tables_for_temp)."""
+        t = int(5 * round(self._bed_temp_for_tables() / 5.0))
+        store = dict(self._saved().get("lidar_cal_by_temp") or {})
+        runs = cal_runs(store.get(str(t)) or {"runs": []})
+        run = dict(tables, time=time.strftime("%Y-%m-%dT%H:%M"))
+        runs = (runs + [run])[-CAL_RUNS:]
+        store[str(t)] = {"runs": runs}
+        self.gcode.run_script_from_command(
+            'SAVE_VARIABLE VARIABLE=lidar_cal_by_temp VALUE="%s"' % (
+                repr(store).replace(" ", ""),))
+        return t
+
     def _temps(self):
         now = self.reactor.monotonic()
         toolhead = self.printer.lookup_object("toolhead")
@@ -2564,8 +2790,10 @@ class Lidar:
         nx, ny = self._counts(o, n, x0, x1, y0, y1,
                               280.0 if fine else 265.0, 260.0)
         xs, ys = self._grid(x0, x1, nx), self._grid(y0, y1, ny)
-        twist = self._saved().get("lidar_twist") if o["twist"] else None
-        yt = self._saved().get("lidar_ytwist") if o["twist"] else None
+        twist, yt, tnote = self._lidar_tables() if o["twist"] else (
+            None, None, "")
+        if tnote:
+            gcmd.respond_info("LiDAR mesh: tables for %s" % (tnote,))
         if yt:
             twist = dict(twist or {}, ys=yt["ys"], ycomp=yt["comp"])
         if twist is None and o["twist"]:
@@ -3236,6 +3464,17 @@ class Lidar:
         samples = gcmd.get_int("SAMPLES", 3, minval=1)
         max_spread = gcmd.get_float("MAX_SPREAD", 0.04, above=0.0)
         apply = gcmd.get_int("APPLY", 1)
+        # the bed heater switching disturbs the load cells: off just for
+        # each touch (like touch_grid), so a hot bed stays at temperature
+        bed_off = gcmd.get_int("BED_OFF", 1)
+        heater = self.printer.lookup_object("heater_bed", None)
+        target = heater.get_status(self.reactor.monotonic()).get(
+            "target", 0.0) if heater is not None else 0.0
+        off = on = ""
+        if bed_off and target > 0:
+            off = "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0\nG4 P300\n"
+            on = "\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=%.1f" % (
+                target,)
         # the nozzle touches at (x, y), the laser looks at y-1..y+1
         self._check_reach(gcmd, [(x, y - 1.0, x, y + 1.0) for x, y in spots],
                           z)
@@ -3262,12 +3501,12 @@ class Lidar:
                 "\nG0 Z5 F900" % spots[0])
             for p in range(passes):
                 for x, y in (spots if p % 2 == 0 else spots[::-1]):
-                    run("G0 Z5 F900\nG0 X%.2f Y%.2f F9000\nG0 Z2 F900\n"
+                    run("G0 Z5 F900\nG0 X%.2f Y%.2f F9000\nG0 Z2 F900\n%s"
                         "LOAD_CELL_PROBE SAMPLES=%d SAMPLES_RESULT=median\n"
-                        "G0 Z5 F900" % (x, y, samples))
+                        "G0 Z5 F900%s" % (x, y, off, samples, on))
                     nz = lc.last_z_result
                     h = self.twist_reading(x, y, z)
-                    diffs[(x, y)].append(h - nz)
+                    diffs[(x, y)].append((self.reactor.monotonic(), h - nz))
                     # LiDAR distance with the nozzle tip on the surface
                     dists.append(-h - (z + z_off - nz))
                     gcmd.respond_info("  X%.1f Y%.1f: nozzle z %.4f, LiDAR"
@@ -3275,8 +3514,8 @@ class Lidar:
             run("G0 Z5 F900")
         finally:
             bm.set_mesh(old_mesh)
-        spread = max(max(v) - min(v) for v in diffs.values())
-        means = [sum(diffs[sp]) / len(diffs[sp]) for sp in spots]
+        vals, drift, spread = drift_fit_spots(diffs)
+        means = [vals[sp] for sp in spots]
         avg = sum(means) / len(means)
         comp = [round(m - avg, 5) for m in means]
         along = [sp[k] for sp in spots]
@@ -3284,10 +3523,11 @@ class Lidar:
         c0 = sum(comp) / len(comp) - slope * sum(along) / len(along)
         gcmd.respond_info(
             "LiDAR twist (LiDAR - nozzle, um): %s; slope %+.1f +-%.1f"
-            " um/100mm, scatter %.0f um, pass spread %.3fmm" % (
+            " um/100mm, scatter %.0f um; drift %+.1f um/min taken out, then"
+            " pass spread %.3fmm" % (
                 ", ".join("%s%.0f %+.0f" % (axis, a, c * 1000.0)
                           for a, c in zip(along, comp)),
-                slope * 1e5, err * 1e5, sd * 1000.0, spread))
+                slope * 1e5, err * 1e5, sd * 1000.0, drift * 6e4, spread))
         if passes > 1 and spread > max_spread:
             raise gcmd.error("LiDAR twist: passes disagree by %.3fmm (more"
                              " than MAX_SPREAD), not saved" % (spread,))
@@ -3304,6 +3544,187 @@ class Lidar:
                             extra={"slope": round(slope, 7),
                                    "slope_err": round(err, 7),
                                    "scatter": round(sd, 5)})
+
+    desc_LIDAR_GRID_CALIBRATE = (
+        "Calibrate the LiDAR against nozzle touches on a grid (COUNT=7,5):"
+        " X curve + Y curve for LIDAR_BED_MESH, the rest reported")
+
+    def cmd_LIDAR_GRID_CALIBRATE(self, gcmd):
+        """At every grid point the nozzle taps the bed with the load cells
+        until 3 readings agree, then the laser looks at the same spot,
+        before moving on (passes in alternate order, so a drift in time
+        cancels). LiDAR - nozzle splits into an X curve (saved as
+        lidar_twist), a Y curve (lidar_ytwist) and the interaction left
+        after both, which is only reported (and saved as data): each spot's
+        texture scatters +-13-20 um between the nozzle and the laser's view
+        of it, so a per-point map would mostly copy that. Method and
+        analysis after Axis Twist Mesh (see grid_analyze)."""
+        if not self.service:
+            raise gcmd.error("LiDAR: LIDAR_GRID_CALIBRATE needs the lidar"
+                             " service")
+        state = self.printer.lookup_object("print_stats").get_status(
+            self.reactor.monotonic())["state"]
+        if state in ("printing", "paused"):
+            raise gcmd.error("LiDAR: not while a print is running")
+        lcp = self.printer.lookup_object("load_cell_probe", None)
+        if lcp is None:
+            raise gcmd.error("LiDAR: no [load_cell_probe]")
+        lc = lcp.get_printer_probe()
+        z = gcmd.get_float("Z", self.scan_z)
+        try:
+            cnt = [int(v) for v in gcmd.get("COUNT", "7,5").split(",")]
+        except ValueError:
+            raise gcmd.error("LiDAR: COUNT=nx,ny")
+        nx, ny = (cnt * 2)[:2]
+        if not (3 <= nx <= 15 and 3 <= ny <= 15):
+            raise gcmd.error("LiDAR: COUNT 3-15 per axis")
+        y0 = gcmd.get_float("Y0", self.MESH_Y[0] + 1.0)
+        y1 = gcmd.get_float("Y1", self.MESH_Y[1] - 1.0)
+        x0 = gcmd.get_float("X0", 10.0)
+        x1 = gcmd.get_float("X1", min(self.MESH_X[1], self._reach_x(
+            y0 - 1.0, y1 + 1.0, z, 0.3)[1]))
+        passes = gcmd.get_int("PASSES", 2, minval=1, maxval=4)
+        tol = gcmd.get_float("TOLERANCE", 0.010, above=0.0)
+        max_taps = gcmd.get_int("MAX_TAPS", 7, minval=MIN_AGREEING_TAPS)
+        max_spread = gcmd.get_float("MAX_SPREAD", 0.04, above=0.0)
+        apply = gcmd.get_int("APPLY", 1)
+        xs, ys = self._grid(x0, x1, nx), self._grid(y0, y1, ny)
+        # serpentine by rows
+        order = [(i, j) for j in range(ny)
+                 for i in (range(nx) if j % 2 == 0 else range(nx - 1, -1, -1))]
+        pts = [(xs[i], ys[j]) for i, j in order]
+        self._check_reach(gcmd, [(x, y - 1.0, x, y + 1.0) for x, y in pts], z)
+        self._check_reach(gcmd, [(x, y, x, y) for x, y in pts])
+        heater = self.printer.lookup_object("heater_bed", None)
+        target = heater.get_status(self.reactor.monotonic()).get(
+            "target", 0.0) if heater is not None else 0.0
+        off = on = ""
+        if gcmd.get_int("BED_OFF", 1) and target > 0:
+            off = "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=0\nG4 P300\n"
+            on = "\nSET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=%.1f" % (
+                target,)
+        bm = self.printer.lookup_object("bed_mesh")
+        old_mesh = bm.get_mesh()
+        gcode_move = self.printer.lookup_object("gcode_move")
+        z_off = gcode_move.get_status(
+            self.reactor.monotonic())["homing_origin"][2]
+        run = self.gcode.run_script_from_command
+        gcmd.respond_info(
+            "LiDAR grid: %dx%d points X%.0f-%.0f Y%.0f-%.0f, %d passes"
+            " (~%.0f min)" % (nx, ny, x0, x1, y0, y1, passes,
+                              nx * ny * passes * 21.0 / 60.0))
+        diffs = dict((k, []) for k in order)
+        dists, retaps = [], 0
+        bm.set_mesh(None)
+        try:
+            run("G90\nG0 Z5 F900")
+            # the first nozzle tap after a wipe reads off: throw it away
+            run("G0 X%.2f Y%.2f F9000\nG0 Z2 F900\nLOAD_CELL_PROBE SAMPLES=1"
+                "\nG0 Z5 F900" % pts[0])
+            for p in range(passes):
+                for i, j in (order if p % 2 == 0 else order[::-1]):
+                    x, y = xs[i], ys[j]
+                    run("G0 Z5 F900\nG0 X%.2f Y%.2f F9000\nG0 Z2 F900"
+                        % (x, y))
+                    taps, nz = [], None
+                    while nz is None:
+                        if len(taps) >= max_taps:
+                            raise gcmd.error(
+                                "LiDAR grid: no %d of %d nozzle taps at"
+                                " X%.1f Y%.1f agreed within %.3fmm (%s);"
+                                " clean the nozzle or raise TOLERANCE" % (
+                                    MIN_AGREEING_TAPS, max_taps, x, y, tol,
+                                    ", ".join("%.4f" % t for t in taps)))
+                        if taps:
+                            run("G91\nG0 Z1 F600\nG90")
+                        run("%sLOAD_CELL_PROBE SAMPLES=1%s" % (off, on))
+                        taps.append(lc.last_z_result)
+                        nz = agreeing_value(taps, MIN_AGREEING_TAPS, tol)
+                    retaps += len(taps) - MIN_AGREEING_TAPS
+                    run("G0 Z5 F900")
+                    h = self.twist_reading(x, y, z)
+                    diffs[(i, j)].append((self.reactor.monotonic(), h - nz))
+                    dists.append(-h - (z + z_off - nz))
+            run("G0 Z5 F900")
+        finally:
+            bm.set_mesh(old_mesh)
+        d, drift, spread = drift_fit_spots(diffs)
+        try:
+            rep = grid_analyze(xs, ys, d, tol)
+        except ValueError as e:
+            raise gcmd.error("LiDAR grid: %s" % (e,))
+
+        def um(vals):
+            return ", ".join("%+.0f" % (v * 1000.0) for v in vals)
+        gcmd.respond_info(
+            "LiDAR grid (LiDAR - nozzle): X curve %s (X %s) range %.0f um;"
+            " Y curve %s (Y %s) range %.0f um; left after both: rms %.1f um,"
+            " max %.0f um; %d extra taps; drift %+.1f um/min taken out, then"
+            " pass spread %.3fmm" % (
+                um(rep["x_effect"]), ",".join("%.0f" % v for v in xs),
+                rep["x_effect_range"] * 1000.0, um(rep["y_effect"]),
+                ",".join("%.0f" % v for v in ys),
+                rep["y_effect_range"] * 1000.0,
+                rep["interaction_rms"] * 1000.0,
+                rep["interaction_max"] * 1000.0, retaps, drift * 6e4,
+                spread))
+        gcmd.respond_info("LiDAR grid, left after both curves (um, rows Y"
+                          " front to back): %s" % ("; ".join(
+                              "Y%.0f: %s" % (ys[j], um(rep["interaction"][j]))
+                              for j in range(ny)),))
+        for x, y, v in rep["suspect_points"]:
+            gcmd.respond_info("LiDAR grid: suspect point X%.0f Y%.0f (%+.0f"
+                              " um off its neighbours), re-run if it stays"
+                              % (x, y, v * 1000.0))
+        for axis, pos, jump in rep["edge_warnings"]:
+            gcmd.respond_info("LiDAR grid: the %s curve bends at its edge"
+                              " %s%.0f by %+.0f um more than its trend (a"
+                              " real bend of the gantry, or a misreading"
+                              " there: check)" % (axis, axis, pos,
+                                                  jump * 1000.0))
+        if passes > 1 and spread > max_spread:
+            raise gcmd.error("LiDAR grid: passes disagree by %.3fmm (more"
+                             " than MAX_SPREAD), not saved" % (spread,))
+        if not apply:
+            return
+        stamp = time.strftime("%Y-%m-%dT%H:%M")
+        ym = sum(ys) / len(ys)
+        xm = sum(xs) / len(xs)
+        tables = (
+            ("lidar_twist", {"xs": xs, "comp": [round(v, 5) for v in
+                                                rep["x_effect"]],
+                             "y": round(ym, 1), "z": z,
+                             "spread": round(spread, 4), "time": stamp,
+                             "source": "grid %dx%d" % (nx, ny)}),
+            ("lidar_ytwist", {"ys": ys, "comp": [round(v, 5) for v in
+                                                 rep["y_effect"]],
+                              "x": round(xm, 1), "z": z,
+                              "spread": round(spread, 4), "time": stamp,
+                              "source": "grid %dx%d" % (nx, ny)}),
+            ("lidar_grid", {"xs": xs, "ys": ys, "time": stamp,
+                            "rms": round(rep["interaction_rms"], 5),
+                            "rest": [[None if v is None else round(v, 4)
+                                      for v in row]
+                                     for row in rep["interaction"]]}))
+        ext, bed = self._temps()
+        # weights in the average of runs: the rows (X curve) and columns
+        # (Y curve) each point of a curve averages
+        tables[0][1]["w"], tables[1][1]["w"] = ny, nx
+        for var, val in tables:
+            val["bed"] = bed
+            run('SAVE_VARIABLE VARIABLE=%s VALUE="%s"' % (
+                var, repr(val).replace(" ", "")))
+        t = self._store_by_temp({"twist": tables[0][1],
+                                 "ytwist": tables[1][1]})
+        gcmd.respond_info("LiDAR grid: tables kept for bed %dC (with the"
+                          " earlier runs in lidar_cal_by_temp, which"
+                          " meshes average)" % (t,))
+        dist = round(sum(dists) / len(dists), 4)
+        gcmd.respond_info(
+            "LiDAR grid saved: X curve (lidar_twist) and Y curve"
+            " (lidar_ytwist) for LIDAR_BED_MESH, the rest as data"
+            " (lidar_grid); LiDAR distance with the nozzle on the bed"
+            " %.4fmm" % (dist,))
 
     # also used by AXIS_TWIST_TOUCH_CALIBRATE (twist_touch.py), which measures
     # the probe and the LiDAR against the same nozzle touches
@@ -3359,12 +3780,17 @@ class Lidar:
                           " (extruder %s, bed %s)" % (dist, ext, bed))
         if not apply:
             return
+        twist["bed"] = bed
+        # weight in the average of runs: the lines it came from
+        twist["w"] = len(y) if isinstance(y, list) else 1
         for v, val in ((var, twist), ("lidar_zero_log", log)):
             # no spaces: one G-code parameter
             run('SAVE_VARIABLE VARIABLE=%s VALUE="%s"' % (
                 v, repr(val).replace(" ", "")))
-        gcmd.respond_info("LiDAR twist saved (%s), used by LIDAR_BED_MESH"
-                          % (var,))
+        t = self._store_by_temp({"twist" if axis == "X" else "ytwist":
+                                 twist})
+        gcmd.respond_info("LiDAR twist saved (%s, and for bed %dC), used by"
+                          " LIDAR_BED_MESH" % (var, t))
 
     # ---------------------------------------------------- first-layer check
     desc_FIRST_LAYER_SCAN = ("First-layer check: PHASE=before (bare plate"
