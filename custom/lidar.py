@@ -1,10 +1,11 @@
 # K1 Max LiDAR (Creality "AI LiDAR") for Kalico
 #
 # The LiDAR is a line-laser height sensor on the toolhead: one capture is a
-# ~29mm wide height profile (~1500 points, in um) across X. Creality's
-# cx_ai_middleware (started by lidar-start.sh) drives it and answers JSON
-# requests on a unix socket; this plugin moves the toolhead and collects the
-# profiles, so scans can run inside a print.
+# ~29mm wide height profile (~1500 points, in um) across X. lidar-direct.py
+# (the open driver, started by lidar-start.sh; it replaced Creality's
+# cx_ai_middleware, same API) drives it and answers JSON requests on a unix
+# socket; this plugin moves the toolhead and collects the profiles, so scans
+# can run inside a print.
 #
 # The K1 has ~200MB of RAM and a slow CPU, and a heavy job starves Klipper
 # (MCU "Rescheduled timer in the past"). So everything is reduced while
@@ -1786,10 +1787,11 @@ class Lidar:
         return t
 
     def _driver(self):
-        """Which driver serves the socket (variables.cfg lidar_driver)."""
+        """Which driver serves the socket (variables.cfg lidar_driver):
+        lidar-direct.py since the middleware was retired (2026-11-01)."""
         sv = self.printer.lookup_object("save_variables", None)
         saved = getattr(sv, "allVariables", None) or {}
-        return str(saved.get("lidar_driver", "middleware"))
+        return str(saved.get("lidar_driver", "direct"))
 
     def _timing(self, level):
         """(frame period, window start, window end, source) for the driver
@@ -2315,6 +2317,34 @@ class Lidar:
     def _grid(self, a, b, n):
         return [round(a + (b - a) * i / (n - 1), 3) for i in range(n)]
 
+    def _skewed(self, p):
+        """Where the skew correction (SKEW_PROFILE / SET_SKEW) really sends
+        the nozzle for G-code position p [x, y, z]: Klipper checks the
+        travel limits after it (at the back -0.2 deg adds ~1mm in X)."""
+        sk = self.printer.lookup_object("skew_correction", None)
+        if sk is None:
+            return list(p)
+        return sk.calc_skew(list(p) + [0.0])[:3]
+
+    def _unskewed(self, p):
+        """G-code position of toolhead (trapq) position p: the trapq has
+        the skew-corrected one, the scans are planned in G-code."""
+        sk = self.printer.lookup_object("skew_correction", None)
+        if sk is None:
+            return list(p)
+        return sk.calc_unskew(list(p) + [0.0])[:3]
+
+    def _reach_x(self, y0, y1, z, margin=0.5):
+        """Laser X range the nozzle reaches at height z over laser Y y0-y1,
+        skew correction included (it shifts X along Y, so the far end of
+        the range decides)."""
+        st = self.printer.lookup_object("toolhead").get_status(
+            self.reactor.monotonic())
+        lo, hi = st["axis_minimum"][0], st["axis_maximum"][0]
+        xo, yo = self._xo(z), self._yo(z)
+        dx = [self._skewed([0.0, y - yo, z])[0] for y in (y0, y1)]
+        return lo + xo - min(dx) + margin, hi + xo - max(dx) - margin
+
     def _check_reach(self, gcmd, segs, z=None):
         """segs: (x0, y0, x1, y1) lines the toolhead will follow, nozzle
         coordinates, or laser ones with the nozzle at z: refuse before
@@ -2327,13 +2357,18 @@ class Lidar:
         lo, hi = st["axis_minimum"], st["axis_maximum"]
         ko = self.printer.lookup_object("keep_out", None)
         xo, yo = (0.0, 0.0) if z is None else (self._xo(z), self._yo(z))
+        nz = 0.0 if z is None else z
         for x0, y0, x1, y1 in segs:
             a, b = [x0 - xo, y0 - yo, 0.0], [x1 - xo, y1 - yo, 0.0]
             for p in (a, b):
-                if not (lo[0] <= p[0] <= hi[0] and lo[1] <= p[1] <= hi[1]):
+                q = self._skewed([p[0], p[1], nz])
+                if not (lo[0] <= q[0] <= hi[0] and lo[1] <= q[1] <= hi[1]):
                     raise gcmd.error(
-                        "LiDAR: the nozzle would go to X%.1f Y%.1f, outside"
-                        " its travel" % (p[0], p[1]))
+                        "LiDAR: the nozzle would go to X%.1f Y%.1f%s, outside"
+                        " its travel" % (p[0], p[1], "" if abs(
+                            q[0] - p[0]) + abs(q[1] - p[1]) < 0.001 else
+                            " (X%.1f Y%.1f with the skew correction)" % (
+                                q[0], q[1])))
             if ko is not None and ko._blocked(a, b):
                 raise gcmd.error(
                     "LiDAR: the nozzle would cross a keep-out zone (X%.1f"
@@ -2368,6 +2403,22 @@ class Lidar:
                            " normal, fine, ultimate)")
 
     def cmd_LIDAR_BED_MESH(self, gcmd):
+        """FALLBACK=1 (START_PRINT): the probe's mesh instead of an error
+        when the LiDAR can't do it (service down, objects out of its reach,
+        a failed scan), so the print goes on."""
+        if not gcmd.get_int("FALLBACK", 0):
+            self._bed_mesh_cmd(gcmd)
+            return
+        try:
+            self._bed_mesh_cmd(gcmd)
+        except self.printer.command_error as e:
+            adaptive = gcmd.get_int("ADAPTIVE", 0)
+            gcmd.respond_info("%s: probe mesh instead (ADAPTIVE=%d)" % (
+                e, adaptive))
+            self.gcode.run_script_from_command(
+                "BED_MESH_CALIBRATE ADAPTIVE=%d" % (adaptive,))
+
+    def _bed_mesh_cmd(self, gcmd):
         if not self.service:
             raise gcmd.error("LiDAR: LIDAR_BED_MESH needs the lidar service")
         mode = gcmd.get("MODE", None)
@@ -2383,7 +2434,8 @@ class Lidar:
              "z": gcmd.get_float("Z", self.scan_z),
              "half_x": gcmd.get_float("HALF_X", 3.0, above=0.2, maxval=10.0),
              "twist": gcmd.get_int("TWIST", 1),
-             "adaptive": gcmd.get_int("ADAPTIVE", 0)}
+             "adaptive": gcmd.get_int("ADAPTIVE", 0),
+             "fallback": gcmd.get_int("FALLBACK", 0)}
         for k in ("X0", "X1", "Y0", "Y1", "SPEED", "STEP", "HALF_Y",
                   "STRIP_X0", "STRIP_X1"):
             v = gcmd.get_float(k, None)
@@ -2404,6 +2456,10 @@ class Lidar:
         reaches."""
         x0, x1 = (4.0, 284.0) if fine else self.MESH_X
         y0, y1 = self.MESH_Y
+        # strips (fine) reach 14mm past their centre line
+        rx0, rx1 = self._reach_x(y0, y1, o["z"], 0.3)
+        w = 14.0 if fine else 0.0
+        x0, x1 = max(x0, rx0 - w), min(x1, rx1 + w)
         if o.get("adaptive"):
             eo = self.printer.lookup_object("exclude_object", None)
             objs = eo.get_status(self.reactor.monotonic()).get(
@@ -2411,10 +2467,28 @@ class Lidar:
             pts = [p for ob in objs for p in (ob.get("polygon") or [])]
             if pts:
                 m = 5.0
-                x0 = max(x0, min(p[0] for p in pts) - m)
-                x1 = min(x1, max(p[0] for p in pts) + m)
-                y0 = max(y0, min(p[1] for p in pts) - m)
-                y1 = min(y1, max(p[1] for p in pts) + m)
+                bx0, bx1 = min(p[0] for p in pts), max(p[0] for p in pts)
+                by0, by1 = min(p[1] for p in pts), max(p[1] for p in pts)
+                if bx0 < x0 - 1.0 or bx1 > x1 + 1.0 or by0 < y0 - 1.0 \
+                        or by1 > y1 + 1.0:
+                    msg = ("the objects (X%.0f-%.0f Y%.0f-%.0f) reach past"
+                           " what the LiDAR sees (X%.0f-%.0f Y%.0f-%.0f)" % (
+                               bx0, bx1, by0, by1, x0, x1, y0, y1))
+                    if o.get("fallback"):
+                        raise gcmd.error("LiDAR mesh: " + msg)
+                    gcmd.respond_info("LiDAR mesh: %s, the mesh keeps its"
+                                      " edge values there" % (msg,))
+                # the LiDAR has no absolute height: the mesh is made 0 at
+                # zero_reference_position (where Z is homed and touched),
+                # so that spot has to be in it
+                ref = self.printer.lookup_object("bed_mesh").bmc.zero_ref_pos
+                if ref is not None:
+                    bx0, bx1 = min(bx0, ref[0]), max(bx1, ref[0])
+                    by0, by1 = min(by0, ref[1]), max(by1, ref[1])
+                x0 = max(x0, bx0 - m)
+                x1 = min(x1, bx1 + m)
+                y0 = max(y0, by0 - m)
+                y1 = min(y1, by1 + m)
             else:
                 gcmd.respond_info("LiDAR mesh: no objects defined, whole bed")
         x0, x1 = o.get("x0", x0), o.get("x1", x1)
@@ -2548,8 +2622,9 @@ class Lidar:
         # strips that use the whole laser line (+-14mm), side by side,
         # covering the mesh area
         x0, x1, y0, y1 = xs[0], xs[-1], ys[0], ys[-1]
-        sx0 = o.get("strip_x0", max(x0 + 13.5, min(18.0, self.MESH_X[1])))
-        sx1 = o.get("strip_x1", min(max(x1 - 13.5, sx0), self.MESH_X[1]))
+        rx1 = min(self.MESH_X[1], self._reach_x(y0, y1, z, 0.3)[1])
+        sx0 = o.get("strip_x0", max(x0 + 13.5, min(18.0, rx1)))
+        sx1 = o.get("strip_x1", min(max(x1 - 13.5, sx0), rx1))
         ns = o.get("strips", max(1, int(math.ceil((sx1 - sx0) / 28.0)) + 1))
         step = o.get("step", 2.0)
         half_y = o.get("half_y", 2.0)
@@ -2730,6 +2805,7 @@ class Lidar:
             ok = all(p is not None for p, v in ps)
             still = mv = False
             if ok:
+                ps = [(self._unskewed(p), v) for p, v in ps]
                 p0, p1 = ps[0][0], ps[2][0]
                 vs = [v for p, v in ps]
                 still = max(vs) < 1e-6 and abs(p0[1] - p1[1]) < 1e-4
@@ -3079,7 +3155,8 @@ class Lidar:
         z = gcmd.get_float("Z", self.scan_z)
         y = gcmd.get_float("Y", 145.0)
         x0 = gcmd.get_float("X0", self.MESH_X[0])
-        x1 = gcmd.get_float("X1", self.MESH_X[1])
+        x1 = gcmd.get_float("X1", min(self.MESH_X[1], self._reach_x(
+            y - 1.0, y + 1.0, z, 0.3)[1]))
         n = gcmd.get_int("POINTS", 7, minval=3, maxval=15)
         passes = gcmd.get_int("PASSES", 2, minval=1, maxval=4)
         samples = gcmd.get_int("SAMPLES", 3, minval=1)
@@ -3247,9 +3324,9 @@ class Lidar:
         if "xyz" not in st["homed_axes"]:
             raise gcmd.error("FIRST_LAYER_SCAN: home first")
         xo, yo = self._xo(z), self._yo(z)
-        lo = (st["axis_minimum"][0] + xo + 0.5, st["axis_minimum"][1] + yo
-              + 0.5)
-        hi = (st["axis_maximum"][0] + xo - 0.5, self.MESH_Y[1])
+        ly0 = st["axis_minimum"][1] + yo + 0.5
+        rx0, rx1 = self._reach_x(ly0, self.MESH_Y[1], z)
+        lo, hi = (rx0, ly0), (rx1, self.MESH_Y[1])
         plan = fl_plan([o["polygon"] for o in objs],
                        gcmd.get_float("MARGIN", 8.0, minval=4.0),
                        lo, hi, gcmd.get_float("STEP", 2.0, minval=0.5),
@@ -3457,9 +3534,9 @@ class Lidar:
         height = gcmd.get_float("HEIGHT", 1.0, minval=0.2, maxval=3.0)
         z = gcmd.get_float("Z", self.scan_z + height, minval=self.scan_z)
         xo, yo = self._xo(z), self._yo(z)
-        lo = (st["axis_minimum"][0] + xo + 0.5,
-              st["axis_minimum"][1] + yo + 0.5)
-        hi = (st["axis_maximum"][0] + xo - 0.5, self.MESH_Y[1])
+        ly0 = st["axis_minimum"][1] + yo + 0.5
+        rx0, rx1 = self._reach_x(ly0, self.MESH_Y[1], z)
+        lo, hi = (rx0, ly0), (rx1, self.MESH_Y[1])
         plan = skew_plan(box, gcmd.get_float("MARGIN", 10.0, minval=4.0),
                          lo, hi, gcmd.get_float("STEP", 1.0, minval=0.2,
                                                 maxval=2.0))
@@ -3804,8 +3881,10 @@ class Lidar:
         st = toolhead.get_status(self.reactor.monotonic())
         lo, hi = st["axis_minimum"], st["axis_maximum"]
         for z in (z1, z2):
-            nx = cx - self._xo(z)
-            if not (lo[0] <= nx <= hi[0] and lo[1] <= cy - half - self._yo(z)
+            nxs = [self._skewed([cx - self._xo(z), y - self._yo(z), z])[0]
+                   for y in (cy - half, cy + half)]
+            if not (lo[0] <= min(nxs) and max(nxs) <= hi[0]
+                    and lo[1] <= cy - half - self._yo(z)
                     and cy + half - self._yo(z) <= hi[1]):
                 raise gcmd.error("LiDAR: the scans of a cross at X%.0f Y%.0f"
                                  " would leave the bed" % (cx, cy))

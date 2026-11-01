@@ -53,6 +53,13 @@ open driver (`lidar_serial.py`, `lidar-direct.py`) are built on this.
 
 ## cx_ai_middleware socket API
 
+Retired 2026-11-01: `lidar-start.sh` only starts `lidar-direct.py` (same
+socket API, below) and stops the middleware if it runs. It still ships on the
+printer. Last resort by hand: kill `lidar-direct.py`, `setsid
+cx_ai_middleware &`, then `ubus call laser set_state '{"laser_plugged": 1}'`
+(it only sets the module up on that message). Don't change the module's
+baud rate (0x1B, below) while the middleware should stay usable.
+
 Unix socket `/tmp/ai_server_uds`. Request = JSON + `0x03` (ETX), reply the
 same. Use **one persistent connection**: the middleware leaks a descriptor
 per connection and stops accepting after a few thousand.
