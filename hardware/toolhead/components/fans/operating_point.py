@@ -22,6 +22,8 @@ Usage
   python3 operating_point.py --digitized [--plot]
         # section 10: same tables from the *_digitized.csv / *_proxy-scaled.csv
         # files (manufacturer curves); reads only, never writes a CSV
+  python3 operating_point.py --sunoncz [--plot]
+        # section 11: sunon.cz blower candidates vs references; reads only
 
 Units: SI. 1 CFM = 4.719e-4 m^3/s, 1 inH2O = 249.09 Pa, 1 mmH2O = 9.80665 Pa.
 """
@@ -489,13 +491,128 @@ def digitized_tables(plot_path: Path | None = None):
         print(f"wrote {plot_path}")
 
 
+# --------------------------------------------------------------------------
+# Section 11: sunon.cz order options. Read-only, like --digitized.
+# (csv stem or FAN key, label, voltage, mass_g, mass status, role)
+# --------------------------------------------------------------------------
+SUNONCZ = [
+    ("delta_BFB0524HH_digitized", "Delta BFB0524HH (ref., not at sunon.cz)", 24, 28.0, "VERIFIED", "ref"),
+    ("sunon_MF50152VX-1L02C-A99_proxy-scaled", "Sunon MF50152VX-1L02C (owned)", 24, 28.37, "SECONDARY", "ref"),
+    ("creality_K1_stock_4020_blower", "Stock 4020, upper bound (390 Pa est.)", 24, None, "-", "ref"),
+    ("creality_K1_stock_4020_blower_proxy-scaled", "Stock 4020, lower bound (CBM proxy)", 24, None, "-", "ref"),
+    ("sunon_MF50151VX-1B00U-A99_digitized", "Sunon MF50151VX-1B00U-A99/-G99", 12, 30.0, "VERIFIED", "cand"),
+    ("sunon_EF50151BX-1B00U-A99_digitized", "Sunon EF50151BX-1B00U-A99/-G99 (ball)", 12, 31.0, "VERIFIED", "cand"),
+    ("sunon_MF50201V1-1B00U-F99_digitized", "Sunon MF50201V1-1B00U (5020)", 12, 34.0, "VERIFIED", "cand"),
+    ("sunon_MF60151VX-1B00U-G99_digitized", "Sunon MF60151VX-1B00U (6015)", 12, 36.0, "VERIFIED", "cand"),
+    ("sunon_PF75302B1-1B00U-S99_digitized", "Sunon PF75302B1-1B00U-S99 (7530, 24 V PWM)", 24, 88.0, "VERIFIED", "cand"),
+]
+SHAPER_G_PER_PCT = 9.0     # DD-01: about 1 % of X input-shaper frequency per 9 g of toolhead mass
+
+
+def sunoncz_tables(plot_path: Path | None = None):
+    fans = []
+    for stem, label, volt, mass, mstat, role in SUNONCZ:
+        if stem in FAN:
+            fans.append((FAN[stem], label, volt, mass, mstat, role))
+            continue
+        path = OUT / f"{stem}.csv"
+        if not path.exists():
+            print(f"(missing {path.name})")
+            continue
+        q, p = load_csv(path)
+        fans.append((TableFan(stem, label, "", q, p), label, volt, mass, mstat, role))
+
+    print("\n## sunon.cz candidates vs references: single fan, whole outlet area (PRE-CFD)\n")
+    print("| fan | V | ΔP0 Pa | Qmax CFM | low K | medium K | high K | mass g | CFM/g (med K) | X-shaper cost per fan |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
+    rows = []
+    for f, label, volt, mass, mstat, role in fans:
+        res = [solve(f, 1, d) for d in DUCTS]
+        cells = [f"{qt/CFM:.2f} CFM / {v:.1f} m/s" for qt, _, v in res]
+        qmed, qhigh = res[1][0] / CFM, res[2][0] / CFM
+        perg = f"{qmed/mass:.3f}" if mass else "-"
+        cost = f"~{mass/SHAPER_G_PER_PCT:.1f} %" if mass else "-"
+        print(f"| {label} | {volt} | {f.pmax:.0f} | {f.qmax/CFM:.2f} | " + " | ".join(cells) +
+              f" | {mass if mass else '-'} ({mstat}) | {perg} | {cost} |")
+        rows.append((label, qmed, qhigh, mass))
+
+    print("\n## Two fans, symmetric (shared outlet area | own outlet each = 2 x single)\n")
+    print("| fans | medium K shared | high K shared | medium K own outlets | high K own outlets | added mass g |")
+    print("|---|---|---|---|---|---|")
+    for f, label, volt, mass, mstat, role in fans:
+        if "PF75302" in label:
+            continue
+        sm, sh = solve(f, 2, DUCTS[1])[0] / CFM, solve(f, 2, DUCTS[2])[0] / CFM
+        om, oh = 2 * solve(f, 1, DUCTS[1])[0] / CFM, 2 * solve(f, 1, DUCTS[2])[0] / CFM
+        print(f"| 2 x {label} | {sm:.2f} | {sh:.2f} | {om:.2f} | {oh:.2f} | {2*mass if mass else '-'} |")
+
+    print("\n## Off-toolhead: blower through 1.5 m x 15 mm hose + duct (as config D)\n")
+    print("| fan | low K | medium K | high K |\n|---|---|---|---|")
+    for f, label, volt, mass, mstat, role in fans:
+        if "PF75302" in label or "Delta" in label:
+            cells = []
+            for d in DUCTS:
+                qt, p1, v = solve(f, 1, d, hose=True)
+                cells.append(f"{qt/CFM:.2f} CFM / {v:.1f} m/s")
+            print(f"| {label} + hose | " + " | ".join(cells) + " |")
+
+    print("\n## Ranking by delivered flow (mean of medium and high K, single fan)\n")
+    for i, (label, qm, qh, mass) in enumerate(sorted(rows, key=lambda r: -(r[1] + r[2])), 1):
+        print(f"{i}. {label}: {qm:.2f} / {qh:.2f} CFM" + (f", {mass} g" if mass else ""))
+
+    if plot_path is not None:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        series = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+        ink, muted, grid, surf = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
+        fig, ax = plt.subplots(figsize=(9.5, 6.6), facecolor=surf)
+        ax.set_facecolor(surf)
+        for s in ax.spines.values():
+            s.set_color(grid)
+        ax.tick_params(colors=muted)
+        ax.grid(True, color=grid, lw=0.8)
+        qq = np.linspace(0, 3.4e-3, 300)
+        for d in DUCTS:
+            ax.plot(qq * 1e3, d.K * qq ** 2, color=muted, lw=1.0, ls=":")
+            ql = min(math.sqrt(300 / d.K), 3.3e-3)
+            ax.text(ql * 1e3, d.K * ql ** 2, f" {d.name} K", color=muted, fontsize=8)
+        k = 0
+        for f, label, volt, mass, mstat, role in fans:
+            if "PF75302" in label:
+                continue
+            q, p = (f.q, f.p) if isinstance(f, TableFan) else f.curve()
+            ls = "--" if role == "ref" else "-"
+            ax.plot(q * 1e3, p, color=series[k % len(series)], lw=1.4 if role == "ref" else 2.2, ls=ls,
+                    label=f"{label} ({volt} V)")
+            qo, po, _ = solve(f, 1, DUCTS[1])
+            ax.plot(qo * 1e3, po, "o", ms=7, color=series[k % len(series)], mec=surf, mew=2)
+            k += 1
+        ax.set_xlim(0, 3.4)
+        ax.set_ylim(0, 420)
+        ax.set_xlabel("Q  [L/s]   (1 CFM = 0.472 L/s)", color=muted)
+        ax.set_ylabel("static pressure  [Pa]", color=muted)
+        ax.set_title("sunon.cz blowers (solid, DIGITIZED) vs references (dashed); dots = medium-K point",
+                     color=ink, fontsize=9.5, loc="left")
+        ax.legend(fontsize=7.5, frameon=False, labelcolor=ink, loc="upper center",
+                  bbox_to_anchor=(0.5, -0.11), ncol=2)
+        fig.tight_layout()
+        fig.savefig(plot_path, dpi=130, facecolor=surf)
+        print(f"wrote {plot_path}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--plot", action="store_true")
     ap.add_argument("--no-csv", action="store_true")
     ap.add_argument("--digitized", action="store_true",
                     help="tables from the *_digitized / *_proxy-scaled CSVs (writes no CSV)")
+    ap.add_argument("--sunoncz", action="store_true",
+                    help="section 11: sunon.cz blower candidates vs references (writes no CSV)")
     a = ap.parse_args()
+    if a.sunoncz:
+        sunoncz_tables(OUT / "pq_sunoncz_candidates.png" if a.plot else None)
+        return
     if a.digitized:
         digitized_tables(OUT / "pq_digitized_vs_estimated.png" if a.plot else None)
         return

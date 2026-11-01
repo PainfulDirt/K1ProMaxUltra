@@ -398,3 +398,132 @@ I searched pellcorp.github.io/creality-wiki (source cloned from github.com/pellc
 - It has **no nozzle-board schematic, no fan-output current rating, and nothing on whether PB6 switches high- or low-side**. The section 3 topology therefore stays INFERRED, and the 0.3 A / 0.1 A demonstrated loads stay the only limits. Probe the board before relying on more.
 - One relevant fact (`rpi_faq.md`, `nozzle_wipe.md`): Pellcorp moved the part fan from `[fan_generic part]` to `[fan]` "to mitigate performance issues that were causing klipper to crash with a move queue overflow". `M106 P0` is not supported; plain `M106` addresses the part fan, and P1/P2 address chamber/auxiliary.
 - Practical consequence: keep the part fan(s) as the single `[fan]` object. If a new fan object is added on `nozzle_mcu`, test it under a heavy print before trusting it.
+
+## 11. Sunon.cz order options
+
+**Shop survey (2026-11-01).** I crawled every DC category on https://www.sunon.cz/ (24 V, 12 V, 5 V, 48 V, miniature, new): 1813 product URLs, 581 of them in the 24 V category. The candidate product pages and every datasheet PDF used are saved in `scratchpad/ref/sunoncz/`.
+
+- **Prices** are CZK including 21 % VAT. The price without VAT is in brackets.
+- **Stock:** "Skladem (N ks)" means in stock. "Na dotaz" means on request: not stocked, lead time unknown.
+- **Status labels:** specs are VERIFIED where I read them from the Sunon sheet. Price and stock are SECONDARY (shop page).
+
+### 11.1 What the shop does and does not carry
+
+1. **No 24 V blower smaller than 75 × 75 × 30 mm.** The only 24 V blowers are PF75302B1/B2/B3 (7530, 86-88 g), in A99/F99/G99/H99/Q99/S99 variants.
+2. **Small blowers are 12 V only:**
+   - MF50151Vx-1B00U and EF50151Bx-1B00U (5015)
+   - MF50201Vx-1B00U (5020)
+   - MF60151Vx-1B00U (6015)
+
+   There are **no 40 × 40 or 45 × 45 blowers** at any voltage.
+3. **No 24 V 3010 or 4010 axial.** 3010s are 12 V only (MF30101V1/V2, HA30101V3). The only 24 V 40 mm axials are 40 × 40 × 20 (MF40202Vx) and 40 × 40 × 28 (GF40282Bx, 58.5 dBA).
+4. **Nothing from our 24 V MF50152VX blower family.** Every MF50152Vx in the shop is the 1000U **axial**.
+5. **Shop parameter tables contain errors.** Use the Sunon sheets instead:
+   - The MF40202VX-1000U-G99 page says "12 VDC, 40.7 dBA" and links the MF40201VX sheet.
+   - The EF50151BX-1B00U-G99 page links the EF50151B2 sheet.
+6. **Suffix key** (Sunon catalogue p.80):
+   - A99: 2 wires
+   - F99: + R-type locked-rotor alarm
+   - G99: + **FG tach**
+   - H99: + PWM
+   - Q99: R + PWM
+   - S99: **FG + PWM** (4 wires)
+
+### 11.2 Candidates
+
+| Part (sunon.cz) | Type | V | I rated / max | rpm | Q max | ΔP max | dBA | Wires | Mass | Stock | Price CZK | Curve |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [MF50151VX-1B00U-**G99**](https://www.sunon.cz/ventilator-dc-blower-12v-50x50x15mm-mf50151vx-1b00u-g99/) | 5015 blower, Vapo/MagLev | 12 | 0.155 / 0.179 A | 6200 | 5.4 CFM | 0.97 inH2O (242 Pa) | 42.2 | 3 (FG) | 30 g | Na dotaz | **122.76** (101.45) | DIGITIZED (identical to -A99 to < 0.01 %) |
+| [MF50151VX-1B00U-A99](https://www.sunon.cz/ventilator-dc-blower-12v-51-7x51-6x15mm-mf50151vx-1b00u-a99/) | same aero | 12 | same | 6200 | 5.4 | 0.97 | 42.2 | 2 | 30 g | Na dotaz | 133.65 (110.45) | `sunon_MF50151VX-1B00U-A99_digitized.csv` |
+| [EF50151BX-1B00U-A99](https://www.sunon.cz/ventilator-dc-blower-12v-51-6x51-7x15mm-ef50151bx-1b00u-a99/) | 5015 blower, 2 ball | 12 | 0.150 A | 6200 | 5.4 | 0.97 | 45.8 | 2 | 31 g | **Skladem (100)** | 352.44 (291.27) | DIGITIZED (catalogue curve) |
+| [EF50151BX-1B00U-G99](https://www.sunon.cz/ventilator-dc-blower-12v-51-7x51-6x15mm-ef50151bx-1b00u-g99/) | same, FG | 12 | 0.150 A | 6200 | 5.4 | 0.97 | 45.8 | 3 (FG) | 31 g | Na dotaz | 289.08 (238.91) | as above |
+| [MF50201V1-1B00U-A99](https://www.sunon.cz/ventilator-dc-blower-12v-50x50x20mm-mf50201v1-1b00u-a99/) / [-F99](https://www.sunon.cz/ventilator-dc-blower-12v-50x50x20mm-mf50201v1-1b00u-f99/) | 5020 blower | 12 | 0.124 A | 5300 | 5.8 | 0.66 (165 Pa) | 34.8 | 2 / 3 (R) | 34 g | Skladem (4320 / 2283) | 160.38 / 114.84 | DIGITIZED |
+| [MF60151VX-1B00U-A99](https://www.sunon.cz/ventilator-dc-blower-12v-60x60x15mm-mf60151vx-1b00u-a99/) / [-G99](https://www.sunon.cz/ventilator-dc-blower-12v-60x60x15mm-mf60151vx-1b00u-g99/) | 6015 blower | 12 | 0.130 A | 4500 | 6.2 | 0.71 (177 Pa) | 37.7 | 2 / 3 (FG) | 36 g | Skladem (13) / Na dotaz | 200.97 / 127.71 | DIGITIZED |
+| [PF75302B1-1B00U-**S99**](https://www.sunon.cz/ventilator-dc-blower-24v-75x75x30mm-pf75302b1-1b00u-s99/) | 7530 blower, ball | **24** | 0.115 / 0.133 A | 3400 | 15.5 | 0.57 (142 Pa) | 42.0 | **4 (FG + PWM)** | 88 g | Na dotaz | 285.12 (235.64) | DIGITIZED |
+| [MF30101V1-1000U-G99](https://www.sunon.cz/ventilator-dc-axialni-12v-30x30x10mm-mf30101v1-1000u-g99/) (hotend, optional) | 3010 axial, Vapo | 12 | 55 mA | 11 500 | 9.3 m³/h (5.5 CFM) | 6.35 mmH2O (62 Pa) | 23 | 3 (FG) | 8 g | Skladem (146) | 195.03 (161.18) | specs SECONDARY (shop); not digitized |
+| [MF40202V1-1000U-G99](https://www.sunon.cz/ventilator-dc-axialni-24v-40x40x20mm-mf40202v1-1000u-g99/) | 4020 axial (slower sibling of ours) | 24 | 32 mA | 7000 | 15.04 m³/h | 5.59 mmH2O | 25.5 | 3 (FG) | 30 g | Skladem (6294) | 126.72 | not needed |
+
+Where the specs come from:
+- MF50151VX: Sunon sheets D05073850G-00 and `mf50151vx-1b00u-g99.pdf`.
+- EF50151BX: Sunon catalogue 240-A p.83.
+- MF50201V1, MF60151VX and PF75302B1: Sunon sheets linked from the shop.
+
+The PF75302B1-S99 sheet also gives its PWM input: 22-28 kHz (25 kHz typ.), VH 2.1-5 V, minimum start duty 10 %, 50 % duty gives 2200 rpm, and an unconnected input runs at full speed. Its operating range is 20.4-27.6 V.
+
+### 11.3 Operating points (PRE-CFD, same ducts as section 6; `operating_point.py --sunoncz`)
+
+Single fan, whole outlet area. Each cell is Q in CFM / outlet velocity. The last two columns relate mass to flow and to the X input-shaper frequency (DD-01: about 1 % per 9 g).
+
+| Fan | Medium K | High K | Mass | CFM/g at medium K | X-shaper cost per fan |
+|---|---|---|---|---|---|
+| Stock 4020, upper bound (390 Pa, ESTIMATED) | 2.56 / 15.1 m/s | 1.38 | ? | — | — |
+| Delta BFB0524HH (not at sunon.cz) | **1.99** / 11.7 | **1.04** | 28 g | **0.071** | 3.1 % |
+| **Sunon EF50151BX-1B00U** | **1.95** / 11.5 | **1.04** | 31 g | 0.063 | 3.4 % |
+| **Sunon MF50151VX-1B00U** | **1.91** / 11.3 | **1.02** | 30 g | 0.064 | 3.3 % |
+| Sunon MF60151VX-1B00U (6015) | 1.79 / 10.6 | 0.93 | 36 g | 0.050 | 4.0 % |
+| Stock 4020, lower bound (CBM proxy) | 1.72 / 10.1 | 0.93 | ? | — | — |
+| Sunon MF50152VX-1L02C (owned, proxy) | 1.70 / 10.0 | 0.91 | 28.4 g | 0.060 | 3.2 % |
+| Sunon PF75302B1 (7530) on the toolhead | 1.70 / 10.0 | 0.86 | 88 g | 0.019 | 9.8 % |
+| Sunon MF50201V1-1B00U (5020) | 1.55 / 9.2 | 0.85 | 34 g | 0.046 | 3.8 % |
+
+**Dual symmetric fans, each with its own outlet (medium / high K):**
+
+| Pair | Medium K | High K | Mass |
+|---|---|---|---|
+| 2 × Delta | 3.98 | 2.08 | 56 g |
+| 2 × EF50151BX | 3.91 | 2.07 | 62 g |
+| 2 × MF50151VX | 3.83 | 2.05 | 60 g |
+| 2 × MF60151VX | 3.59 | 1.86 | 72 g |
+| 2 × owned MF50152VX | 3.40 | 1.82 | 57 g |
+| 2 × MF50201V1 | 3.11 | 1.70 | 68 g |
+
+**PF75302B1 off the toolhead,** through a 1.5 m × 15 mm hose: 1.93 / 1.39 / 0.82 CFM (low / medium / high K). That is less than one 5015 mounted on the toolhead.
+
+**Ranking (flow at medium-high K, then mass):**
+1. Delta BFB0524HH (reference, not sold here)
+2. **EF50151BX ≈ MF50151VX**, tied within the ±1-2 % digitizing and curve tolerance; MF50151VX is 1 g lighter, 3.6 dB quieter and much cheaper
+3. MF60151VX
+4. owned MF50152VX ≈ stock lower bound
+5. MF50201V1
+6. PF75302B1
+
+The two Sunon 5015s deliver **+12-15 % flow over the blower we own** and come within 2-4 % of the Delta.
+
+### 11.4 Electrical: can the part-fan channel control their speed?
+
+- **No toolhead-sized 24 V 4-wire PWM blower exists at sunon.cz.** The only 24 V PWM blower is **PF75302B1-1B00U-S99**, flagged here explicitly. It is not usable:
+  - It is 75 × 75 × 30 mm and 88 g: 9.8 % of X-shaper frequency per fan.
+  - Its PWM input is specified at 22-28 kHz, while channel 1 runs 100 Hz software PWM (`cycle_time 0.010`). Hardware PWM on PB8 is unverified.
+  - Off the toolhead it delivers less flow than a single 5015 (11.3).
+- **Every toolhead-sized candidate is 12 V, with 2 wires (A99) or 3 wires (G99 = FG tach).** None has a PWM wire. Using one needs:
+  1. A **24 → 12 V buck** on the toolhead. Two MF50151VX at max current draw 0.36 A at 12 V, about 0.2 A at 24 V, which is inside the stock channel's demonstrated 0.3 A. Module mass is ~3-5 g, ESTIMATED.
+  2. The **same speed-control add-on that a 2-wire 24 V Delta needs:** a logic-level low-side MOSFET switching the fans' negative leg.
+     - Its gate is driven by the channel-1 PWM-wire signal: PB8's open-collector stage plus a pull-up on the add-on board.
+     - The buck is fed from the PB6-switched supply.
+     - This keeps Klipper's single `[fan]` (M106) and the MPC model unchanged. It is INFERRED and must be checked against the channel-1 probe measurement (section 9, item 3).
+  3. The **G99 FG output** is open collector, so it can go to PB3 (`tachometer_pin: ^nozzle_mcu:PB3`, 2 pulses per revolution) for one of the pair.
+- **Compared with the Delta:** the Sunon option costs one extra buck and ~2 g per fan, and gains a FG tach and 3 dB lower noise. Aerodynamically the two are equivalent.
+
+### 11.5 Recommended sunon.cz order
+
+| # | Part | Qty | Why | Price |
+|---|---|---|---|---|
+| 1 | **MF50151VX-1B00U-G99** | **3** | Best flow per gram at sunon.cz. Quietest of the strong 5015s. FG tach for PB3. Two for the dual-blower configuration, one to bench-measure (shut-off pressure, free flow, FG) and keep as a spare | 3 × 122.76 = **368 CZK** incl. VAT (on request) |
+| 1-alt | EF50151BX-1B00U-A99 (in stock) | 3 | Only if the on-request lead time is unacceptable. Same flow (+2 %), ball bearing, 45.8 dBA, 2 wires, +1 g | 3 × 352.44 = 1057 CZK |
+| 2 (optional) | MF30101V1-1000U-G99 | 1 | Only if the 12 V rail is built anyway and a documented 3010 hotend fan is wanted (DD-04 keeps the 3010 size). There is **no 24 V 3010 at sunon.cz**; otherwise keep the stock 24 V Creality 3010 | 195.03 CZK (in stock) |
+
+**Do not order:**
+- PF75302B1, any suffix: too heavy, and its PWM is out of spec for the board.
+- MF50201V1 (5020): −19 % flow and +4 g against MF50151VX.
+- MF60151VX (6015): −6 % flow and +6 g.
+- MF40202V1: we already own the faster MF40202VX.
+
+The 24→12 V buck and the MOSFET add-on are not sold at sunon.cz.
+
+**If ordering outside sunon.cz is acceptable,** 2 × Delta BFB0524HH (24 V) is still marginally the better pick: +4 % flow, −2 g per fan, and no buck.
+
+### 11.6 For the CFD agent
+
+- **Add** `sunon_MF50151VX-1B00U-A99_digitized.csv`. It already exists from section 10, and the -G99 curve is identical, so it covers the recommended -G99.
+- **Optionally add** `sunon_EF50151BX-1B00U-A99_digitized.csv`. It is within 2 % of the MF50151VX, so only needed if the in-stock alternative is chosen.
+- `sunon_MF50201V1-1B00U-F99_digitized.csv`, `sunon_MF60151VX-1B00U-G99_digitized.csv` and `sunon_PF75302B1-1B00U-S99_digitized.csv` are written for completeness. **They are not finalists.**
