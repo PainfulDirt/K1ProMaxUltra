@@ -24,6 +24,8 @@ Usage
         # files (manufacturer curves); reads only, never writes a CSV
   python3 operating_point.py --sunoncz [--plot]
         # section 11: sunon.cz blower candidates vs references; reads only
+  python3 operating_point.py --eu
+        # section 12: all EU-orderable blowers ranked; reads only
 
 Units: SI. 1 CFM = 4.719e-4 m^3/s, 1 inH2O = 249.09 Pa, 1 mmH2O = 9.80665 Pa.
 """
@@ -601,6 +603,43 @@ def sunoncz_tables(plot_path: Path | None = None):
         print(f"wrote {plot_path}")
 
 
+# --------------------------------------------------------------------------
+# Section 12: everything orderable in the EU. Read-only.
+# (csv stem or FAN key, label, V, mass_g, mass status, electrical effort, price note)
+# effort: drop-in (24 V 4-wire PWM) / buck (12 V 4-wire PWM) / MOSFET (24 V 2-3 wire) / buck+MOSFET
+# --------------------------------------------------------------------------
+EU = [
+    ("samesky_CBM-5015BF-175-459-22_digitized", "Same Sky CBM-5015BF-175-459-22", 12, 31.4, "ESTIMATED (series max)",
+     "buck", "radiomag.com.de 23.18 EUR, 10-14 d; DigiKey EU / Farnell list it"),
+    ("delta_BFB0524HH_digitized", "Delta BFB0524HH(-F00)", 24, 28.0, "VERIFIED",
+     "MOSFET", "DigiKey EU ~13.9-15.3 EUR ex VAT; Mouser EU -F00 ~12.35 EUR (snapshots)"),
+    ("mechatronics_B5015E24B_digitized", "Mechatronics B5015E24B-BSR", 24, 25.0, "VERIFIED",
+     "MOSFET", "DigiKey EU 9.87 EUR ex VAT, 0 stock, ~19-20 wk"),
+    ("sunon_MF50151VX-1B00U-A99_digitized", "Sunon MF50151VX-1B00U-G99", 12, 30.0, "VERIFIED",
+     "buck+MOSFET", "sunon.cz 122.76 CZK, on request"),
+    ("sunon_MF50152VX-1L02C-A99_proxy-scaled", "Sunon MF50152VX-1L02C (owned)", 24, 28.37, "SECONDARY",
+     "MOSFET", "owned"),
+    ("creality_K1_stock_4020_blower", "Creality 4020, upper bound", 24, None, "-", "drop-in", "~10-14 USD retail"),
+    ("creality_K1_stock_4020_blower_proxy-scaled", "Creality 4020, lower bound", 24, None, "-", "drop-in", "same part"),
+]
+
+
+def eu_tables():
+    print("\n## Orderable blowers: single fan and dual (own outlets), PRE-CFD\n")
+    print("| fan | V | effort | medium K CFM | high K CFM | 2x own outlets med / high | mass g | CFM/g med | price / lead |")
+    print("|---|---|---|---|---|---|---|---|---|")
+    for stem, label, volt, mass, mstat, effort, price in EU:
+        if stem in FAN:
+            f = FAN[stem]
+        else:
+            q, p = load_csv(OUT / f"{stem}.csv")
+            f = TableFan(stem, label, "", q, p)
+        qm, qh = solve(f, 1, DUCTS[1])[0] / CFM, solve(f, 1, DUCTS[2])[0] / CFM
+        perg = f"{qm/mass:.3f}" if mass else "-"
+        print(f"| {label} | {volt} | {effort} | {qm:.2f} | {qh:.2f} | {2*qm:.2f} / {2*qh:.2f} | "
+              f"{mass if mass else '?'} ({mstat}) | {perg} | {price} |")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--plot", action="store_true")
@@ -609,7 +648,12 @@ def main():
                     help="tables from the *_digitized / *_proxy-scaled CSVs (writes no CSV)")
     ap.add_argument("--sunoncz", action="store_true",
                     help="section 11: sunon.cz blower candidates vs references (writes no CSV)")
+    ap.add_argument("--eu", action="store_true",
+                    help="section 12: all EU-orderable blowers ranked (writes no CSV)")
     a = ap.parse_args()
+    if a.eu:
+        eu_tables()
+        return
     if a.sunoncz:
         sunoncz_tables(OUT / "pq_sunoncz_candidates.png" if a.plot else None)
         return

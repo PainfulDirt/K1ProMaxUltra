@@ -527,3 +527,120 @@ The 24→12 V buck and the MOSFET add-on are not sold at sunon.cz.
 - **Add** `sunon_MF50151VX-1B00U-A99_digitized.csv`. It already exists from section 10, and the -G99 curve is identical, so it covers the recommended -G99.
 - **Optionally add** `sunon_EF50151BX-1B00U-A99_digitized.csv`. It is within 2 % of the MF50151VX, so only needed if the in-stock alternative is chosen.
 - `sunon_MF50201V1-1B00U-F99_digitized.csv`, `sunon_MF60151VX-1B00U-G99_digitized.csv` and `sunon_PF75302B1-1B00U-S99_digitized.csv` are written for completeness. **They are not finalists.**
+
+## 12. EU sourcing
+
+**Survey date: 2026-11-01. Treat every price and stock figure as SECONDARY.**
+- Pages I fetched directly that day (radiomag.com.de, Zen3D, sunon.cz) are marked "fetched".
+- Most other figures are **search-engine snapshots of distributor pages of unknown date**. Re-check them at checkout.
+- These sites refused automated access (403 or JS-only): TME, Farnell CZ, RS CZ (Distrelec now redirects to RS), DigiKey, Conrad, Reichelt search, Alza. Check **TME and Farnell CZ by hand**; both normally carry Delta and Same Sky.
+- GME and Prusa had no listing for the part.
+- CZK figures use an **assumed 25 CZK/EUR** (ESTIMATED; use the day's rate). CZ VAT is 21 %.
+
+### 12.1 Delta BFB0524HH variants (Delta's own BFB product list, fetched)
+
+| Delta part | Wires | Signal | Notes |
+|---|---|---|---|
+| **BFB0524HH** | 2 | none | locked rotor protected by winding impedance |
+| **BFB0524HH-F00** | 3 | **FG speed sensor (tach)**, open collector | **the variant to buy**: tach goes to PB3 |
+| BFB0524HH-R00 | 3 | locked-rotor alarm (no speed) | not useful for Klipper |
+| BFB0524H-R00 / BFB0524M | 3 / 2 | — | 5500 / 4500 rpm, weaker |
+
+- Delta lists **no PWM (4-wire) variant** of the 50 mm BFB, and no "BFB0524HHA".
+- Delta's 40/45 mm BFB blowers (BFB0405…, BFB04505…, BFB04512…) are **5 V / 12 V only**. There is no 24 V Delta blower below 51 mm.
+- All -HH variants share the curve in `delta_BFB0524HH_digitized.csv`.
+
+### 12.2 Other 24 V or PWM toolhead blowers with manufacturer curves
+
+| Part | V | Wires | Curve | Key data (VERIFIED from datasheet) | Verdict |
+|---|---|---|---|---|---|
+| **Same Sky CBM-5015BF-175-459-22** | 12 | **4: tach + PWM** | **DIGITIZED** `samesky_CBM-5015BF-175-459-22_digitized.csv` | 7500 rpm; 4.75 CFM; **1.24 inH2O (309 Pa)**; 0.22 A typ / 0.33 A max at 12 V (2.64 / 3.96 W); 45.9 dBA. **PWM 0.2-50 kHz**, VIH 2.5-10 V; tach open collector 3.3-15 V, 2 pulses/rev. Weight 23.2-31.4 g, given only for the series, not per model | **Highest-pressure orderable 5015.** PWM-native, needs only a 12 V buck |
+| Mechatronics B5015E24B-BSR | **24** | 2 (tach optional in the series) | **DIGITIZED** `mechatronics_B5015E24B_digitized.csv` | 6500 rpm; 0.13 m³/min (5 CFM); 22.45 mmH2O; 180 mA; 45 dB; **25 g** | Delta-class curve, 3 g lighter. DigiKey EU showed 0 stock and a 19-20 wk lead |
+| Pelonis RBH5015B2 | 24 | 2 | not digitized | 5000 rpm, 4.4 CFM, 0.45 inH2O | Too weak |
+| NMB BM5020-05W-B49 | 24 | ? | not obtained | 5.7 CFM, 0.74 inH2O (SECONDARY) | 50 × 20 mm; datasheet not reachable; not pursued |
+| HoneyBadger 5015 4-wire (Fabreeko, US) | 24 | 4 (PWM + tach) | **no curve** | 9200 rpm; vendor figures conflict | Cannot be ranked without data |
+| Sunon MF50152VX-1L01C-Q99 | 24 | 4 (PWM) | no sheet | OEM part, marketplaces only | The only 24 V 4-wire 5015 seen, but undocumented |
+| GDSTime / Winsinn 24 V 5015 / 4020 | 24 | 2 (some 4) | **no manufacturer curves** | retailer figures only | Not rankable |
+| ebm-papst / San Ace / SEPA | — | — | — | no 40-51 mm 24 V blower found (San Ace 9BMB = 97 mm) | — |
+
+**No 24 V, 4-wire PWM, toolhead-size blower with a manufacturer P-Q curve is orderable in the EU.** The closest is the 12 V Same Sky CBM-5015BF-175-459-22. Its PWM spec has a **200 Hz minimum**, so the stock `cycle_time: 0.010` (100 Hz) is out of spec. Set `cycle_time: 0.002` (500 Hz, the value Pellcorp already uses for the aux fan) or 0.004. Both are in spec and fine for software PWM.
+
+How it would wire up (INFERRED, check against the channel-1 probe):
+1. Fan + is fed by a 24→12 V buck, supplied from the PB6-switched channel-1 supply, so the fan is fully off at 0 %.
+2. The blue PWM wire goes to the board's PWM-wire line (PB8, open-collector, inverted `!` as stock).
+3. The yellow tach wire goes to PB3.
+
+One assumption must be checked with a multimeter (no-load voltage on the PWM wire): that the fan's PWM input has an internal pull-up, as most 4-wire fans do. If it does not, add a pull-up to 3.3-5 V.
+
+### 12.3 Where to buy (EU)
+
+| Part | Supplier | Price (1 pc) | Stock / lead | MOQ | Status |
+|---|---|---|---|---|---|
+| Delta **BFB0524HH-F00** | DigiKey EU (digikey.cz) | €13.89-15.30 ex VAT (≈ 420-460 CZK incl. VAT) | stock 13-476 across snapshots; mfr lead 32 wk | 1 | SECONDARY ([digikey.ie](https://www.digikey.ie/en/products/detail/delta-electronics/BFB0524HH-F00/4251980), [digikey.at](https://www.digikey.at/en/products/detail/delta-electronics/BFB0524HH-F00/4251980)) |
+| Delta BFB0524HH-F00 | Mouser EU (mouser.cz) | €12.35 (one snapshot, 116 in stock); another shows 0 stock / 50-52 wk | varies | 1 | SECONDARY ([mouser](https://www.mouser.com/ProductDetail/Delta-Electronics/BFB0524HH-F00/?qs=Tx9Tc1LIQ%252BEMmOU6Kpl%252BcQ%3D%3D)). Mouser marks the plain **BFB0524HH** "not shipped to consumers in the EU/UK"; order the -F00 |
+| Delta BFB0524HH-F00 | radiomag.com.de | €25.10 (snapshot), 166 pcs, 10-14 d | | | SECONDARY |
+| Delta BFB0524HH (2-wire) | radiomag.com.de | €27.37 private | on order, 779 pcs at supplier, 14-21 d | **7** | fetched |
+| Delta BFB0524HH (2-wire) | Zen3D (HU, Voron shop) | €24.33 | **out of stock** | 1 | fetched |
+| Delta BFB0524HH | onlinecomponents.com | €13.89 @ 5 | 224-601 pcs (snapshots), 32 wk | 5 | SECONDARY |
+| **Same Sky CBM-5015BF-175-459-22** | radiomag.com.de | **€23.18** (1+), €22.12 (10+) | on order, 335 at supplier, **10-14 d** | 1 | fetched |
+| Same Sky CBM-5015BF-175-459-22 | DigiKey EU | price not in snapshot | 256 in stock (snapshot), mfr lead 17-19 wk | 1 | SECONDARY ([digikey.ie](https://www.digikey.ie/en/products/detail/same-sky-formerly-cui-devices/CBM-5015BF-175-459-22/19524595)); also listed by Farnell (datasheet on farnell.com) |
+| Mechatronics B5015E24B-BSR | DigiKey EU | €9.87 ex VAT | 0 in stock (snapshot), 19-20 wk | 1 | SECONDARY ([digikey.lv](https://www.digikey.lv/en/products/detail/mechatronics-fan-group/B5015E24B-BSR/5209731)) |
+| Sunon MF50151VX-1B00U-G99 | sunon.cz | 122.76 CZK incl. VAT | on request | 1 | fetched (section 11) |
+| Creality 4020 4-pin (4004110132) | 3D-printer shops | ~$10-14 | in stock at several shops | 1 | SECONDARY (section 2) |
+
+**Shipping to CZ.** DigiKey and Mouser both run CZ storefronts (digikey.cz, mouser.cz) and ship to CZ. I did not verify shipping costs or free-shipping thresholds for any supplier; check them at checkout.
+
+### 12.4 Re-ranking of everything orderable (PRE-CFD; `operating_point.py --eu`)
+
+| Rank | Fan | V | Electrical effort on the stock board | Medium / high K, CFM (single) | 2 × own outlets, CFM | Mass | CFM/g | Price / lead |
+|---|---|---|---|---|---|---|---|---|
+| (bound) | Creality 4020, upper bound | 24 | **drop-in** (4-pin PWM) | 2.56 / 1.38 | 5.12 / 2.75 | ? | — | cheap / in stock. **Curve unverified** |
+| **1** | **Same Sky CBM-5015BF-175-459-22** | 12 | **buck only** (4-wire PWM, tach) | **2.14 / 1.19** | **4.28 / 2.37** | 23-31 g | 0.068 (at 31.4 g) | €23.18, 10-14 d |
+| 2 | Delta BFB0524HH-F00 | 24 | MOSFET add-on | 1.99 / 1.04 | 3.98 / 2.08 | 28 g | 0.071 | ~€14-15 ex VAT, stock varies |
+| 3 | Mechatronics B5015E24B-BSR | 24 | MOSFET add-on | 1.93 / 1.05 | 3.87 / 2.10 | **25 g** | **0.077** | €9.87, **19-20 wk** |
+| 4 | Sunon MF50151VX-1B00U-G99 | 12 | buck + MOSFET | 1.91 / 1.02 | 3.83 / 2.05 | 30 g | 0.064 | 122.76 CZK, on request |
+| 5 | Sunon MF50152VX-1L02C (owned) | 24 | MOSFET add-on | 1.70 / 0.91 | 3.40 / 1.82 | 28.4 g | 0.060 | owned |
+| (bound) | Creality 4020, lower bound | 24 | drop-in | 1.72 / 0.93 | 3.44 / 1.87 | ? | — | — |
+
+At low K the flows are: CBM 3.08, Delta 3.13, Mechatronics 3.00 CFM. The CBM's lead appears where pressure matters, at medium and high K: **+8 % / +14 % over the Delta**. Its curve has a stall step at 2.97 CFM. That lies above the medium- and high-K operating points, and only the low-K (~3.1 CFM) point reaches it.
+
+**Current check on channel 1** (demonstrated 0.3 A at 24 V):
+- 1 × CBM: ~0.12 A typ / 0.18 A max at 24 V (through a 90 % buck)
+- 2 × CBM: 0.25 A typ / **0.37 A max**
+- 2 × Delta: 0.22 A typ / 0.32 A max
+- 2 × Creality 4020: ~0.6 A
+
+The dual options are at or above the demonstrated load, so probe the channel-1 switch before committing to any of them. The Delta pair is closest to stock.
+
+### 12.5 Recommended order
+
+The order depends on what CFD decides, so both cases are given. Prices are incl. VAT where known; CZK uses the assumed rate.
+
+**Single-blower outcome**
+
+| Part | Supplier | Qty | ≈ Cost |
+|---|---|---|---|
+| **Same Sky CBM-5015BF-175-459-22** | radiomag.com.de (or DigiKey EU / Farnell CZ if in stock) | **2**: 1 fitted, 1 for bench measurement / spare | 2 × €23.18 ≈ **€46 (≈ 1160 CZK)** |
+| 24→12 V buck module, ≥ 0.5 A, small (e.g. MP1584-class) | any electronics shop (GME, LaskaKit…) | 1 | ~€2-5 (not quoted) |
+| *Fallback if no 12 V rail is wanted:* Delta BFB0524HH-F00 | DigiKey EU / Mouser EU | 2 | ≈ €30-37 incl. VAT, plus the MOSFET add-on |
+
+**Dual-blower outcome**
+
+| Part | Supplier | Qty | ≈ Cost |
+|---|---|---|---|
+| **D1 (max flow):** Same Sky CBM-5015BF-175-459-22 | radiomag.com.de / DigiKey EU | **3**: 2 fitted + 1 measured/spare | 3 × €23.18 ≈ **€70 (≈ 1740 CZK)** |
+| 24→12 V buck, ≥ 1 A | GME / LaskaKit | 1 | ~€3-6 |
+| **D2 (lowest current, closest to stock):** Delta BFB0524HH-F00 | DigiKey EU / Mouser EU | 3 | ≈ €45-55 incl. VAT, plus the MOSFET add-on |
+
+How to choose:
+- **D1** gives about +8-14 % more flow than D2, needs no MOSFET, and has PWM and tach native. It costs a 12 V buck and draws up to 0.37 A from channel 1.
+- **D2** uses no buck and draws ≤ 0.32 A, but needs the low-side MOSFET add-on.
+- The 12 V Sunon MF50151VX from sunon.cz (section 11) is the budget option. It is the most effort electrically (buck + MOSFET) and the cheapest (3 × 122.76 CZK).
+- Mechatronics B5015E24B is the lightest (25 g) and best in flow per gram. It is worth back-ordering only if mass ends up dominating and 19-20 weeks is acceptable.
+
+### 12.6 For the CFD agent
+
+- **Add** `samesky_CBM-5015BF-175-459-22_digitized.csv` as a finalist. It is the highest-pressure orderable 5015 and PWM-native.
+- **Keep** `delta_BFB0524HH_digitized.csv`.
+- **Optional:** `mechatronics_B5015E24B_digitized.csv`, which is within 3 % of the Delta.
+- Keep the two stock-4020 files as bounds.
