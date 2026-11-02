@@ -133,7 +133,7 @@ Everything measured on this printer (glass bed + textured PEI, cold plate unless
 | Tilt X / Y | -3.3 / -3.5 µm/100 mm | -10.6 / +0.4 µm/100 mm |
 | With the twist tables from 3 days earlier | 21.7 µm (an 18 µm X shape) | 14.7 µm |
 
-The mean thickness of a print (192 vs 200 µm here) follows the True Zero touch, not the mesh. The thin middle column (X 150) shows up with both and is not the mesh.
+The mean thickness of a print (192 vs 200 µm here) follows the True Zero touch, not the mesh. The thin middle column (X 150) that showed up with both was the first-layer check itself: the plate's change between its two scans is bowl-shaped and was taken off as a plane. Re-analysed with the curved surface (2026-11-02), the LiDAR-mesh pads spread **6.1 µm rms** (median 0.204 mm for 0.200).
 
 **Buttons** are in Fluidd's *Macros* panel and on the screen. They always run, whatever the switches say.
 
@@ -197,7 +197,7 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Roadmap
 
 **LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check, first-layer thickness check, LiDAR bed mesh levels 1-5 used by START_PRINT, combined probe + LiDAR twist calibration, XY skew, open driver with the middleware retired)
-- **True first-layer thickness: done (2026-10-29).** `First_Layer_Check`: bare plate before, first layer after, the difference is the real thickness (test print 0.194 mm for 0.200). Since 2026-11-01 a short prime line in front of the objects refills the nozzle after the pause for the scan, so layer 2 starts clean (`PRIME=3` mm). Left: store the PLA line ramp per filament for parts under 40 mm.
+- **True first-layer thickness: done (2026-10-29).** `First_Layer_Check`: bare plate before, first layer after, the difference is the real thickness (test print 0.194 mm for 0.200). Since 2026-11-01 a short prime line in front of the objects refills the nozzle after the pause for the scan, so layer 2 starts clean (`PRIME=3` mm). Since 2026-11-02 the plate's own change between the two scans may be curved: the bare plate between and around the objects showed a bowl of 40-60 µm (middle lower) on the 9-pad test prints, which made the middle look 25-38 µm too thin. With bare plate inside the objects' area (gaps between parts or islands) a quadratic surface comes off instead of a plane; the pads then spread 6-8 µm rms instead of 16-23, and the Microprobe (pad minus plate) agrees. Left: store the PLA line ramp per filament for parts under 40 mm.
 - **Flow / extrusion multiplier.** Measure single-line cross-sections (height × width) against what was commanded, per filament. The PA test already measures these areas.
 - **Bed mesh: done (2026-10-29, in START_PRINT 2026-11-01).** LiDAR mesh levels 1-5 agree with the Microprobe to 17 µm rms once both have their own twist table; the `LiDAR_Mesh` switch makes START_PRINT use it, with the Microprobe as fallback. Y correction (2026-11-01): `LIDAR_MESH_CALIBRATION` measures the LiDAR's slope along Y against the nozzle (+22 ± 4 µm/100 mm) besides the X twist. Printed A/B the same day: with fresh tables the LiDAR mesh matched the Microprobe (16.8 vs 17.7 µm rms over 9 pads) and is START_PRINT's mesh now. Left: `MESH_BENCHMARK_RUN` on a hot, settled plate to see whether level 2 is enough, and why the middle of the bed prints ~30 µm thin with either mesh.
 - **Strings and blobs before a print.** A quick scan of the print area after the purge; warn or stop if something is lying where the part goes.
