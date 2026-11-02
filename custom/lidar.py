@@ -1971,10 +1971,13 @@ class Lidar:
                     "LIDAR_OFFSET_CALIBRATE", "LIDAR_TIMING",
                     "LIDAR_BED_MESH", "LIDAR_TWIST_CALIBRATE",
                     "LIDAR_GRID_CALIBRATE", "MESH_COMPARE", "MESH_BENCHMARK",
-                    "FIRST_LAYER_SCAN", "SKEW_SCAN", "SKEW_CALIBRATE"):
+                    "FIRST_LAYER_SCAN", "SKEW_SCAN", "SKEW_CALIBRATE",
+                    "LIDAR_STREAM_MODE"):
+            fn = getattr(self, "cmd_" + cmd)
+            if cmd in self.TEMP_LOGGED:
+                fn = self._temp_logged(cmd, fn)
             self.gcode.register_command(
-                cmd, getattr(self, "cmd_" + cmd),
-                desc=getattr(self, "desc_" + cmd))
+                cmd, fn, desc=getattr(self, "desc_" + cmd))
 
     def get_status(self, eventtime):
         return {"last_result": self.last_result,
@@ -2024,13 +2027,21 @@ class Lidar:
         """Send a request without waiting for its reply (OSError)."""
         # one persistent connection: cx_ai_middleware leaks a descriptor per
         # connection and stops accepting after a few thousand
-        if self.sock is None:
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.settimeout(2.0)
-            s.connect(self.sock_path)
-            s.setblocking(False)
-            self.sock = s
-        self.sock.sendall(json.dumps(msg).encode() + ETX)
+        data = json.dumps(msg).encode() + ETX
+        if self.sock is not None:
+            try:
+                self.sock.sendall(data)
+                return
+            except OSError:
+                # the driver was restarted since the last request (broken
+                # pipe): nothing was sent, connect again once
+                self._close()
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(2.0)
+        s.connect(self.sock_path)
+        s.setblocking(False)
+        self.sock = s
+        s.sendall(data)
 
     def _recv(self, timeout=10.0):
         """The reply bytes (without ETX) and the reactor time they arrived."""
@@ -2093,7 +2104,11 @@ class Lidar:
         lidar-direct.py since the middleware was retired (2026-11-01)."""
         sv = self.printer.lookup_object("save_variables", None)
         saved = getattr(sv, "allVariables", None) or {}
-        return str(saved.get("lidar_driver", "direct"))
+        driver = str(saved.get("lidar_driver", "direct"))
+        # stream mode 1 has its own frame timing (LIDAR_STREAM_MODE)
+        if str(saved.get("lidar_stream_mode", 0)) == "1":
+            driver += "-m1"
+        return driver
 
     def _timing(self, level):
         """(frame period, window start, window end, source) for the driver
@@ -2185,18 +2200,149 @@ class Lidar:
         return rep
 
     # ------------------------------------------------------------- scanning
-    desc_LIDAR_STATUS = "Check that the LiDAR answers"
+    desc_LIDAR_STREAM_MODE = (
+        "Module stream mode: MODE=1 captures continuously (~10.7 instead of"
+        " ~5 frames/s, frames ~0.1 s older), MODE=0 one capture per request"
+        " (stock). Saved (lidar_stream_mode); each mode has its own"
+        " LIDAR_TIMING. No MODE: report")
+
+    def cmd_LIDAR_STREAM_MODE(self, gcmd):
+        sv = self.printer.lookup_object("save_variables", None)
+        saved = getattr(sv, "allVariables", None) or {}
+        mode = gcmd.get_int("MODE", None, minval=0, maxval=1)
+        if mode is not None:
+            msg = {"control": "set_stream_mode", "mode": mode}
+            if self.service:
+                r = self._svc({"cmd": "middleware", "msg": msg})["reply"]
+            else:
+                r = self._call(msg)
+            code = r.get("result", {}).get("code")
+            if code != 0:
+                raise gcmd.error("LIDAR_STREAM_MODE: driver answered %s"
+                                 " (lidar-direct.py too old?)" % (code,))
+            self.gcode.run_script_from_command(
+                "SAVE_VARIABLE VARIABLE=lidar_stream_mode VALUE=%d" % (mode,))
+            saved = dict(saved, lidar_stream_mode=mode)
+        mode = int(saved.get("lidar_stream_mode", 0))
+        timing = (saved.get("lidar_timing") or {}).get(self._driver(), {})
+        gcmd.respond_info(
+            "LiDAR stream mode %d (%s); frame timing for it: %s" % (
+                mode, "continuous capture" if mode else "one capture per"
+                " request", ", ".join(
+                    "level %s %.0f ms" % (k, float(v[0]) * 1000)
+                    for k, v in sorted(timing.items())) or
+                "none yet, run LIDAR_TIMING"))
+
+    # The module has a thermometer next to its image sensor that nothing
+    # compensates for (k1-lidar/creality/FW-FINDINGS.md A4): these commands
+    # record it before and after, and append one line per run to
+    # lidar_runs.jsonl next to klippy.log, for modelling the warm-up drift.
+    TEMP_LOGGED = ("LIDAR_BED_MESH", "LIDAR_TWIST_CALIBRATE",
+                   "LIDAR_GRID_CALIBRATE", "LIDAR_TIMING",
+                   "LIDAR_OFFSET_CALIBRATE", "MESH_BENCHMARK",
+                   "SKEW_CALIBRATE")
+
+    def _driver_msg(self, msg, timeout=10.0):
+        """One request to the driver (through the service if there is one);
+        returns the reply's "result"."""
+        if self.service:
+            r = self._svc({"cmd": "middleware", "msg": msg}, timeout)["reply"]
+        else:
+            r = self._call(msg, timeout)
+        return r.get("result", {})
+
+    def _module_temp(self):
+        """Module temperature in C, or None (never raises)."""
+        try:
+            r = self._driver_msg({"control": "get_sensor_temp"}, 3.0)
+            return r.get("temp") if r.get("code") == 0 else None
+        except Exception:
+            return None
+
+    def _runs_log(self):
+        log = self.printer.get_start_args().get("log_file")
+        return os.path.join(os.path.dirname(log) if log else "/tmp",
+                            "lidar_runs.jsonl")
+
+    def _temp_logged(self, cmd, fn):
+        def run(gcmd):
+            t0, start, err = self._module_temp(), time.time(), None
+            try:
+                fn(gcmd)
+            except Exception as e:
+                err = str(e)
+                raise
+            finally:
+                t1 = self._module_temp()
+                now = self.reactor.monotonic()
+                heat = {}
+                for name in ("heater_bed", "extruder"):
+                    obj = self.printer.lookup_object(name, None)
+                    if obj is not None:
+                        st = obj.get_status(now)
+                        heat[name] = [round(st.get("temperature", 0), 1),
+                                      st.get("target")]
+                row = {"time": time.strftime("%Y-%m-%d %H:%M:%S",
+                                             time.localtime(start)),
+                       "cmd": gcmd.get_commandline(),
+                       "secs": round(time.time() - start, 1),
+                       "module_c": [t0, t1], "error": err}
+                row.update(heat)
+                try:
+                    with open(self._runs_log(), "a") as f:
+                        f.write(json.dumps(row) + "\n")
+                except OSError:
+                    pass
+                if err is None and t0 is not None and t1 is not None:
+                    gcmd.respond_info("LiDAR module %.1f -> %.1f C" % (t0, t1))
+        return run
+
+    desc_LIDAR_STATUS = ("Check that the LiDAR answers (firmware, module"
+                         " temperature); SELFTEST=1 laser/light brightness"
+                         " test, AMBIENT=1 points found with the laser off")
 
     def cmd_LIDAR_STATUS(self, gcmd):
-        msg = {"control": "get_laser_exposure"}
-        if self.service:
-            r = self._svc({"cmd": "middleware", "msg": msg})["reply"]
-        else:
-            r = self._call(msg)
+        r = self._driver_msg({"control": "get_laser_exposure"})
+        try:
+            info = self._driver_msg({"control": "get_module_info"})
+        except Exception:
+            info = {}
+        if info.get("code") == 0:
+            try:     # the driver sends the 12 serial bytes as hex
+                sn = bytes.fromhex(info.get("sn", "")).rstrip(b"\0").decode()
+            except (ValueError, UnicodeDecodeError):
+                sn = info.get("sn")
+            info["sn"] = sn
+            gcmd.respond_info(
+                "LiDAR module: firmware %s, serial %s, %.1f C, stream mode"
+                " %s" % (info.get("version"), info.get("sn"),
+                         info.get("temp"), info.get("stream_mode")))
+            t = info.get("timings")
+            if t:
+                gcmd.respond_info(
+                    "LiDAR module timing (last frame): sensor %d frames/s,"
+                    " line finding %d ms, copy + line finding %d ms, last"
+                    " point-cloud request waited %d ms" % (
+                        t["fps"], t["alg_op_ms"], t["alg_ms"], t["wait_ms"]))
+        if gcmd.get_int("SELFTEST", 0):
+            t = self._driver_msg({"control": "self_test"}, 15.0)
+            gcmd.respond_info(
+                "LiDAR self test: %s (laser %s, light %s, code %s)" % (
+                    "ok" if t.get("self_test") == 0 else "FAILED",
+                    "ok" if t.get("laser_ok") else "weak",
+                    "ok" if t.get("light_ok") else "weak", t.get("self_test")))
+        if gcmd.get_int("AMBIENT", 0):
+            a = self._driver_msg({"control": "ambient_points"}, 15.0)
+            pts = a.get("points") or []
+            gcmd.respond_info(
+                "LiDAR with the laser off: %s points per frame%s" % (
+                    pts, "" if not any(pts) else " (room light read as a"
+                    " line: these can replace real points where the laser is"
+                    " weak, e.g. on dark filament)"))
         gcmd.respond_info(
             "LiDAR ok: exposure %s, offset X%.2f Y%.2f at Z%.1f, per mm Z"
             " X%+.3f Y%+.3f (%s), x_dir %+d, %s, scans: %s" % (
-                r.get("result", {}).get("exposure"), self.x_offset,
+                r.get("exposure"), self.x_offset,
                 self.y_offset, self.offset_z, self.x_per_z, self.y_per_z,
                 self.offset_source, self.x_dir,
                 "work done by the service at " + self.service
