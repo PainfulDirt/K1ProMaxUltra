@@ -32,6 +32,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import array
+import base64
 import collections
 import errno
 import json
@@ -355,6 +356,8 @@ class Server:
                 return BAD_PARAM
             self.call(d.set_exposure if k == "exposure" else d.set_gain, v)
             return {}
+        if c == "ir_photo":
+            return self.ir_photo(req)
         if c == "set_laser_roi_area":
             try:
                 self.call(d.set_roi, int(req["x_min"]), int(req["x_max"]))
@@ -391,6 +394,51 @@ class Server:
             except Exception:
                 self.cam_switch = False
         return self.cam_switch
+
+    def ir_photo(self, req):
+        """One 1600x1200 JPEG for the calibrations (Pi service): fill light
+        and/or laser as asked, at the given exposure. Afterwards the light
+        is off and exposure, laser and stream are as before, also when the
+        capture fails. Only type 2 (JPEG) is ever sent."""
+        res, exp = req.get("res", 3), req.get("exposure", 1000)
+        if res not in (0, 1, 2, 3) or not isinstance(exp, int) \
+                or not 0 < exp < 1 << 24:
+            return BAD_PARAM
+        d = self.dev
+        self.stream.stop()
+        if getattr(self, "intr", None) is None:
+            self.intr = [round(v, 3) for v in
+                         self.call(d.get_cal_param)["intrinsics"][:4]]
+        flow, laser = self.flow, self.laser
+        prev = self.call(d.get_exposure)
+        t0 = time.monotonic()
+        try:
+            self.call(d.set_exposure, exp)
+            self.light(bool(req.get("light", 1)))
+            jpg = self.call(d.capture_jpeg, res, bool(req.get("laser", 0)))
+        finally:
+            # the capture switched the stream (and the laser) off
+            self.flow = self.laser = False
+            self.light(False)
+            for fn, args in ((d.set_laser, (False,)), (d.set_exposure, (prev,))):
+                try:
+                    self.call(fn, *args)
+                except ls.LidarError as e:
+                    log("ir_photo: restoring failed: %s" % (e,))
+            try:
+                if laser:
+                    self.call(d.set_laser, True)
+                    self.laser = True
+                if flow:
+                    self.call(d.open_flow)
+                    self.flow = True
+            except ls.LidarError as e:
+                log("ir_photo: restoring the stream failed: %s" % (e,))
+        w, h = {0: (512, 288), 1: (800, 600), 2: (1600, 600),
+                3: (1600, 1200)}[res]
+        return {"jpeg": base64.b64encode(jpg).decode(), "w": w, "h": h,
+                "exposure": exp, "intr": self.intr,
+                "secs": round(time.monotonic() - t0, 2)}
 
     def light(self, on):
         if self.led == on:

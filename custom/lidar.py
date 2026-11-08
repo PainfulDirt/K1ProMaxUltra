@@ -141,17 +141,25 @@ def bin_center(b):
 
 
 def reduce_caps(caps):
-    """Average the captures of one stop into NBINS bins (mm, NaN = empty)."""
-    s = [0.0] * NBINS
-    n = [0] * NBINS
+    """The captures of one stop in NBINS bins (mm, NaN = empty): the median
+    per bin, so a stray point (ambient light, gloss on dark plates) doesn't
+    pull it."""
+    vals = [None] * NBINS
     for c in caps:
         for p in c:
             b = int((p[0] * 0.001 - BIN_MIN) / BIN)
             if 0 <= b < NBINS:
-                s[b] += p[2]
-                n[b] += 1
-    return array.array("f", [s[i] * 0.001 / n[i] if n[i] else NAN
-                             for i in range(NBINS)])
+                if vals[b] is None:
+                    vals[b] = [p[2]]
+                else:
+                    vals[b].append(p[2])
+    out = array.array("f", [NAN]) * NBINS
+    for i, v in enumerate(vals):
+        if v:
+            v.sort()
+            m = len(v) // 2
+            out[i] = 0.001 * (v[m] if len(v) % 2 else 0.5 * (v[m - 1] + v[m]))
+    return out
 
 
 def median(v):
@@ -1963,6 +1971,7 @@ class Lidar:
         # name -> {"x", "ys", "rows"}; only the last few scans are kept
         self.scans = {}
         self.pa_test = None
+        self.pf = None          # running PA/flow calibration (its test json)
         self.last_result = {}
         # first-layer check of the running print (FIRST_LAYER_SCAN)
         self.fl = None
@@ -1972,8 +1981,9 @@ class Lidar:
                     "LIDAR_BED_MESH", "LIDAR_TWIST_CALIBRATE",
                     "LIDAR_GRID_CALIBRATE", "MESH_COMPARE", "MESH_BENCHMARK",
                     "FIRST_LAYER_SCAN", "SKEW_SCAN", "SKEW_CALIBRATE",
-                    "LIDAR_STREAM_MODE"):
-            fn = getattr(self, "cmd_" + cmd)
+                    "LIDAR_STREAM_MODE", "LIDAR_PA_FLOW_CALIBRATE",
+                    "LIDAR_PA_FLOW_STEP"):
+            fn = self._keyed(cmd, getattr(self, "cmd_" + cmd))
             if cmd in self.TEMP_LOGGED:
                 fn = self._temp_logged(cmd, fn)
             self.gcode.register_command(
@@ -1996,6 +2006,53 @@ class Lidar:
             for attr, var in self.OFFSET_VARS:
                 setattr(self, attr, float(saved[var]))
             self.offset_source = "saved by LIDAR_OFFSET_CALIBRATE"
+
+    def _keyed(self, cmd, fn):
+        """Every command invocation is a job of its own outside prints (the
+        exposure is measured once per job)."""
+        def run(gcmd):
+            self.cmd_key = "%s:%.3f" % (cmd, self.reactor.monotonic())
+            return fn(gcmd)
+        return run
+
+    def _job_key(self):
+        st = self.printer.lookup_object("print_stats").get_status(
+            self.reactor.monotonic())
+        if st.get("state") in ("printing", "paused"):
+            start = self.reactor.monotonic() - st.get("total_duration", 0.0)
+            return "print:%s:%d" % (st.get("filename"), round(start / 30.0))
+        return getattr(self, "cmd_key", None) or "none"
+
+    def _job_exposure(self):
+        """The module's exposure for this job (print or command): measured
+        once by the Pi (auto_exposure: dark / glossy plates need more light),
+        set again for every later scan of the job. Without the Pi service
+        the module keeps its exposure. Call with the LiDAR over the plate at
+        scan height."""
+        if not self.service:
+            return None
+        key = self._job_key()
+        job = getattr(self, "exposure_job", None)
+        if job and job["key"] == key:
+            self._driver_msg({"control": "set_laser_exposure",
+                              "exposure": job["exposure"]})
+            return job
+        r = self._svc({"cmd": "auto_exposure", "min_cover": 0.95},
+                      timeout=60.0)
+        self.exposure_job = {"key": key, "exposure": r["exposure"],
+                             "x_range": r.get("x_range"),
+                             "points": r.get("points")}
+        return self.exposure_job
+
+    def _fl_width(self):
+        """(width, spacing) of the first-layer check's strips: the usable
+        part of the laser line measured for this job, else 28 / 26 mm."""
+        job = getattr(self, "exposure_job", None)
+        if not job or job["key"] != self._job_key() or not job.get("x_range"):
+            return 28.0, 26.0
+        lo, hi = job["x_range"]
+        width = min(28.0, max(16.0, (hi - lo) - 2.0))
+        return width, min(28.0, max(16.0, width - 2.0))
 
     def _xo(self, z):
         """Laser line centre relative to the nozzle at nozzle height z."""
@@ -2288,6 +2345,10 @@ class Lidar:
                        "secs": round(time.time() - start, 1),
                        "module_c": [t0, t1], "error": err}
                 row.update(heat)
+                job = getattr(self, "exposure_job", None)
+                if job and job["key"] == self._job_key():
+                    row.update(exposure=job["exposure"],
+                               x_range=job.get("x_range"))
                 try:
                     with open(self._runs_log(), "a") as f:
                         f.write(json.dumps(row) + "\n")
@@ -2361,6 +2422,7 @@ class Lidar:
         self.gcode.run_script_from_command(
             "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600" % (z,))
         if self.service:
+            self._job_exposure()
             self._svc({"cmd": "begin", "name": name, "x": x, "z": z,
                        "x_dir": self.x_dir, "x_offset": xo,
                        "y_offset": yo, "captures": captures})
@@ -2442,6 +2504,7 @@ class Lidar:
             "G0 X%.3f Y%.3f F%.0f" % (z, pts[0][0] - xo, ys[0] - yo,
                                       self.speed * 60.0))
         toolhead.wait_moves()
+        self._job_exposure()      # LiDAR over the plate at scan height now
         req = {"cmd": "begin", "name": name, "x": x, "z": z,
                "x_dir": self.x_dir, "x_offset": xo, "y_offset": yo,
                "captures": 1, "level": level}
@@ -2793,14 +2856,14 @@ class Lidar:
         dx = [self._skewed([0.0, y - yo, z])[0] for y in (y0, y1)]
         return lo + xo - min(dx) + margin, hi + xo - max(dx) - margin
 
-    def _check_reach(self, gcmd, segs, z=None):
+    def _check_reach(self, gcmd, segs, z=None, need_homed=True):
         """segs: (x0, y0, x1, y1) lines the toolhead will follow, nozzle
         coordinates, or laser ones with the nozzle at z: refuse before
         anything moves if the nozzle would leave its travel or cross a
         keep-out zone."""
         toolhead = self.printer.lookup_object("toolhead")
         st = toolhead.get_status(self.reactor.monotonic())
-        if "xyz" not in st["homed_axes"]:
+        if need_homed and "xyz" not in st["homed_axes"]:
             raise gcmd.error("LiDAR: home first (G28)")
         lo, hi = st["axis_minimum"], st["axis_maximum"]
         ko = self.printer.lookup_object("keep_out", None)
@@ -3274,6 +3337,7 @@ class Lidar:
             "SAVE_GCODE_STATE NAME=_lidar_scan\nG90\nG0 Z%.3f F600\n"
             "G0 X%.3f Y%.3f F%.0f" % (z, xs[0] - xo, y0 - yo, travel))
         toolhead.wait_moves()
+        self._job_exposure()
         self._svc({"cmd": "begin", "name": name, "x": xs[0], "z": z,
                    "x_dir": self.x_dir, "x_offset": xo, "y_offset": yo,
                    "captures": 1, "level": self.scan_level, "path": []})
@@ -4079,11 +4143,13 @@ class Lidar:
         ly0 = st["axis_minimum"][1] + yo + 0.5
         rx0, rx1 = self._reach_x(ly0, self.MESH_Y[1], z)
         lo, hi = (rx0, ly0), (rx1, self.MESH_Y[1])
+        width, spacing = self._fl_width()   # usable line, if measured
         plan = fl_plan([o["polygon"] for o in objs],
                        gcmd.get_float("MARGIN", 8.0, minval=4.0),
                        lo, hi, gcmd.get_float("STEP", 2.0, minval=0.5),
                        max_time=gcmd.get_float("MAX_TIME", 120.0,
-                                               above=10.0))
+                                               above=10.0),
+                       width=width, spacing=spacing)
         if plan is None:
             gcmd.respond_info("First-layer check: the objects are out of the"
                               " LiDAR's reach, skipped")
@@ -4495,108 +4561,202 @@ class Lidar:
         return res
 
     # ------------------------------------------------------- PA test print
-    desc_LIDAR_PA_CALIBRATE = "Print and measure a pressure advance test"
+    # --------------------------------------- PA + flow calibration print
+    # One print measures both (k1-lidar/flowcam/NOTES.md, design in
+    # docs/superpowers/specs/2026-11-08-lidar-camera-calibrations-design.md):
+    # 9 PA lines and 4 triplets of 90/100/110 % flow lines, photographed by
+    # the LiDAR's camera (line WIDTH: the LiDAR misreads thin translucent
+    # lines), the gap under the triplets from bare LiDAR strips. The Pi plans
+    # the print (pf_plan), takes and analyses the photos (photo, pf_analyze);
+    # this plugin checks the paths, moves, scans and saves the results.
+    desc_LIDAR_PA_FLOW_CALIBRATE = ("Print PA and flow lines, measure them"
+                                    " with the LiDAR camera, save PA and the"
+                                    " filament's flow")
+    desc_LIDAR_PA_CALIBRATE = "Same as LIDAR_PA_FLOW_CALIBRATE"
+    desc_LIDAR_PA_FLOW_STEP = ("Internal step of the PA/flow calibration"
+                               " print (BARE, PHOTOS, ANALYZE)")
+    PF_FILE = "lidar_pa_flow_test.gcode"
 
     def cmd_LIDAR_PA_CALIBRATE(self, gcmd):
-        temp = gcmd.get_float("EXTRUDER_TEMP", above=150.0)
-        bed = gcmd.get_float("BED_TEMP", minval=0.0)
-        chamber = gcmd.get_float("CHAMBER_TEMP", 0.0, minval=0.0)
-        pa0 = gcmd.get_float("PA_START", 0.0, minval=0.0)
-        pas = gcmd.get_float("PA_STEP", 0.01, above=0.0)
-        lines = gcmd.get_int("LINES", 9, minval=4, maxval=9)
-        x0 = gcmd.get_float("X", 130.0)
-        y0 = gcmd.get_float("Y", 100.0)
-        fast = gcmd.get_float("FAST", 150.0, above=20.0)
-        slow = gcmd.get_float("SLOW", 20.0, above=1.0)
-        height = gcmd.get_float("HEIGHT", 0.2, above=0.05)
-        width = gcmd.get_float("WIDTH", 0.45, above=0.1)
-        accel = gcmd.get_float("ACCEL", 5000.0, above=100.0)
-        fan = gcmd.get_int("FAN", 64, minval=0, maxval=255)
-        pitch = 3.0
-        # slow / fast segments along Y; slow ones are long enough to settle
-        segs = [(15.0, slow), (20.0, fast), (15.0, slow), (20.0, fast),
-                (15.0, slow), (20.0, fast), (15.0, slow)]
-        y1 = y0 + sum(s[0] for s in segs)
-        x1 = x0 + (lines - 1) * pitch
-        cx = (x0 + x1) / 2.0
+        return self.cmd_LIDAR_PA_FLOW_CALIBRATE(gcmd)
+
+    def cmd_LIDAR_PA_FLOW_CALIBRATE(self, gcmd):
+        state = self.printer.lookup_object("print_stats").get_status(
+            self.reactor.monotonic())["state"]
+        if state in ("printing", "paused"):
+            raise gcmd.error("LiDAR: not while a print is running")
+        if not self.service:
+            raise gcmd.error("LiDAR: the PA/flow calibration needs the lidar"
+                             " service (Raspberry Pi)")
         toolhead = self.printer.lookup_object("toolhead")
-        fil_area = getattr(toolhead.get_extruder(), "filament_area", 2.405)
-        epm = height * width / fil_area
-        test = {"x0": x0, "pitch": pitch, "y0": y0, "y1": y1,
-                "pa": [round(pa0 + i * pas, 4) for i in range(lines)],
-                "dirs": [1 if i % 2 == 0 else -1 for i in range(lines)],
-                "segments": segs, "fast": fast, "slow": slow,
-                "height": height, "width": width}
+        ext = toolhead.get_extruder()
+        name = gcmd.get("FILAMENT_NAME", "").strip() or str(
+            self._saved().get("last_filament_name", "") or "")
+        params = {
+            "extruder_temp": gcmd.get_float("EXTRUDER_TEMP", above=150.0),
+            "bed_temp": gcmd.get_float("BED_TEMP", 60.0, minval=0.0),
+            "filament_name": name,
+            "filament_type": gcmd.get("FILAMENT_TYPE", "").strip(),
+            "x": gcmd.get_float("X", 100.0), "y": gcmd.get_float("Y", 35.0),
+            "pa_start": gcmd.get_float("PA_START", 0.0, minval=0.0),
+            "pa_step": gcmd.get_float("PA_STEP", 0.01, above=0.0),
+            "flows": [float(v) for v in gcmd.get(
+                "FLOWS", "0.90,1.00,1.10").split(",")],
+            "speed": gcmd.get_float("SPEED", 40.0, above=5.0),
+            "pa_keep": ext.get_status(self.reactor.monotonic()).get(
+                "pressure_advance", 0.0),
+            "fil_area": getattr(ext, "filament_area", 2.405),
+            "max_accel": toolhead.max_accel}
+        plan = self._svc({"cmd": "pf_plan", "params": params})
+        self._check_reach(gcmd, plan["segments"], need_homed=False)
+        self._check_reach(gcmd, plan["laser_segments"], z=3.0,
+                          need_homed=False)
+        test = dict(plan["test"], job=time.strftime("%Y%m%d-%H%M%S"))
         if not os.path.isdir(self.data_dir):
             os.makedirs(self.data_dir)
-        with open(os.path.join(self.data_dir, "pa_test.json"), "w") as f:
+        with open(os.path.join(self.data_dir, "pa_flow_test.json"), "w") as f:
             json.dump(test, f)
-        self.pa_test = test
-        scan = "X=%.2f Y0=%.2f Y1=%.2f" % (cx, y0 - 3, y1 + 3)
-
-        g = ["; LiDAR pressure advance test, written by lidar.py",
-             "; PA %s" % (" ".join("%.3f" % p for p in test["pa"]),),
-             "SET_PRINT_STATS_INFO TOTAL_LAYER=1",
-             "EXCLUDE_OBJECT_DEFINE NAME=lidar_pa_test CENTER=%.1f,%.1f"
-             " POLYGON=[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]" % (
-                 cx, (y0 + y1) / 2, x0 - 2, y0 - 2, x1 + 2, y0 - 2,
-                 x1 + 2, y1 + 2, x0 - 2, y1 + 2),
-             # the bare plate is scanned inside START_PRINT, after the nozzle
-             # touch and before heating up and purging (_LIDAR_PRINT_SCAN)
-             "SET_GCODE_VARIABLE MACRO=_LIDAR_PRINT_SCAN VARIABLE=x VALUE=%.2f"
-             % (cx,),
-             "SET_GCODE_VARIABLE MACRO=_LIDAR_PRINT_SCAN VARIABLE=y0 VALUE=%.2f"
-             % (y0 - 3,),
-             "SET_GCODE_VARIABLE MACRO=_LIDAR_PRINT_SCAN VARIABLE=y1 VALUE=%.2f"
-             % (y1 + 3,),
-             "START_PRINT EXTRUDER_TEMP=%.0f BED_TEMP=%.0f CHAMBER_TEMP=%.0f"
-             % (temp, bed, chamber),
-             "SET_PRINT_STATS_INFO CURRENT_LAYER=1",
-             "M83", "G90",
-             "SET_VELOCITY_LIMIT ACCEL=%.0f" % (accel,),
-             "M106 S%d" % (fan,),
-             "EXCLUDE_OBJECT_START NAME=lidar_pa_test",
-             "G0 Z2 F600",
-             "G0 X%.3f Y%.3f F9000" % (x0, y0),
-             "G0 Z%.3f F600" % (height,)]
-        # serpentine: each line starts where the last one ended, so there
-        # are no travels to string across the lines
-        for i, pa in enumerate(test["pa"]):
-            x = x0 + i * pitch
-            d = test["dirs"][i]
-            g.append("SET_PRESSURE_ADVANCE ADVANCE=%.4f" % (pa,))
-            y = y0 if d > 0 else y1
-            for seglen, v in (segs if d > 0 else list(reversed(segs))):
-                y += d * seglen
-                g.append("G1 X%.3f Y%.3f E%.5f F%.0f" % (
-                    x, y, seglen * epm, v * 60.0))
-            if i + 1 < lines:
-                g.append("G1 X%.3f E%.5f F%.0f" % (
-                    x + pitch, pitch * epm, slow * 60.0))
-        g += ["G1 E-0.8 F2400",
-              "G0 Z3 F600",
-              "EXCLUDE_OBJECT_END NAME=lidar_pa_test",
-              "M106 S0",
-              "SET_VELOCITY_LIMIT ACCEL=%.0f" % (toolhead.max_accel,),
-              # cool down over the purge line, in front of the test, so
-              # nothing drips onto the lines while they are scanned
-              "G0 X%.3f Y%.3f F9000" % (cx, y0 - 12),
-              "M104 S150",
-              "M106 S255",
-              "TEMPERATURE_WAIT SENSOR=extruder MAXIMUM=155",
-              "M106 S0",
-              "LIDAR_SCAN NAME=pa_scan " + scan,
-              "LIDAR_PA_ANALYZE BASE=pa_base SCAN=pa_scan",
-              "END_PRINT"]
-        fn = "lidar_pa_test.gcode"
-        with open(os.path.join(self.gcode_dir, fn), "w") as f:
-            f.write("\n".join(g) + "\n")
+        with open(os.path.join(self.gcode_dir, self.PF_FILE), "w") as f:
+            f.write("\n".join(plan["gcode"]) + "\n")
+        self.pf = test
         gcmd.respond_info(
-            "LiDAR PA test: %d lines, PA %.3f-%.3f, X%.0f-%.0f Y%.0f-%.0f;"
-            " starting %s" % (lines, test["pa"][0], test["pa"][-1], x0 - 2,
-                              x1 + 2, y0 - 2, y1 + 2, fn))
+            "LiDAR PA + flow calibration for %s: PA %.3f-%.3f, flows %s,"
+            " plate X%.0f-%.0f Y%.0f-%.0f; starting %s" % (
+                name or params["filament_type"] or "unknown",
+                test["pa"]["pa"][0], test["pa"]["pa"][-1],
+                "/".join("%.0f" % (f * 100) for f in params["flows"]),
+                params["x"] - 14, params["x"] + 24, params["y"] - 2,
+                test["pa"]["y1"] + 2, self.PF_FILE))
         self.gcode.run_script_from_command(
-            "SDCARD_PRINT_FILE FILENAME=%s" % (fn,))
+            "SDCARD_PRINT_FILE FILENAME=%s" % (self.PF_FILE,))
+
+    def _pf_job(self, gcmd):
+        """The running calibration's test (json), refusing stale ones."""
+        st = self.printer.lookup_object("print_stats").get_status(
+            self.reactor.monotonic())
+        if st.get("filename") != self.PF_FILE:
+            raise gcmd.error("LIDAR_PA_FLOW_STEP: only inside %s" % (
+                self.PF_FILE,))
+        try:
+            with open(os.path.join(self.data_dir, "pa_flow_test.json")) as f:
+                disk = json.load(f)
+        except (OSError, ValueError) as e:
+            raise gcmd.error("LIDAR_PA_FLOW_STEP: no calibration job (%s)"
+                             % (e,))
+        if self.pf is None:
+            self.pf = disk
+        elif self.pf.get("job") != disk.get("job"):
+            raise gcmd.error("LIDAR_PA_FLOW_STEP: stale calibration job %s"
+                             " (file has %s)" % (self.pf.get("job"),
+                                                 disk.get("job")))
+        return self.pf
+
+    def _pf_goto(self, x, y, z=3.0):
+        """Laser (camera) position x, y at height z."""
+        self.gcode.run_script_from_command(
+            "G90\nG1 Z%.2f F600\nG1 X%.3f Y%.3f F9000\nM400\nG4 P300" % (
+                z, x - self._xo(z), y - self._yo(z)))
+
+    def _pf_photo(self, t, name, x, y, exposure):
+        self._pf_goto(x, y)
+        return self._svc({"cmd": "photo", "job": t["job"], "name": name,
+                          "x": x, "y": y, "z": 3.0, "exposure": exposure,
+                          "light": 1, "laser": 0}, timeout=60.0)
+
+    def cmd_LIDAR_PA_FLOW_STEP(self, gcmd):
+        t = self._pf_job(gcmd)
+        step = gcmd.get("STEP", "").upper()
+        if step == "BARE":
+            # nozzle cool (no ooze on the plate), exposure for this plate,
+            # a plate photo (photo exposure, fallback decision), the strips
+            self.gcode.run_script_from_command(
+                "M104 S150\nTEMPERATURE_WAIT SENSOR=extruder MAXIMUM=155")
+            pp = t["plate_photo"]
+            self._pf_goto(pp["x"], pp["y"])
+            ae = self._job_exposure()
+            t["exposure"], t["x_range"] = ae["exposure"], ae.get("x_range")
+            ph = self._pf_photo(t, "plate", pp["x"], pp["y"], 1000)
+            med = ph.get("median", 0.0)
+            t["photo_exposure"] = 2000 if med < 20 else 1000
+            t["lidar_pa"] = med > 60       # bright plate: keep the LiDAR way
+            if t["lidar_pa"]:
+                s = t["pa_strip"]
+                self._scan_dwell("pf_pa_base", s["x"], s["y0"], s["y1"], 0.4,
+                                 3.0)
+            bm = self.printer.lookup_object("bed_mesh", None)
+            mesh = bm.get_mesh() if bm is not None else None
+            t["mesh"] = {}
+            for s in t["strips"]:
+                self._scan_dwell(s["name"], s["x"], s["y0"], s["y1"], 0.4,
+                                 3.0)
+                ys, y = [], s["y0"]
+                while y <= s["y1"] + 1e-6:
+                    ys.append(round(y, 3))
+                    y += 1.0
+                t["mesh"][s["name"]] = [
+                    [yy, round(mesh.calc_z(s["x"], yy), 5) if mesh else 0.0]
+                    for yy in ys]
+            self.gcode.respond_info(
+                "LiDAR PA/flow: exposure %d (%s), plate %.0f -> photos at %d%s"
+                % (t["exposure"], ae.get("x_range"), med, t["photo_exposure"],
+                   ", LiDAR PA strip too" if t["lidar_pa"] else ""))
+        elif step == "PHOTOS":
+            e = t.get("photo_exposure", 2000)
+            for ph in t["photos"]:
+                self._pf_photo(t, ph["name"], ph["x"], ph["y"], e)
+            if t.get("lidar_pa"):
+                s = t["pa_strip"]
+                self._scan_dwell("pf_pa_scan", s["x"], s["y0"], s["y1"], 0.4,
+                                 3.0)
+        elif step == "ANALYZE":
+            try:
+                self._pf_analyze(t)
+            finally:
+                self.pf = None
+        else:
+            raise gcmd.error("LIDAR_PA_FLOW_STEP: STEP=BARE|PHOTOS|ANALYZE")
+
+    def _pf_analyze(self, t):
+        say = self.gcode.respond_info
+        tw, ytw = self._lidar_tables()[:2]
+        try:
+            r = self._svc({"cmd": "pf_analyze", "job": t["job"], "test": t,
+                           "mesh": t.get("mesh", {}),
+                           "tables": {"twist": tw, "ytwist": ytw}},
+                          timeout=240.0)
+        except self.printer.command_error as e:
+            say("LiDAR PA/flow analysis failed, nothing saved: %s" % (e,))
+            return
+        pa, fl = r.get("pa", {}), r.get("flow", {})
+        for line in (pa.get("report") or []) + (fl.get("report") or []):
+            say(line)
+        if pa.get("ok"):
+            self.gcode.run_script_from_command(
+                "SET_PRESSURE_ADVANCE ADVANCE=%.4f\n"
+                "SAVE_VARIABLE VARIABLE=lidar_pa VALUE=%.4f" % (
+                    pa["pa"], pa["pa"]))
+            say("LiDAR pressure advance: %.4f (%s, kept until"
+                " UNLOAD_FILAMENT)" % (pa["pa"], r.get("pa_method")))
+        else:
+            say("LiDAR PA not saved: %s" % (pa.get("reason"),))
+        name = t.get("filament_name") or t.get("filament_type") or "unknown"
+        key = name.replace(" ", "_").replace('"', "").replace("'", "")
+        if fl.get("ok"):
+            sv = self._saved()
+            z = float((sv.get("fl_zoffset") or {}).get(key, 0.0))
+            saved = dict(sv.get("lidar_flow") or {})
+            saved[key] = {"f": fl["f"], "dfdh": fl["dfdh"], "z": round(z, 4),
+                          "t": time.strftime("%Y-%m-%d")}
+            self.gcode.run_script_from_command(
+                'SAVE_VARIABLE VARIABLE=lidar_flow VALUE="%s"'
+                % (repr(saved).replace(" ", ""),))
+            say("LiDAR flow for %s: %.3f (sd %.3f) -> M221 S%.1f at print"
+                " start (keep the slicer's flow ratio at 1.0)" % (
+                    key, fl["f"], fl.get("sd") or 0.0, 100.0 / fl["f"]))
+        else:
+            say("LiDAR flow not saved: %s" % (fl.get("reason"),))
+        if r.get("html"):
+            say("LiDAR PA/flow report: %s" % (r["html"],))
 
     # ------------------------------------------- Creality's PA test pattern
     desc_LIDAR_PA_CREALITY = "Print Creality's pressure advance test pattern"
@@ -4665,10 +4825,19 @@ class Lidar:
         return cross_fit(scan, test, self._yield)
 
     def cmd_LIDAR_OFFSET_CALIBRATE(self, gcmd):
+        """A 1-layer cross (0.2 mm, arms +-7 mm: taller steps confuse the
+        module's line finder, the line ends are dim on dark plates), looked
+        at by the LiDAR's camera at Z1 and Z2 (fill-light picture of the
+        cross + laser picture, same pose; the Pi finds where the profile's
+        x = 0 on the laser line lies) and scanned by the LiDAR as a check.
+        Saved only when camera and LiDAR agree within 0.15 mm."""
         state = self.printer.lookup_object("print_stats").get_status(
             self.reactor.monotonic())["state"]
         if state in ("printing", "paused"):
             raise gcmd.error("LiDAR: not while a print is running")
+        if not self.service:
+            raise gcmd.error("LiDAR: the offset calibration needs the lidar"
+                             " service (Raspberry Pi)")
         temp = gcmd.get_float("EXTRUDER_TEMP", above=150.0)
         bed = gcmd.get_float("BED_TEMP", minval=0.0)
         chamber = gcmd.get_float("CHAMBER_TEMP", 0.0, minval=0.0)
@@ -4679,47 +4848,21 @@ class Lidar:
         apply = gcmd.get_int("APPLY", 1)
         if z2 - z1 < 1.0:
             raise gcmd.error("LiDAR: Z2 must be at least 1mm above Z1")
-        arm, lh, width, half = 10.0, 0.2, 0.6, 15.0
-        test = {"cx": cx, "cy": cy, "arm": arm, "height": 2 * lh}
+        half = 15.0
         toolhead = self.printer.lookup_object("toolhead")
-        st = toolhead.get_status(self.reactor.monotonic())
-        lo, hi = st["axis_minimum"], st["axis_maximum"]
-        for z in (z1, z2):
-            nxs = [self._skewed([cx - self._xo(z), y - self._yo(z), z])[0]
-                   for y in (cy - half, cy + half)]
-            if not (lo[0] <= min(nxs) and max(nxs) <= hi[0]
-                    and lo[1] <= cy - half - self._yo(z)
-                    and cy + half - self._yo(z) <= hi[1]):
-                raise gcmd.error("LiDAR: the scans of a cross at X%.0f Y%.0f"
-                                 " would leave the bed" % (cx, cy))
         fil_area = getattr(toolhead.get_extruder(), "filament_area", 2.405)
-        epm = lh * width / fil_area
-        g = ["M83", "G90", "M106 S0"]
-        for layer in (1, 2):
-            z = layer * lh
-            if layer == 2:
-                g.append("M106 S128")
-            # arm along X, then the arm along Y in two halves (no crossing
-            # over the first arm with the nozzle down)
-            for (xa, ya), (xb, yb) in (
-                    ((cx - arm, cy), (cx + arm, cy)),
-                    ((cx, cy - arm), (cx, cy - 2.0)),
-                    ((cx, cy + 2.0), (cx, cy + arm))):
-                ln = math.hypot(xb - xa, yb - ya)
-                g += ["G0 Z%.2f F600" % (z + 1.0,),
-                      "G0 X%.3f Y%.3f F9000" % (xa, ya),
-                      "G0 Z%.2f F600" % (z,), "G1 E0.8 F2400",
-                      "G1 X%.3f Y%.3f E%.5f F1200" % (xb, yb, ln * epm),
-                      "G1 E-0.8 F2400"]
-        g += ["G0 Z%.2f F600" % (z2,), "M106 S0",
-              # cool down away from the scanned area, so nothing drips on it
-              "G0 X%.3f Y%.3f F9000" % (cx, cy - half - 12.0),
-              "M104 S150", "M106 S255",
-              "TEMPERATURE_WAIT SENSOR=extruder MAXIMUM=155", "M106 S0"]
+        plan = self._svc({"cmd": "offset_plan", "params": {
+            "cx": cx, "cy": cy, "z1": z1, "z2": z2, "fil_area": fil_area}})
+        test = plan["test"]
+        self._check_reach(gcmd, plan["segments"], need_homed=False)
+        for z in (z1, z2):
+            self._check_reach(gcmd, [(cx, cy - half, cx, cy + half)], z=z,
+                              need_homed=False)
+        job = "offset-" + time.strftime("%Y%m%d-%H%M%S")
         gcmd.respond_info(
-            "LiDAR offset check: cross at X%.0f Y%.0f, scans at Z%.1f and"
-            " Z%.1f" % (cx, cy, z1, z2))
-        # the object keeps the purge line out of the scanned area and makes
+            "LiDAR offset check: 1-layer cross at X%.0f Y%.0f, photos and"
+            " scans at Z%.1f and Z%.1f" % (cx, cy, z1, z2))
+        # the object keeps the purge line out of the cross's area and makes
         # the adaptive mesh cover it
         self.gcode.run_script_from_command(
             "EXCLUDE_OBJECT_DEFINE RESET=1\n"
@@ -4729,12 +4872,24 @@ class Lidar:
                 cx, cy, cx - half, cy - half - 2, cx + half, cy - half - 2,
                 cx + half, cy + half + 2, cx - half, cy + half + 2,
                 temp, bed, chamber))
-        fits = []
+        fits, shots = [], []
         try:
-            self.gcode.run_script_from_command("\n".join(g))
+            self.gcode.run_script_from_command("\n".join(plan["gcode"]))
+            self._pf_goto(cx, cy, z1)
+            ae = self._job_exposure()
             for i, z in enumerate((z1, z2)):
-                name = "offset_z%d" % (i + 1,)
                 xo, yo = self._xo(z), self._yo(z)
+                self._pf_goto(cx, cy, z)
+                for kind, light, laser, e in (("light", 1, 0, 2000),
+                                              ("laser", 0, 1, ae["exposure"])):
+                    self._svc({"cmd": "photo", "job": job,
+                               "name": "z%d_%s" % (i + 1, kind), "x": cx,
+                               "y": cy, "z": z, "exposure": e, "light": light,
+                               "laser": laser}, timeout=60.0)
+                shots.append({"z": z, "light": "z%d_light" % (i + 1,),
+                              "laser": "z%d_laser" % (i + 1,),
+                              "nozzle": [cx - xo, cy - yo]})
+                name = "offset_z%d" % (i + 1,)
                 self._scan_any(name, cx, cy - half, cy + half, 0.2, z)
                 fits.append((z, xo, yo, self._cross_fit(name, test)))
         except Exception:
@@ -4743,9 +4898,14 @@ class Lidar:
             raise
         self.gcode.run_script_from_command(
             "END_PRINT\nEXCLUDE_OBJECT_DEFINE RESET=1")
-        res = offset_solve(fits, test, self.offset_z)
-        res["old"] = [round(self.x_offset, 3), round(self.y_offset, 3),
-                      round(self.x_per_z, 4), round(self.y_per_z, 4)]
+        lid = offset_solve(fits, test, self.offset_z)
+        cam = self._svc({"cmd": "offset_cam", "job": job, "test": test,
+                         "photos": shots, "ref_z": self.offset_z},
+                        timeout=120.0)
+        res = {"camera": dict((k, v) for k, v in cam.items() if k != "ok"),
+               "lidar": lid,
+               "old": [round(self.x_offset, 3), round(self.y_offset, 3),
+                       round(self.x_per_z, 4), round(self.y_per_z, 4)]}
         self.last_result = res
         try:
             with open(os.path.join(self.data_dir, "offset_result.json"),
@@ -4753,12 +4913,19 @@ class Lidar:
                 json.dump(res, f)
         except OSError:
             pass
-        for line in res["report"]:
+        for line in (cam.get("report") or []) + (lid.get("report") or []):
             gcmd.respond_info(line)
-        if not res["ok"]:
-            raise gcmd.error("LiDAR offset: %s" % (res["reason"],))
-        new = (res["x_offset"], res["y_offset"], res["x_per_z"],
-               res["y_per_z"])
+        if not cam.get("ok_cam", cam.get("ok")) or not lid.get("ok"):
+            raise gcmd.error("LiDAR offset: not saved (camera: %s, LiDAR: %s)"
+                             % (cam.get("reason") or "ok",
+                                lid.get("reason") or "ok"))
+        dx = abs(cam["x_offset"] - lid["x_offset"])
+        dy = abs(cam["y_offset"] - lid["y_offset"])
+        if dx > 0.15 or dy > 0.15:
+            raise gcmd.error("LiDAR offset: camera and LiDAR disagree by X%.2f"
+                             " Y%.2f mm, not saved" % (dx, dy))
+        new = (cam["x_offset"], cam["y_offset"], cam["x_per_z"],
+               cam["y_per_z"])
         if abs(new[0] - self.x_offset) > 5 or abs(new[1] - self.y_offset) > 5:
             raise gcmd.error("LiDAR offset: more than 5mm from the current"
                              " one, not applied (check the cross)")
@@ -4768,10 +4935,11 @@ class Lidar:
             setattr(self, attr, v)
             self.gcode.run_script_from_command(
                 "SAVE_VARIABLE VARIABLE=%s VALUE=%.4f" % (var, v))
-        self.offset_source = "saved by LIDAR_OFFSET_CALIBRATE"
+        self.offset_source = "saved by LIDAR_OFFSET_CALIBRATE (camera)"
         gcmd.respond_info("LiDAR offset saved: X%.2f Y%.2f at Z%.1f, per mm"
-                          " Z X%+.3f Y%+.3f" % (new[0], new[1],
-                                                self.offset_z, new[2], new[3]))
+                          " Z X%+.3f Y%+.3f (camera; LiDAR within X%.2f Y%.2f)"
+                          % (new[0], new[1], self.offset_z, new[2], new[3],
+                             dx, dy))
 
 
 def creality_pa_gcode(ox, oy, pa0, pas):

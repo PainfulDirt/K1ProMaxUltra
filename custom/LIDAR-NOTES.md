@@ -331,6 +331,24 @@ learned Z offset per filament). Both off by default.
   only cells seen in >= 3 prints); probe meshes need a command after
   BED_MESH_CALIBRATE that rebuilds the active mesh the same way.
 
+## Camera calibrations and dark plates (2026-11-08)
+
+Details and data: k1-lidar/flowcam/NOTES.md, k1-lidar/camera/VALIDATION.md; design in
+docs/superpowers/specs/2026-11-08-lidar-camera-calibrations-design.md.
+- Black smooth PEI returns 4-6x less light than textured PEI (laser and room light): at
+  exposure 1000 only ~-10..+9 mm of the line is found, 4000 restores +-14. Height doesn't
+  change with exposure (bare plate, 1000-8000: within 2 um). The module's processing time
+  follows the found line (timing 169 ms with a partial line, 199 ms with the full one).
+- Thin translucent (white) lines: the laser light spreads inside the line (it glows along
+  its length; the spot is a ~45-row blob), so the LiDAR reads them low (0.2 mm line:
+  110-190 um, areas 45-70 %). Not the module's algorithm (the Python port reproduces it).
+- Camera (0x56 type 2 res 3, 1600x1200, ~19.3 um/px at Z3, column -> printer -X, row -> +Y,
+  real principal point cx 800.5): line widths repeat to 2-3 um; edges at half way between
+  plate and the line's middle (not its brightest pixels: the fill light leaves a specular
+  stripe on round tops). Driver request `ir_photo` (exposure/light/laser, restores state).
+- Pi service: `auto_exposure`, `photo`, `pf_plan`, `pf_analyze`, `offset_plan`, `offset_cam`
+  (helper/lidar_camera.py, helper/lidar_pa_flow.py; numpy + PIL on the Pi only).
+
 ## Creality's calibrations (master-server)
 
 Two different things:

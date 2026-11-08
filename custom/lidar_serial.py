@@ -350,12 +350,13 @@ class LidarSerial:
         return {'temp': round(struct.unpack('<f', r[:4])[0], 2), 'fps': fps,
                 'alg_ms': alg, 'alg_op_ms': alg_op, 'wait_ms': wait}
 
-    def capture_jpeg(self, res=1):
+    def capture_jpeg(self, res=1, laser=False):
         """One IR picture as JPEG (0x56 type 2 + 0x57 download): res 0 800x300
         (firmware >= 1.0.17: the centred 512x288 window, 16:9), 1 800x600,
         2 1600x600, 3 1600x1200; ~0.5-2.5 s. Only type 2 is sent
         (type 0 hangs the module). The module needs the stream off for it
-        (which also switches the laser off); the caller restores its state."""
+        (which also switches the laser off; laser=True switches it on again
+        for a picture of the laser line); the caller restores its state."""
         if res not in (0, 1, 2, 3):
             raise LidarError('res must be 0..3', 103)
         try:
@@ -363,6 +364,8 @@ class LidarSerial:
         except LidarError as e:
             if e.code == FAILED:
                 raise
+        if laser:
+            self.request(LASER_SWITCH, b'\x01')
         r = self.request(CAPTURE_IR, bytes((2, res)), timeout=15, _checked=True)
         size = r[0] | r[1] << 8 | r[2] << 16
         data = bytearray()
