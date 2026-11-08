@@ -427,18 +427,45 @@ def _robust_line(t, v, passes=3, tol=2.0):
     return a, b, keep
 
 
-def _arm(img, half=30, side=(24, 40)):
+def _arm(img, search=45):
     """The strongest straight line running along the rows of img: centre
-    column = a + b*row, and the first/last row where it is seen."""
+    column = a + b*row, and the first/last row where it is seen. No row to
+    row tracking (real arms have blobs, gaps and strings next to them):
+    every row is searched near the arm's column, the brightest 13 px span
+    with real contrast (its median: thin strings don't count) gives the
+    centre, a robust line fit keeps the arm."""
     # an arm covers less than half of the rows: a high percentile finds it
     p = np.percentile(img, 80, axis=0)
     col = int(np.argmax(p - np.percentile(p, 20)))
-    w = line_widths(img, col, half=half, side=side)
-    if len(w) < 50:
+    w = img.shape[1]
+    lo, hi = max(0, col - search), min(w, col + search + 1)
+    if hi - lo < 30:
         return None
-    a, b, keep = _robust_line(w[:, 0], w[:, 2])
-    r = w[keep, 0]
-    return {"a": a, "b": b, "r0": float(r.min()), "r1": float(r.max()),
+    box = np.ones(13) / 13.0
+    pts = []
+    for r in range(img.shape[0]):
+        row = img[r]
+        seg = row[lo:hi]
+        sm = np.convolve(seg, box, "valid")
+        c = lo + 6 + int(np.argmax(sm))
+        top = np.median(row[c - 6:c + 7])
+        side = np.r_[row[max(0, c - search - 30):max(0, c - search)],
+                     row[c + search:c + search + 30]]
+        bg = np.median(side) if len(side) else 0.0
+        if top - bg < MIN_CONTRAST:
+            continue
+        lvl = 0.5 * (top + bg)
+        a, b = max(0, c - 25), min(w, c + 26)
+        wv = np.clip(row[a:b] - lvl, 0, None)
+        if wv.sum() <= 0:
+            continue
+        pts.append((r, (np.arange(a, b) * wv).sum() / wv.sum()))
+    if len(pts) < 50:
+        return None
+    t, v = np.array(pts).T
+    a_, b_, keep = _robust_line(t, v, tol=4.0)
+    r = t[keep]
+    return {"a": a_, "b": b_, "r0": float(r.min()), "r1": float(r.max()),
             "n": int(keep.sum())}
 
 
@@ -450,7 +477,7 @@ def cross_from_photos(light_img, laser_img, arm_mm=7.0):
     (row = laser_fit[0] + laser_fit[1] * column)."""
     ya = _arm(light_img)              # arm along printer Y: along the rows
     xa = _arm(light_img.T)            # arm along printer X: along the columns
-    if ya is None or xa is None or ya["n"] < 200 or xa["n"] < 200:
+    if ya is None or xa is None or ya["n"] < 150 or xa["n"] < 150:
         return {"ok": False, "reason": "cross not found in the picture"}
     # col = ya.a + ya.b row ; row = xa.a + xa.b col
     cy = (xa["a"] + xa["b"] * ya["a"]) / (1.0 - xa["b"] * ya["b"])
@@ -493,8 +520,10 @@ def offset_from_crosses(per_z, test, intr_cx, ref_z):
     """LiDAR offsets from cross pictures at two nozzle heights, in
     LIDAR_OFFSET_CALIBRATE's convention: where the profile's x = 0 (image
     column intr_cx) on the laser line lies, relative to the nozzle, for the
-    height z - line height (the laser sees the top of the lines); a line
-    through both heights gives the offset at ref_z and per mm.
+    distance d from the nozzle to the surface the laser hits. The laser
+    line is found on the bare plate beside the cross (not on top of the
+    arms, as the LiDAR fit is), so d = z here; a line through both heights
+    gives the offset at ref_z and per mm.
     per_z: [{"z", "nozzle": (x, y), "cross": cross_from_photos()}]."""
     pts, report = [], []
     for p in per_z:
@@ -505,7 +534,7 @@ def offset_from_crosses(per_z, test, intr_cx, ref_z):
         lx = test["cx"] - (intr_cx - c["cx_px"]) * c["sx"]
         ly = test["cy"] + (laser_row_at(c, intr_cx) - c["cy_px"]) * c["sy"]
         xt, yt = lx - p["nozzle"][0], ly - p["nozzle"][1]
-        d = p["z"] - test.get("height", 0.2)
+        d = p["z"]                  # laser on the plate, not on the arms
         pts.append((d, xt, yt))
         report.append("  Z%.1f: cross at col %.1f row %.1f, laser row %.1f,"
                       " %.4f / %.4f mm/px -> offset X%.3f Y%.3f" % (
