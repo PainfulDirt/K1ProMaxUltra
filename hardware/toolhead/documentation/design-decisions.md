@@ -152,9 +152,17 @@ the print.
 Kalico MPC models a single part fan, and the board has a single part-fan channel. If feed D wins,
 both blowers share the PB8 PWM signal (4-wire PWM inputs are high impedance and can be paralleled).
 
-Before D can be released, one of these must be done:
-- confirm that the channel's PB6 power switch is good for 0.6 A, or
-- power both fans from a small MOSFET module on the toolhead 24 V rail, switched by PB6.
+Before D can be released, confirm with the PB6 probing procedure in `electrical.md` that the
+channel's power switch can carry the summed fan current. Today it is proven only to 0.3 A.
+
+How the add-ons are allowed (revised after the electrical review):
+- **2-wire 24 V fans** (Delta BFB0524HH, the owned Sunon) get speed control from a low-side MOSFET
+  add-on driven by the PWM signal.
+- **4-wire fans** (stock 4020, Same Sky CBM-5015BF) are **never** put behind a low-side switch.
+  With the ground switched, current can leak through their PWM and tach wires. They keep PB6/PB8
+  as on the stock board. The Same Sky also needs a 24→12 V buck and `cycle_time: 0.002`.
+
+The original wording ("a MOSFET module switched by PB6" for any fan) is withdrawn.
 
 MPC `fan_ambient_transfer` must be re-measured after any duct or fan change.
 
@@ -174,7 +182,8 @@ uncertainty. Airflow is not cooling: the finalists get a heat-transfer proxy run
 
 | Parts | Material | Reason |
 |---|---|---|
-| Within 15 mm of the heater (duct lips, nozzle end) | PC or PA-CF | ASA's Tg of about 100 °C is too close to the radiant and convective load at the sock. Community covers warped at the outlets with the fan off at 260 °C. |
+| Hot zone: any part below the heatsink (Z < +31.9) within 15 mm of the sock surface. In practice the duct nozzle ends and lips. | PC or PA-CF | ASA's Tg of about 100 °C is too close to the radiant and convective load at the sock. Community covers warped at the outlets with the fan off at 260 °C. |
+| Parts at heatsink level or above (Z ≥ +31.9), e.g. the frame's PCB bosses about 14 mm from the sock | ASA is acceptable | they sit beside the actively cooled heatsink, not the heater |
 | Everything else | ASA, or ABS | Tg about 100 °C; the chamber runs at 45 °C during ABS prints |
 | Anywhere | no PLA or PETG | |
 

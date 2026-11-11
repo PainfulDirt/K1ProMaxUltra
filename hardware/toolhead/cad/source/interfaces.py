@@ -201,6 +201,12 @@ BLOWER_5015_DELTA = BlowerSpec(
     "Delta BFB0524HH (24 V 0.11 A, 2-wire)", (51.0, 51.3, 15.0),
     (17.6, 12.2), Dim(28.0, "VERIFIED", "Delta spec sheet, 28 ± 5 g (03 §10)"),
     "delta_BFB0524HH_digitized.csv", notes="curve DIGITIZED; outlet inside 17.6 x 12.2 VERIFIED")
+BLOWER_5015_SAMESKY = BlowerSpec(
+    "Same Sky CBM-5015BF-175-459-22 (12 V 4-wire PWM + tach; needs 24->12 V buck)", (51.2, 51.6, 15.0),
+    (12.8, 16.8), Dim(31.4, "ESTIMATED", "series range 23.23-31.4 g; highest-power model assumed at the top"),
+    "samesky_CBM-5015BF-175-459-22_digitized.csv", hole_d=4.5,
+    notes="frame, outlet 12.8 x 16.8 and 2x Ø4.5 diagonal holes VERIFIED (datasheet CBM-50BF 2024-09-12 p.5); "
+          "PWM 0.2-50 kHz -> cycle_time 0.002")
 BLOWER_5015_SUNON = BlowerSpec(
     "Sunon MF50152VX-1L02C-A99 (24 V, 2-wire)", (51.0, 51.0, 15.0),
     (12.5, 19.5), Dim(28.4, "VERIFIED", "secondary source, research/03"),
