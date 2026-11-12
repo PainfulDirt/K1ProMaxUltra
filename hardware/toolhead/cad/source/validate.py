@@ -35,7 +35,8 @@ import assembly  # noqa: E402
 import interfaces as I  # noqa: E402
 from build123d import Pos, Rot  # noqa: E402
 from structure import common, frame, stiffness, reference, probe_mount, cover  # noqa: E402
-from structure.common import bx, ibox, cyl_y, MATERIALS  # noqa: E402
+from structure.common import bx, ibox, cyl_y, cyl_z, MATERIALS, BUTTON_HEAD  # noqa: E402
+from structure import cooling as cooling_mod  # noqa: E402
 
 EXPORTS = HERE.parent / "exports"
 VOL_TOL = 1e-3            # mm3: overlaps below this are numerical noise (touching faces)
@@ -104,8 +105,21 @@ def vol(shape):
         return 0.0
 
 
+_BB_CACHE: dict = {}
+
+
+def _bb(shape):
+    """Bounding box, cached per shape object (optimal boxes of the stock solids cost ~0.15 s each)."""
+    key = id(shape)
+    hit = _BB_CACHE.get(key)
+    if hit is None or hit[0] is not shape:
+        hit = (shape, shape.bounding_box())
+        _BB_CACHE[key] = hit
+    return hit[1]
+
+
 def bbox_overlap(a, b, pad=0.05):
-    A, B = a.bounding_box(), b.bounding_box()
+    A, B = _bb(a), _bb(b)
     return not (A.max.X + pad < B.min.X or B.max.X + pad < A.min.X or A.max.Y + pad < B.min.Y or
                 B.max.Y + pad < A.min.Y or A.max.Z + pad < B.min.Z or B.max.Z + pad < A.min.Z)
 
@@ -180,6 +194,128 @@ def overhang(mesh):
             "overhang_gt45_share_of_total": round(float(area[steep].sum() / tot), 4),
             "overhang_gt45_share_of_downward": round(float(area[steep].sum() / max(area[down].sum(), 1e-9)), 4),
             "horizontal_ceilings_mm2 (bridges)": round(float(area[flat].sum()), 1)}
+
+
+# ---------------------------------------------------------------- screw heads + driver access
+ASSEMBLY_ORDER = ["cooling_module_frame", "fan", "duct", "cover"]   # frame -> fan -> duct -> cover (assembly.md)
+HEAD_MIN_GAP = 0.3        # mm: a head closer than this (minus CONTACT_TOL) to a part it does not clamp = WARN
+ACCESS_LEN = 25.0         # mm: straight approach length checked in front of each head
+HEX_KEY_D = 3.0           # mm: 2.0 mm hex key (2.31 across corners) + clearance; fallback when a Ø6.3 driver is blocked
+
+
+def _screw_list(by, ci):
+    """Every screw the design adds: (name, seat point, insertion axis, ISO 7380 size, clamped part prefixes, step)."""
+    dk, k = BUTTON_HEAD["M3"]
+    out = []
+    for x, z in I.MODULE_MOUNT_HOLES:
+        out.append((f"PCB M3x{frame.SCREW_LEN:.0f} ({x}, {z})", (x, frame.FRONT_Y, z), (0, 1, 0), dk, k,
+                    ("cooling_module_frame",), 1))
+    for f in ci.fans:
+        for b in f["screw_bosses"]:
+            if [round(v, 6) for v in b["axis"]] != [0, 1, 0]:
+                continue
+            x, _, z = b["pos"]
+            out.append((f"fan M3x{frame.FAN_SCREW_LEN:.0f} ({x}, {z})", (x, f["envelope"][2], z), (0, 1, 0), dk, k,
+                        ("ref_blower_",), 2))
+    tabs = {}
+    if cooling_mod.DUCT_JSON.exists() and not ci.is_stub:
+        for t in json.loads(cooling_mod.DUCT_JSON.read_text()).get("duct_attach_points", []):
+            tabs[t["id"]] = t["hole_centre"][1] - t["tab_size_mm"][1] / 2
+    for m in ci.duct_mounts:
+        if [round(v, 6) for v in m["axis"]] != [0, 1, 0]:
+            continue
+        x, y, z = m["pos"]
+        y_seat = tabs.get(m.get("id"), y - 2.5)
+        out.append((f"duct tab {m.get('id', '')} M3x{cooling_mod.DUCT_TAB_SCREW_LEN:.0f} ({x}, {z})", (x, y_seat, z), (0, 1, 0),
+                    dk, k, ("duct_", "stub_duct"), 3))
+    zt = frame.ZMAX + cover.WALL
+    for sx in (-1, 1):
+        out.append((f"cover M3x6 ({sx * frame.COVER_SCREW_X}, {frame.COVER_SCREW_Y})",
+                    (sx * frame.COVER_SCREW_X, frame.COVER_SCREW_Y, zt), (0, 0, -1), dk, k, ("cover",), 4))
+    return out
+
+
+def _cyl_along(p0, axis, length, d):
+    """Cylinder from p0 going OUTWARD (against the insertion axis) for `length`."""
+    x, y, z = p0
+    if axis[1]:
+        return cyl_y(x, z, y, y - axis[1] * length, d)
+    if axis[2]:
+        return cyl_z(x, y, z, z - axis[2] * length, d)
+    raise ValueError(axis)
+
+
+def _step_of(name):
+    if name == "cooling_module_frame":
+        return 1
+    if name.startswith("ref_blower_"):
+        return 2
+    if name.startswith("duct_") or name.startswith("stub_duct"):
+        return 3
+    if name == "cover":
+        return 4
+    return 0      # stock / reference parts, the probe mount (independent of this stack): always there
+
+
+def hardware_checks(parts, by, ci, stock_mode):
+    """Model the ISO 7380 heads and a straight driver path for every added screw. Heads vs every printed and
+    stock solid (overlap = FAIL); driver path vs the parts present at that screw's assembly step."""
+    solids = [p for p in parts if p.category in ("printed", "reference", "stub") and p.in_assembly]
+    H = RESULTS["clearance"].setdefault("screws", {})
+    for name, seat, ax, dk, k, clamps, step in _screw_list(by, ci):
+        head = _cyl_along(seat, ax, k, dk)
+        top = tuple(seat[i] - ax[i] * k for i in range(3))
+        hits, near, gaps = [], [], {}
+        for p in solids:
+            if not bbox_overlap(head, p.shape, pad=HEAD_MIN_GAP + 0.05):
+                continue
+            ov = vol(head & p.shape)
+            if ov > VOL_TOL and p.name.startswith("stock_"):
+                ib = (head & p.shape).bounding_box()
+                if min(ib.size.X, ib.size.Y, ib.size.Z) < PEN_TOL:
+                    ov = 0.0
+            if ov > VOL_TOL:
+                hits.append(f"{p.name} {ov:.2f} mm3")
+                continue
+            if any(p.name.startswith(c) for c in clamps):
+                continue
+            d = head.distance_to(p.shape)
+            gaps[p.name] = d
+            if d < HEAD_MIN_GAP - CONTACT_TOL:
+                near.append(f"{p.name} {d:.2f} mm")
+        st = "FAIL" if hits else ("WARN" if near else "PASS")
+        check(f"screw head {name}", st, f"ISO 7380 Ø{dk} x {k} on {clamps[0].rstrip('_')} at {[round(v, 2) for v in seat]}: "
+              + (f"INTERFERES with {', '.join(hits)}" if hits else "no interference")
+              + (f"; nearest other part {min(gaps, key=gaps.get)} {min(gaps.values()):.3f} mm" if gaps else "")
+              + (f"; closer than {HEAD_MIN_GAP} to {', '.join(near)}" if near else ""))
+        rec = {"seat": [round(v, 3) for v in seat], "axis": list(ax), "step": ASSEMBLY_ORDER[step - 1],
+               "head_interference": hits, "head_near": near,
+               "head_gaps_mm": {k_: round(v_, 3) for k_, v_ in gaps.items()}, "access": {}}
+        # driver access: parts present at this step (order frame -> fan -> duct -> cover), then with everything on
+        for label, max_step in (("at its assembly step", step), ("service, everything fitted", 4)):
+            present = [p for p in solids if _step_of(p.name) <= max_step]
+            res = {}
+            for tool, d in (("driver Ø%.1f" % frame.HEAD_CLEAR_D, frame.HEAD_CLEAR_D), ("hex key Ø%.1f" % HEX_KEY_D, HEX_KEY_D)):
+                path = _cyl_along(tuple(top[i] - ax[i] * 0.05 for i in range(3)), ax, ACCESS_LEN, d)
+                blk = {}
+                for p in present:
+                    if bbox_overlap(path, p.shape):
+                        v = vol(path & p.shape)
+                        if v > VOL_TOL:
+                            blk[p.name] = round(v, 3)
+                res[tool] = blk
+            rec["access"][label] = res
+            drv, key = list(res.values())
+            if not drv:
+                st, txt = "PASS", f"straight {ACCESS_LEN:.0f} mm Ø{frame.HEAD_CLEAR_D:.1f} driver path clear"
+            elif not key:
+                st, txt = "WARN", f"Ø{frame.HEAD_CLEAR_D:.1f} driver blocked by {drv}; Ø{HEX_KEY_D} hex-key path clear"
+            else:
+                st, txt = "FAIL", f"blocked: driver by {drv}, hex key by {key}"
+            if label != "at its assembly step":
+                st = "INFO"
+            check(f"screw access {name} ({label}: {', '.join(n for n in ASSEMBLY_ORDER[:max_step])} fitted)", st, txt)
+        H[name] = rec
 
 
 # ---------------------------------------------------------------- main
@@ -490,6 +626,8 @@ def main():
         v = vol(fr & path)
         check(f"PCB screw ({x}, {z}) driver access through the frame", "PASS" if v <= VOL_TOL else "FAIL",
               f"{v:.3f} mm3 of frame in the Ø{frame.HEAD_CLEAR_D:.1f} access path (the fan comes off first)")
+
+    hardware_checks(parts, by, ci, stock_mode)
 
     # probe anchor cross-check: interfaces' 785004 placement vs Henlor's carriage tabs
     sh = probe_mount.HENLOR_SHIFT

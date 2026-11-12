@@ -12,7 +12,9 @@
   for the cover.
 - Left wall is removed (full thickness) wherever it would enter
   LIDAR_RESERVED_BOXES (+0.5 mm): a partial cut would leave a 0.7 mm sliver.
-- Front wall COVER_GAP in front of the fan's intake face.
+- Front wall COVER_GAP in front of the fan's intake face, with Ø6.3 through-holes
+  over the two fan screw heads (the heads stand 1.65 proud of the fan face, more
+  than the gap; the holes also give hex-key access with the cover on).
 - Part-fan intake: a fully open round aperture (FAN_INLET_D + 2 x
   COVER_INTAKE_MARGIN) centred on the 4020 intake, no grille: the front wall
   sits only COVER_GAP in front of the impeller eye, where a grille would
@@ -26,7 +28,7 @@ from __future__ import annotations
 
 from build123d import Pos
 
-from .common import PartSpec, bx, cyl_z, cyl_y, prm, CLEAR, group_params
+from .common import PartSpec, bx, cyl_z, cyl_y, prm, CLEAR, BUTTON_HEAD, group_params
 from . import frame as F
 from . import cooling as C
 import interfaces as I
@@ -45,6 +47,9 @@ REAR_Y = prm(G, "COVER_SIDE_REAR_Y", float(I.XCARRIAGE.ymin) - 0.5, "DESIGN",
 STRAIN_RELIEF_YMIN = prm(G, "CARRIAGE_STRAIN_RELIEF_YMIN", -32.3, "DERIVED", "02:N16 cable strain relief Y -32.3..-23.8, Z 72.3..91.2")
 TOP_REAR_Y = STRAIN_RELIEF_YMIN - 0.5     # top wall stops in front of the strain relief; open behind = cable exit
 SLOT_W = prm(G, "COVER_SLOT_W", 2.0, "DESIGN", "plenum vent slot width (finger-safe, prints clean)")
+FAN_HEAD_CLEAR = prm(G, "COVER_FAN_SCREW_HEAD_CLEAR", 0.3, "DESIGN",
+                     "radial clearance of the through-holes over the fan screw heads (ISO 7380 M3 dk 5.7 -> Ø6.3); "
+                     "the heads (k 1.65) reach Y -58.15, inside the 1.2 mm front wall, so pockets would leave 0.05 mm")
 INTAKE_MARGIN = prm(G, "COVER_INTAKE_MARGIN", 1.0, "DESIGN",
                     "fan intake aperture = FAN_INLET_D + 2 x 1.0, fully open (no grille ribs)")
 SLOT_P = prm(G, "COVER_SLOT_PITCH", 4.0, "DESIGN", "vent pitch (2 mm bars)")
@@ -105,6 +110,17 @@ def build(cooling, frame_shape=None) -> PartSpec:
     if cut is not None:
         shell -= cut
     holes = []
+    # fan screw heads: the 4020's screws go in from the front (+Y), their ISO 7380 heads stand 1.65 proud of the
+    # fan front face (no counterbore assumed - unknown, M7), i.e. through the 0.5 gap into the front wall.
+    # Through-holes with FAN_HEAD_CLEAR: the heads sit in them and a 2.0 mm hex key reaches them with the cover on.
+    fan_head_holes = []
+    dk = BUTTON_HEAD["M3"][0]
+    for f in cooling.fans:
+        for b in f["screw_bosses"]:
+            if [round(v, 6) for v in b["axis"]] == [0, 1, 0]:
+                x, _, z = b["pos"]
+                fan_head_holes.append({"xz": [x, z], "d": dk + 2 * FAN_HEAD_CLEAR})
+                holes.append(cyl_y(x, z, yi - WALL - 1, yi + 1, dk + 2 * FAN_HEAD_CLEAR))
     for sx in (-1, 1):
         holes.append(cyl_z(sx * F.COVER_SCREW_X, F.COVER_SCREW_Y, zt - 1, zt + WALL + 1, CLEAR["M3"]))
     # intake aperture in front of each fan: fully open, inlet ring + 2 x COVER_INTAKE_MARGIN, centred on the
@@ -150,6 +166,7 @@ def build(cooling, frame_shape=None) -> PartSpec:
     spec = PartSpec("cover", shell, "printed", "ASA", (0.85, 0.35, 0.10), deps=deps, print_rot=(90, 0, 0),
                     notes="2 screws from the top; slides forward without unplugging LiDAR / probe / fan")
     spec.wall_bottoms = zb
+    spec.fan_head_holes = fan_head_holes
     spec.vent_area = vent_area
     spec.intake_apertures = apertures
     return spec

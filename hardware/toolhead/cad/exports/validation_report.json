@@ -28,7 +28,7 @@
   {
    "check": "cover: solid",
    "status": "PASS",
-   "detail": "valid=True solids=1 watertight=True V=5998 mm3 m=6.42 g (ASA)"
+   "detail": "valid=True solids=1 watertight=True V=5931 mm3 m=6.35 g (ASA)"
   },
   {
    "check": "cover: min wall (sampled, 1500 rays)",
@@ -381,6 +381,141 @@
    "detail": "0.000 mm3 of frame in the \u00d86.3 access path (the fan comes off first)"
   },
   {
+   "check": "screw head PCB M3x30 (-12.0, 34.3)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on cooling_module_frame at [-12.0, -33.5, 34.3]: no interference; nearest other part cover 8.064 mm"
+  },
+  {
+   "check": "screw access PCB M3x30 (-12.0, 34.3) (at its assembly step: cooling_module_frame fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access PCB M3x30 (-12.0, 34.3) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "blocked: driver by {'cover': 12.364, 'ref_blower_1_BLOWER_4020_STOCK': 623.449}, hex key by {'cover': 1.099, 'ref_blower_1_BLOWER_4020_STOCK': 141.372}"
+  },
+  {
+   "check": "screw head PCB M3x30 (-12.0, 58.3)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on cooling_module_frame at [-12.0, -33.5, 58.3]: no interference; nearest other part cover 7.950 mm"
+  },
+  {
+   "check": "screw access PCB M3x30 (-12.0, 58.3) (at its assembly step: cooling_module_frame fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access PCB M3x30 (-12.0, 58.3) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "blocked: driver by {'cover': 37.407, 'ref_blower_1_BLOWER_4020_STOCK': 623.449}, hex key by {'cover': 8.482, 'ref_blower_1_BLOWER_4020_STOCK': 141.372}"
+  },
+  {
+   "check": "screw head PCB M3x30 (12.0, 58.3)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on cooling_module_frame at [12.0, -33.5, 58.3]: no interference; nearest other part cover 7.950 mm"
+  },
+  {
+   "check": "screw access PCB M3x30 (12.0, 58.3) (at its assembly step: cooling_module_frame fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access PCB M3x30 (12.0, 58.3) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "blocked: driver by {'cover': 37.407, 'ref_blower_1_BLOWER_4020_STOCK': 623.449}, hex key by {'cover': 8.482, 'ref_blower_1_BLOWER_4020_STOCK': 141.372}"
+  },
+  {
+   "check": "screw head fan M3x24 (-18.65, 60.3)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on ref_blower at [-18.65, -56.5, 60.3]: no interference; nearest other part cover 0.300 mm"
+  },
+  {
+   "check": "screw access fan M3x24 (-18.65, 60.3) (at its assembly step: cooling_module_frame, fan fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access fan M3x24 (-18.65, 60.3) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw head fan M3x24 (16.05, 25.6)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on ref_blower at [16.05, -56.5, 25.6]: no interference; nearest other part duct_body 0.299 mm"
+  },
+  {
+   "check": "screw access fan M3x24 (16.05, 25.6) (at its assembly step: cooling_module_frame, fan fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access fan M3x24 (16.05, 25.6) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw head duct tab T_left M3x6 (-7.5, 19.5)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on duct at [-7.5, -39.0, 19.5]: no interference; nearest other part cooling_module_frame 2.500 mm"
+  },
+  {
+   "check": "screw access duct tab T_left M3x6 (-7.5, 19.5) (at its assembly step: cooling_module_frame, fan, duct fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access duct tab T_left M3x6 (-7.5, 19.5) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw head duct tab T_right M3x6 (24.0, 22.5)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on duct at [24.0, -39.0, 22.5]: no interference; nearest other part cover 1.050 mm"
+  },
+  {
+   "check": "screw access duct tab T_right M3x6 (24.0, 22.5) (at its assembly step: cooling_module_frame, fan, duct fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access duct tab T_right M3x6 (24.0, 22.5) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "\u00d86.3 driver blocked by {'cover': 3.885}; \u00d83.0 hex-key path clear"
+  },
+  {
+   "check": "screw head cover M3x6 (-9.0, -44.0)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on cover at [-9.0, -44.0, 73.0]: no interference"
+  },
+  {
+   "check": "screw access cover M3x6 (-9.0, -44.0) (at its assembly step: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access cover M3x6 (-9.0, -44.0) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw head cover M3x6 (9.0, -44.0)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on cover at [9.0, -44.0, 73.0]: no interference"
+  },
+  {
+   "check": "screw access cover M3x6 (9.0, -44.0) (at its assembly step: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access cover M3x6 (9.0, -44.0) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
    "check": "probe anchor: interfaces.py vs Henlor carriage",
    "status": "WARN",
    "detail": "Henlor tab holes Y 22.9, tab top Z 54.4 vs anchor Y 20.10, Z 53.80 -> shift (0.0, -2.799999999999997, -0.6000000000000014). The mount copies 785004's anchor-to-probe relation, so the real pin position is unchanged; only the nozzle-frame placement (pin offset 1.0 vs 2.75, flange Z) is uncertain - M8"
@@ -403,17 +538,17 @@
   {
    "check": "moving mass vs stock",
    "status": "INFO",
-   "detail": "added 46.7 g, removed 38.3..47.3 g -> delta -0.6..+8.4 g; X shaper 76.9..77.7 Hz (77.6 now), Y 51.8..52.0 Hz (52.0 now)"
+   "detail": "added 46.6 g, removed 38.3..47.3 g -> delta -0.7..+8.3 g; X shaper 76.9..77.7 Hz (77.6 now), Y 51.8..52.0 Hz (52.0 now)"
   },
   {
    "check": "frame mode estimate: rocking on the 3-screw pattern, optimistic (preloaded bolt + boss)",
    "status": "PASS",
-   "detail": "4440 Hz (want > 2 x 77.6 Hz)"
+   "detail": "4448 Hz (want > 2 x 77.6 Hz)"
   },
   {
    "check": "frame mode estimate: rocking on the 3-screw pattern, pessimistic (boss in compression only)",
    "status": "PASS",
-   "detail": "1168 Hz (want > 2 x 77.6 Hz)"
+   "detail": "1170 Hz (want > 2 x 77.6 Hz)"
   },
   {
    "check": "frame mode estimate: fan out-of-plane (Y) on plate, with 4th pad",
@@ -433,7 +568,7 @@
   {
    "check": "release cover",
    "status": "INFO",
-   "detail": "FIT-CHECK FIRST; 4 unconfirmed of 18 dependencies"
+   "detail": "FIT-CHECK FIRST; 4 unconfirmed of 19 dependencies"
   },
   {
    "check": "release probe_mount",
@@ -530,8 +665,8 @@
    "is_valid": true,
    "n_solids": 1,
    "watertight": true,
-   "volume_mm3": 5998.47,
-   "mass_g": 6.42,
+   "volume_mm3": 5930.81,
+   "mass_g": 6.35,
    "density": "1.07 g/cm3 (ESTIMATED: lead-specified; typical ASA TDS 1.05-1.10)",
    "bbox_nozzle_frame": [
     -24.0,
@@ -551,7 +686,7 @@
     0,
     0
    ],
-   "mesh_volume_mm3": 5999.91,
+   "mesh_volume_mm3": 5932.35,
    "wall": {
     "samples": 1500,
     "of": 1500,
@@ -565,8 +700,8 @@
     "thinnest": []
    },
    "overhang": {
-    "total_area_mm2": 10746.3,
-    "bed_contact_mm2": 1646.3,
+    "total_area_mm2": 10666.8,
+    "bed_contact_mm2": 1590.0,
     "downward_area_mm2": 42.1,
     "overhang_gt45_mm2": 36.0,
     "overhang_gt45_share_of_total": 0.0034,
@@ -1019,6 +1154,278 @@
    }
   },
   "frame_3010_intake_area_mm2": 693.4,
+  "screws": {
+   "PCB M3x30 (-12.0, 34.3)": {
+    "seat": [
+     -12.0,
+     -33.5,
+     34.3
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "cooling_module_frame",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cover": 8.064
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {
+       "cover": 12.364,
+       "ref_blower_1_BLOWER_4020_STOCK": 623.449
+      },
+      "hex key \u00d83.0": {
+       "cover": 1.099,
+       "ref_blower_1_BLOWER_4020_STOCK": 141.372
+      }
+     }
+    }
+   },
+   "PCB M3x30 (-12.0, 58.3)": {
+    "seat": [
+     -12.0,
+     -33.5,
+     58.3
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "cooling_module_frame",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cover": 7.95
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {
+       "cover": 37.407,
+       "ref_blower_1_BLOWER_4020_STOCK": 623.449
+      },
+      "hex key \u00d83.0": {
+       "cover": 8.482,
+       "ref_blower_1_BLOWER_4020_STOCK": 141.372
+      }
+     }
+    }
+   },
+   "PCB M3x30 (12.0, 58.3)": {
+    "seat": [
+     12.0,
+     -33.5,
+     58.3
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "cooling_module_frame",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cover": 7.95
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {
+       "cover": 37.407,
+       "ref_blower_1_BLOWER_4020_STOCK": 623.449
+      },
+      "hex key \u00d83.0": {
+       "cover": 8.482,
+       "ref_blower_1_BLOWER_4020_STOCK": 141.372
+      }
+     }
+    }
+   },
+   "fan M3x24 (-18.65, 60.3)": {
+    "seat": [
+     -18.65,
+     -56.5,
+     60.3
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "fan",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cover": 0.3
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     }
+    }
+   },
+   "fan M3x24 (16.05, 25.6)": {
+    "seat": [
+     16.05,
+     -56.5,
+     25.6
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "fan",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cover": 0.3,
+     "duct_body": 0.299
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     }
+    }
+   },
+   "duct tab T_left M3x6 (-7.5, 19.5)": {
+    "seat": [
+     -7.5,
+     -39.0,
+     19.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "duct",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cooling_module_frame": 2.5
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     }
+    }
+   },
+   "duct tab T_right M3x6 (24.0, 22.5)": {
+    "seat": [
+     24.0,
+     -39.0,
+     22.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "step": "duct",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cooling_module_frame": 2.5,
+     "cover": 1.05
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {
+       "cover": 3.885
+      },
+      "hex key \u00d83.0": {}
+     }
+    }
+   },
+   "cover M3x6 (-9.0, -44.0)": {
+    "seat": [
+     -9.0,
+     -44.0,
+     73.0
+    ],
+    "axis": [
+     0,
+     0,
+     -1
+    ],
+    "step": "cover",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {},
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     }
+    }
+   },
+   "cover M3x6 (9.0, -44.0)": {
+    "seat": [
+     9.0,
+     -44.0,
+     73.0
+    ],
+    "axis": [
+     0,
+     0,
+     -1
+    ],
+    "step": "cover",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {},
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     }
+    }
+   }
+  },
   "probe_anchor_shift_mm": [
    0.0,
    -2.799999999999997,
@@ -1043,12 +1450,12 @@
  "mass": {
   "added_g": {
    "cooling_module_frame": 5.84,
-   "cover": 6.42,
+   "cover": 6.35,
    "probe_mount": 11.45,
    "duct_body": 9.24,
    "hardware (screws, inserts)": 13.73
   },
-  "added_total_g": 46.7,
+  "added_total_g": 46.6,
   "removed_g": {
    "stock cover (+duct, without fan; 23.8 g measured K1, 32-32.5 K1 Max reports)": [
     23.8,
@@ -1064,18 +1471,18 @@
    ]
   },
   "delta_g_range": [
-   -0.6,
-   8.4
+   -0.7,
+   8.3
   ],
   "basis": "solid-volume mass (100 % infill = upper bound) of every printed assembly part incl. the real duct body; hardware = screws + inserts incl. fan and duct-tab screws; stock 4020 reused (BLOWER_4020_STOCK.mass_g ESTIMATED, moves, no change); removed = stock cover+duct, 785004 adapter, stock PCB screws",
   "shaper_Hz_for_delta_range": {
    "X": {
     "m=400 g": [
      77.66,
-     76.8
+     76.81
     ],
     "m=450 g": [
-     77.65,
+     77.66,
      76.89
     ],
     "m=500 g": [
@@ -1090,32 +1497,32 @@
     ],
     "m=880 g": [
      52.02,
-     51.75
+     51.76
     ],
     "m=960 g": [
      52.02,
-     51.77
+     51.78
     ]
    }
   }
  },
  "stiffness": {
   "frame": {
-   "carried_mass_g": 45.5,
-   "com_y": -40.0,
-   "lever_from_pcb_mm": 17.7,
+   "carried_mass_g": 45.4,
+   "com_y": -39.9,
+   "lever_from_pcb_mm": 17.6,
    "load_N (2 x m x 20 m/s2)": 1.82,
    "rocking on the 3-screw pattern, optimistic (preloaded bolt + boss)": {
     "k_joint_N_per_mm": 47404,
     "k_theta_Nmm_per_rad": 18203095,
     "deflection_at_com_um": 0.03,
-    "first_mode_Hz": 4440
+    "first_mode_Hz": 4448
    },
    "rocking on the 3-screw pattern, pessimistic (boss in compression only)": {
     "k_joint_N_per_mm": 3281,
     "k_theta_Nmm_per_rad": 1259938,
     "deflection_at_com_um": 0.45,
-    "first_mode_Hz": 1168
+    "first_mode_Hz": 1170
    },
    "fan out-of-plane (Y) on plate, with 4th pad": {
     "I_strip_mm4": 29.2,
@@ -1272,7 +1679,7 @@
      "duct_interface.json fans.F.envelope_box: XZ at the STOCK_4020_POS centre (DERIVED), rear face 3 mm in front of the frame plate (DESIGN), thickness = screw through-length (ESTIMATED, M7)"
     ]
    ],
-   "n_deps": 18
+   "n_deps": 19
   },
   "probe_mount": {
    "status": "NOT RELEASED",

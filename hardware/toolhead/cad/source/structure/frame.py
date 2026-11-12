@@ -291,9 +291,30 @@ def build(cooling) -> PartSpec:
                                        (n.endswith("_SCREW_HOLES") or n.endswith("_ENVELOPE"))])
     spec = PartSpec("cooling_module_frame", part, "printed", "ASA", (0.25, 0.45, 0.80), deps=deps,
                     print_rot=(180, 0, 0), hardware=hw,
-                    notes="ASA; > 15 mm from the heater. PCB screws M3x%.0f (stock + %.1f mm)." % (SCREW_LEN, SCREW_EXTRA))
+                    notes=_material_note(part) + " PCB screws M3x%.0f (stock + %.1f mm)." % (SCREW_LEN, SCREW_EXTRA))
     spec.issues = issues
     return spec
+
+
+def _material_note(part) -> str:
+    """DD-07 wording from the geometry. DD-07: PC/PA-CF for parts below the heatsink (Z < HEATSINK.zmin)
+    within 15 mm of the sock; ASA at heatsink level, naming the frame's PCB bosses (~14 mm) as acceptable."""
+    from .common import ibox
+    sock = ibox(I.SOCK)
+    zh = float(I.HEATSINK.zmin)
+    d_all = part.distance_to(sock)
+    cols = None
+    for x, z in list(I.MODULE_MOUNT_HOLES) + ([fourth_corner()] if FOURTH_PAD else []):
+        c = cyl_y(x, z, -60, 0, max(BOSS_D, F_PAD4_D, COLLAR_D) + 0.02)
+        cols = c if cols is None else cols + c
+    rest_low = (part - cols) & bx(-300, 300, -300, 300, -100, zh)
+    d_low = rest_low.distance_to(sock) if rest_low is not None and rest_low.volume > 1e-6 else float("inf")
+    boss_zmin = min(z for _, z in I.MODULE_MOUNT_HOLES) - max(BOSS_D, F_PAD4_D) / 2
+    return (f"ASA (DD-07): nearest point {d_all:.1f} mm from the sock = the PCB boss columns at Z "
+            f"{min(z for _, z in I.MODULE_MOUNT_HOLES):.1f} (heatsink level, which DD-07 names as acceptable in ASA; "
+            f"their lower edge reaches Z {boss_zmin:.2f}, {zh - boss_zmin:.1f} mm below the heatsink bottom Z {zh}). "
+            f"Everything else below the heatsink (plate edge, duct lugs) is {d_low:.1f} mm from the sock"
+            + (" - inside DD-07's 15 mm: needs PC/PA-CF." if d_low < 15.0 else ", outside DD-07's 15 mm hot zone."))
 
 
 def intake_area():

@@ -29,7 +29,7 @@ ESTIMATED / MISSING / STUB dependencies.
 |---|---|---|---|---|
 | Fit-check coupon | `exports/*/fitcheck_coupon.*` | ASA | 2.9 g | **PRINT FIRST** (≈10 min) |
 | Cooling-module frame | `exports/*/cooling_module_frame.*` | ASA | 5.8 g | FIT-CHECK FIRST (PCB pads and component zone ESTIMATED, M10; 4020 hole positions and thickness ESTIMATED, M7; insert hole size) |
-| Cover | `exports/*/cover.*` | ASA | 6.4 g | FIT-CHECK FIRST (follows the 4020 front face and inlet diameter, M7; LiDAR boxes, M6) |
+| Cover | `exports/*/cover.*` | ASA | 6.35 g | FIT-CHECK FIRST (follows the 4020 front face and inlet diameter, M7; LiDAR boxes, M6) |
 | Duct body (S7) | `exports/*/duct_body.*` | PC (or PA-CF, 8.9 g) | 9.2 g | FIT-CHECK FIRST (4020 outlet size and holes M7, socket fit, hotend version M1, probe keep-out M8, component zone M10, LiDAR boxes M6) |
 | MicroProbe mount | `exports/*/probe_mount.*` | PA-CF (PC acceptable) | 11.5 g | NOT RELEASED (785004 anchor unconfirmed, M8) |
 
@@ -53,14 +53,22 @@ Validation today (`validate.py`, Henlor stock cache present): **0 FAIL, 4 WARN**
 inner face (X −24, stock cover width) lies inside the carriage's left face (X −25.2), which is
 where the LiDAR bracket seats. The box stays as is until M6.
 
-Moving mass vs stock: **−0.6 … +8.4 g** (printed parts at 100 % infill + all screws/inserts, minus
+Moving mass vs stock: **−0.7 … +8.3 g** (printed parts at 100 % infill + all screws/inserts, minus
 the stock cover+duct, the 785004 adapter and the stock PCB screws); X shaper 76.9…77.7 Hz at an
 X moving mass of 450 g (77.6 Hz today), Y 51.8…52.0 Hz.
 
 ### Print the coupon first
 `fitcheck_coupon` is printed face down, with no supports. It checks, on the real printer:
-1. **PCB interface.** Put three M3×30 screws through the coupon into the PCB holes, one stock
-   screw at a time. The coupon reproduces the frame's own boss code:
+1. **PCB interface.** The coupon's Ø3.4 bores sit over the Ø5.7 heads of the stock screws, so a
+   stock screw cannot stay in a hole the coupon covers. Swap all three in one go:
+   - hold the PCB flat against the 3010 with one hand;
+   - take all three stock screws out;
+   - offer the coupon;
+   - start all three M3×30 by hand, each with an M3 washer, before tightening any. The coupon plate
+     is 1.6 mm thick against the frame's 2.0 mm, and the washer restores the screw depth.
+
+   The frame uses the same swap (`documentation/assembly.md` step 4). The coupon reproduces the
+   frame's own boss code:
    - Ø5.8 neck through the PCB "2nd plate" holes;
    - boss length 9.2 mm, bridging the component zone;
    - the compression pad at the fourth pattern corner.
@@ -86,7 +94,11 @@ $K1_PY cad/source/validate.py --cooling ducts    # same against the Duct agent's
 $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP, re-opened and verified
 ```
 
-- `validate.py` takes about 1.5 min. `--samples N` sets the number of wall-thickness rays.
+- `validate.py` takes about 1.5 min. It also models every added screw's ISO 7380 head and a straight
+  driver path (Ø6.3 driver, fallback Ø3.0 for a 2.0 mm hex key, 25 mm long). Heads are checked against
+  every printed and stock solid (an overlap is a FAIL). Each path is checked against the parts fitted at
+  that screw's assembly step (frame → fan → duct → cover; the probe mount and stock parts are always
+  there), and again with everything fitted (service, INFO). `--samples N` sets the number of wall-thickness rays.
   `--no-stock-cache` forces the box references.
 - **Stock solids (optional, recommended).** Henlor's reverse-engineered K1 assembly (Printables
   742370, CC BY) gives real carriage/heatsink/PCB/3010/extruder solids for the interference
@@ -177,6 +189,14 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
     length. This clears the duct's T_right tab (top Z 26.0) and the frame lug (top 26.1) by ≥ 0.3,
     and the cover still slides off forward.
   - Front wall 0.5 mm in front of the 4020 intake face, front at Y −58.2.
+  - **Fan screw heads.** The two M3×24 ISO 7380 fan screws go in from the front. Their heads
+    (Ø5.7 × 1.65) stand proud of the fan face into the front wall: they reach Y −58.15, against a
+    wall from −58.2 to −57.0. The front wall therefore has Ø6.3 through-holes (0.3 mm radial
+    clearance) at (−18.65, 60.3) and (16.05, 25.6). The lower hole notches the wall's bottom edge.
+    - The heads sit in the holes, 0.05 mm behind the front face, so the front limit is unchanged.
+    - A 2.0 mm hex key, or a Ø6.3 driver, reaches both screws with the cover on.
+    - Whether the 4020's holes are counterbored is unknown (M7) and is not assumed; a counterbore
+      would only add clearance.
   - **4020 intake fully open.** A Ø30 round aperture (inlet ring `FAN_INLET_D` 28 + 2 × 1.0) sits
     centred on the intake at X −1.3, Z 43.4, with no grille and no ribs. A grille 0.5 mm in front of
     the impeller eye would throttle the blower, and the CFD fan model has no cover. `validate.py`
@@ -209,7 +229,8 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 |---|---|---|
 | M3×30 ISO 7380 | 3 | replace the stock PCB screws (M3×18 ×2 into carriage inserts, M3×20 into the heatsink) |
 | M3 brass heat-set insert, short (hole Ø4.0) | 6 | 2 fan, 2 duct (T_left, T_right), 2 cover |
-| M3×24 | 2 | 4020 to frame: fan through-length 20 (ESTIMATED, M7) + 4 (`FRAME_FAN_SCREW_LEN`) |
+| M3×24 ISO 7380 | 2 | 4020 to frame: fan through-length 20 (ESTIMATED, M7) + 4 (`FRAME_FAN_SCREW_LEN`); heads in the cover's Ø6.3 holes |
+| M3 washer ISO 7089 | 3 | coupon only (restores the frame's 2.0 mm plate depth on the 1.6 mm coupon) |
 | M3×6 ISO 7380 | 2 | duct tabs to frame lugs (tab 2.5 + 3.5 into the insert, `DUCT_TAB_SCREW_LEN`) |
 | M3×6 ISO 7380 | 2 | cover |
 | M2.5 brass heat-set insert (hole Ø3.6) | 2 | probe |
