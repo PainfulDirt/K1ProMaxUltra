@@ -119,6 +119,7 @@ def fan_csv(ftype, curve="estimated"):
              ("5015", "proxy"): "sunon_MF50152VX-1L02C-A99_proxy-scaled.csv",
              ("delta", "digitized"): "delta_BFB0524HH_digitized.csv",
              ("samesky", "digitized"): "samesky_CBM-5015BF-175-459-22_digitized.csv",
+             ("delta", "minspec"): "../../../simulations/cfd/cases/fan_curves/delta_BFB0524HH_minspec.csv",
              ("delta", "estimated"): "delta_BFB0524HH.csv"}
     return str(FANS_DIR / names[(ftype, curve)])
 
@@ -166,7 +167,13 @@ def case_config(params, rep, info, areas, env="part", curve="estimated", name=No
         k = 2 if len(cl) > 3 else 1
         d = cl[k + 1] - cl[k] if k + 1 < len(cl) else cl[k] - cl[k - 1]
         d = d / np.linalg.norm(d)
-        o = cl[1] + 0.5 * (cl[2] - cl[1]) if f["kind"] == "right" else cl[k]
+        if f["kind"] in ("right", "front_plenum", "direct", "stock"):
+            # 2 mm below the outlet of a fan blowing -Z (inside the drop, before it merges with the
+            # plenum/manifold); normal = the fan's blow direction
+            o = cl[1]
+            d = np.array(fan["blow"], float)
+        else:
+            o = cl[k]
         ext = max(fan["outlet_a"], fan["outlet_b"]) / 2 + 1.5
         u = np.cross(d, [0, 0, 1]) if abs(d[2]) < 0.9 else np.array([1.0, 0, 0])
         planes.append({"name": f"feed_{fid}", "type": "rect", "origin": o.round(4).tolist(), "normal": d.round(6).tolist(),

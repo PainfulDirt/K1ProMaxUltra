@@ -474,8 +474,8 @@
  "timing_s": {
   "mesh": 140.78,
   "solve": 1147.42,
-  "post": 10.43,
-  "mesh_solve_post_total": 1298.63
+  "post": 7.91,
+  "mesh_solve_post_total": 1296.11
  },
  "np": 4,
  "_spec": {
@@ -485,7 +485,7 @@
   "tag": "",
   "level": 2,
   "sets": null,
-  "wall_time_total_s": 10.4
+  "wall_time_total_s": 7.9
  },
  "_geometry": {
   "inlet_area_mm2": 220.99999999999994,

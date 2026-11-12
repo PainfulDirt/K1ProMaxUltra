@@ -19,9 +19,9 @@ def _g(d, *keys, default=None):
     return d
 
 
-def row(res):
+def row(res, dirname=None):
     sp = res.get("_spec", {})
-    r = {"case": res["case"], "design": sp.get("design"), "env": sp.get("env"), "curve": sp.get("curve"),
+    r = {"case": dirname or res["case"], "design": sp.get("design"), "env": sp.get("env"), "curve": sp.get("curve"),
          "tag": sp.get("tag"), "level": res.get("level"), "cells": _g(res, "mesh", "cells"),
          "iterations": _g(res, "convergence", "iterations"), "converged": _g(res, "convergence", "converged"),
          "wall_min": round((_g(res, "timing_s", "mesh_solve_post_total") or 0) / 60, 1),
@@ -115,7 +115,7 @@ def main():
     rows = []
     for f in sorted(RESULTS.glob("*/results.json")):
         try:
-            rows.append(row(json.loads(f.read_text())))
+            rows.append(row(json.loads(f.read_text()), f.parent.name))
         except Exception as e:  # noqa: BLE001
             print("skip", f, e)
     keys = []

@@ -1,10 +1,10 @@
 {
   "schema": "k1-toolhead duct interface",
-  "version": "v1",
-  "final_mount_points": false,
+  "version": "v3-final",
+  "final_mount_points": true,
   "frame": "nozzle frame: origin nozzle tip, +X right, +Y rear, +Z up, mm",
-  "duct_param_set": "S1",
-  "label": "S: 1x4020 front bay (stock-like pose), front plenum + horseshoe manifold, 5 wedge ports",
+  "duct_param_set": "S7",
+  "label": "S7 = S4 + bottom-lip chamfer (printable, S4 port interior)",
   "fans": {
     "F": {
       "type": "4020",
@@ -124,8 +124,8 @@
   "duct_envelope": {
     "min": [
       -21.3,
-      -57.2,
-      2.2
+      -56.5,
+      2.44
     ],
     "max": [
       31.0,
@@ -135,10 +135,10 @@
   },
   "keep_clear_for_duct": "the duct body's space: see duct_envelope and the STEP; the frame must not enter the duct air path or come within 3 mm of the sock (interfaces.HOT_ZONE_CLEARANCE)",
   "duct_materials": "nozzle end PC or PA-CF (DD-07); printed upright, fan socket up",
-  "duct_mass_g": 9.29,
+  "duct_mass_g": 9.24,
   "keepout_violations_mm3": {},
   "soft_limit_excess_mm": {
-    "FRONT_LIMIT_Y": 2.2,
+    "FRONT_LIMIT_Y": 1.5,
     "width_right_of_nozzle_mm": 31.0,
     "width_left_of_nozzle_mm": 21.3
   },
@@ -150,5 +150,5 @@
     "note": "gap between PCB component zone front and the part-fan rear face over the 3010; stock is -1.3 mm (fan overlaps the ESTIMATED zone), so >= stock keeps the stock intake path"
   },
   "generated_by": "cad/source/ducts/duct_generator.py::write_interface_file",
-  "status_note": "v0: PROVISIONAL. Fan pose (front bay, stock-like) and the duct envelope are stable; attach-point positions will move with the CFD iterations. Do not machine/print the frame against these until final_mount_points is true."
+  "status_note": "FINAL mount points for the released duct parameter set (PARAMS_FINAL)."
 }

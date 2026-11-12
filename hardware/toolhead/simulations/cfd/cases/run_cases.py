@@ -30,8 +30,12 @@ sys.path.insert(0, str(TH / "cad/source/ducts"))
 import run_case  # noqa: E402
 
 RESULTS = CFD / "results"
+# thermal proxy (cfd-report §7): part skin 200 C, nozzle 250 C (ABS), sock outer surface 150 C (ESTIMATED),
+# fan / chamber air 45 C; heatsink, duct, bed adiabatic
+THERMAL_DEFAULT = {"T_inf": 45.0, "walls": {"part_top": 200.0, "part_side": 200.0, "nozzle": 250.0, "sock": 150.0},
+                   "iters": 200}
 KEEP_PNG = ("slice_xz_y0_Umag.png", "slice_yz_x0_Umag.png", "slice_xy_zeval_Umag.png", "slice_xy_z4_Umag.png",
-            "streamlines3d.png", "convergence.png", "slice_lidar_yz_xm36_Umag.png")
+            "streamlines3d.png", "convergence.png", "slice_lidar_yz_xm36_Umag.png", "line_feed_F_centerline.png")
 
 
 def geometry(design, env, curve, gdir):
@@ -91,6 +95,8 @@ def run_one(spec, level, np_, sets, tag, keep_png=KEEP_PNG, steps="mesh,solve,po
     argv = [str(cfg), "--level", str(level), "--np", str(np_), "--name", name, "--steps", steps]
     for s_ in sets or []:
         argv += ["--set", s_]
+    if "thermal" in steps and not any(s_.startswith("thermal") for s_ in sets or []):
+        argv += ["--set", "thermal=" + json.dumps(THERMAL_DEFAULT)]
     case = run_case.main(argv)
     out = RESULTS / (name + ("_thermal" if "thermal" in steps else ""))
     out.mkdir(parents=True, exist_ok=True)

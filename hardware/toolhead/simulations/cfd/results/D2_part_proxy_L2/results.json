@@ -1,0 +1,1061 @@
+{
+ "case": "D2_part_proxy_L2",
+ "time": 678.0,
+ "level": 2,
+ "mesh": {
+  "cells": 1078576,
+  "base_cell_mm": 2.539841683149119,
+  "checkMesh_ok": true,
+  "max_nonortho": 57.628743,
+  "max_skewness": 3.1203848
+ },
+ "units": {
+  "p": "Pa gauge (rho*p_kinematic)",
+  "length": "mm",
+  "Q": "m^3/s",
+  "U": "m/s"
+ },
+ "fluid": {
+  "nu": 1.6e-05,
+  "rho": 1.16
+ },
+ "convergence": {
+  "iterations": 678,
+  "max_iter": 750,
+  "stopped_by_watchdog_at": 676,
+  "residualControl_reached": false,
+  "final_initial_residuals": {
+   "Ux": 0.0079407475,
+   "Uy": 0.0060957692,
+   "Uz": 0.010342389,
+   "k": 0.012491548,
+   "omega": 0.003147789,
+   "p": 0.00019155338
+  },
+  "monitor_rel_range_last_window": {
+   "flow_inlet_F": 0.003389852329264731,
+   "pavg_inlet_F": 0.0011721919522313259,
+   "flow_inlet_R": 0.0031595361469911667,
+   "pavg_inlet_R": 0.0009043145983369396,
+   "probe_Umag_max": 0.4514289808997804
+  },
+  "criteria": {
+   "window": 100,
+   "tol_Q": 0.004,
+   "tol_p": 0.004,
+   "tol_probe": 1000000000.0,
+   "probe_floor": 0.1,
+   "res_p_max": 0.01,
+   "res_U_max": 0.03
+  },
+  "converged": true,
+  "solver_execution_time_s": 1395.18
+ },
+ "averaging": {
+  "fields": "U, p, wallShearStress are means over iterations",
+  "from_iteration": 300,
+  "to_iteration": 678,
+  "used": true
+ },
+ "inlets": {
+  "inlet_F": {
+   "Q_m3_s": 0.000582726524,
+   "Q_cfm": 1.2347276921114514,
+   "area_mm2": 221.0000086538492,
+   "U_mean_m_s": 2.636771498560077,
+   "p_static_avg_Pa": 147.80658159655917,
+   "p_total_avg_Pa": 151.9507593188942,
+   "bc": {
+    "kind": "fan",
+    "csv": "/home/user/K1ProMaxUltra/hardware/toolhead/components/fans/pq-curves/creality_K1_stock_4020_blower_proxy-scaled.csv"
+   },
+   "fan_dP_at_Q_Pa": 151.93832142561325,
+   "fan_Qmax_m3_s": 0.002506722,
+   "fan_dP_shutoff_Pa": 191.4,
+   "operating_point": {
+    "Q_m3_s": 0.000582726524,
+    "dP_Pa": 151.93832142561325,
+    "fraction_of_Qmax": 0.23246555621245593,
+    "fraction_of_shutoff_pressure": 0.7938261307503305
+   }
+  },
+  "inlet_R": {
+   "Q_m3_s": 0.00054381459,
+   "Q_cfm": 1.1522779657224513,
+   "area_mm2": 221.0000165700915,
+   "U_mean_m_s": 2.460699317764648,
+   "p_static_avg_Pa": 150.80613529508798,
+   "p_total_avg_Pa": 154.4719154674254,
+   "bc": {
+    "kind": "fan",
+    "csv": "/home/user/K1ProMaxUltra/hardware/toolhead/components/fans/pq-curves/creality_K1_stock_4020_blower_proxy-scaled.csv"
+   },
+   "fan_dP_at_Q_Pa": 154.46509482589585,
+   "fan_Qmax_m3_s": 0.002506722,
+   "fan_dP_shutoff_Pa": 191.4,
+   "operating_point": {
+    "Q_m3_s": 0.00054381459,
+    "dP_Pa": 154.46509482589585,
+    "fraction_of_Qmax": 0.21694252094967054,
+    "fraction_of_shutoff_pressure": 0.8070276636671674
+   }
+  }
+ },
+ "mass_balance": {
+  "Q_in_m3_s": 0.001126541114,
+  "Q_net_out_atmosphere_m3_s": 0.00112624596,
+  "imbalance_rel": -0.0002620002025066064
+ },
+ "planes": {
+  "layer_annulus": {
+   "type": "annulus",
+   "area_sampled_mm2": 109.95574287564274,
+   "area_fluid_mm2": 109.95574287564274,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 4.4304766976582e-07,
+   "U_normal_mean_area": 0.004029327238204339,
+   "Umag_mean_area": 4.787380417750745,
+   "Umag_max": 12.119736671447754,
+   "p_static_avg_Pa": 28.94310518704492,
+   "p_total_avg_Pa": 45.834805449877116,
+   "Umag_mean_flux": 5.202095217324816,
+   "p_total_fluxavg_Pa": 37.1948862712241,
+   "sector_Umag_mean": [
+    4.9622,
+    5.2828,
+    1.5869,
+    4.1759,
+    8.0636,
+    6.4555,
+    4.6101,
+    3.162
+   ],
+   "sector_angles_deg_start": [
+    0.0,
+    45.0,
+    90.0,
+    135.0,
+    180.0,
+    225.0,
+    270.0,
+    315.0
+   ],
+   "symmetry_min_over_max": 0.19679639838293964,
+   "symmetry_cv": 0.38432976323344825
+  },
+  "annulus_z03": {
+   "type": "annulus",
+   "area_sampled_mm2": 109.95574287564274,
+   "area_fluid_mm2": 109.95574287564274,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 1.0198273705128555e-06,
+   "U_normal_mean_area": 0.009274889549573189,
+   "Umag_mean_area": 8.403671974108624,
+   "Umag_max": 15.618812561035156,
+   "p_static_avg_Pa": 27.0306927980141,
+   "p_total_avg_Pa": 78.1007427004313,
+   "Umag_mean_flux": 8.52023280967102,
+   "p_total_fluxavg_Pa": 72.47072810577384,
+   "sector_Umag_mean": [
+    7.1805,
+    9.0914,
+    3.5098,
+    12.81,
+    13.948,
+    10.6219,
+    5.6033,
+    4.4645
+   ],
+   "sector_angles_deg_start": [
+    0.0,
+    45.0,
+    90.0,
+    135.0,
+    180.0,
+    225.0,
+    270.0,
+    315.0
+   ],
+   "symmetry_min_over_max": 0.25163420753637833,
+   "symmetry_cv": 0.4297759140664507
+  },
+  "ring_z1": {
+   "type": "annulus",
+   "area_sampled_mm2": 263.89378290154264,
+   "area_fluid_mm2": 263.89378290154264,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 9.706480095077236e-05,
+   "U_normal_mean_area": 0.36781768741776966,
+   "Umag_mean_area": 8.964141646076843,
+   "Umag_max": 15.268686294555664,
+   "p_static_avg_Pa": 22.276346314427258,
+   "p_total_avg_Pa": 74.1370297574722,
+   "Umag_mean_flux": 8.754469623517819,
+   "p_total_fluxavg_Pa": 69.32976986092115,
+   "sector_Umag_mean": [
+    6.8822,
+    6.5044,
+    8.7293,
+    13.2169,
+    12.0643,
+    10.1259,
+    7.2616,
+    6.9284
+   ],
+   "sector_angles_deg_start": [
+    0.0,
+    45.0,
+    90.0,
+    135.0,
+    180.0,
+    225.0,
+    270.0,
+    315.0
+   ],
+   "symmetry_min_over_max": 0.4921289599276732,
+   "symmetry_cv": 0.26903748406570654
+  },
+  "port_240": {
+   "type": "rect",
+   "area_sampled_mm2": 27.289600000000014,
+   "area_fluid_mm2": 27.289600000000014,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 0.0002892002325521569,
+   "U_normal_mean_area": 10.597452236462122,
+   "Umag_mean_area": 12.53930637991059,
+   "Umag_max": 16.50420379638672,
+   "p_static_avg_Pa": 3.559122133022889,
+   "p_total_avg_Pa": 105.14910040668872,
+   "Umag_mean_flux": 14.153617736404758,
+   "p_total_fluxavg_Pa": 124.75428955854714
+  },
+  "port_275": {
+   "type": "rect",
+   "area_sampled_mm2": 27.289600000000014,
+   "area_fluid_mm2": 27.289600000000014,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 0.00029307917188570566,
+   "U_normal_mean_area": 10.739592074845564,
+   "Umag_mean_area": 12.646334526043445,
+   "Umag_max": 16.72223472595215,
+   "p_static_avg_Pa": 3.9269496783425777,
+   "p_total_avg_Pa": 107.7482822342549,
+   "Umag_mean_flux": 14.333556411491749,
+   "p_total_fluxavg_Pa": 128.11100219461758
+  },
+  "port_320": {
+   "type": "rect",
+   "area_sampled_mm2": 23.878400000000013,
+   "area_fluid_mm2": 23.878400000000013,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 0.00023183463522464956,
+   "U_normal_mean_area": 9.708968575141109,
+   "Umag_mean_area": 11.36921129163421,
+   "Umag_max": 16.805028915405273,
+   "p_static_avg_Pa": 4.012697916633163,
+   "p_total_avg_Pa": 88.32692728988222,
+   "Umag_mean_flux": 12.98116291632075,
+   "p_total_fluxavg_Pa": 108.06104112091187
+  },
+  "port_0": {
+   "type": "rect",
+   "area_sampled_mm2": 23.878400000000013,
+   "area_fluid_mm2": 23.878400000000013,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 0.00014052661766275398,
+   "U_normal_mean_area": 5.885093543233798,
+   "Umag_mean_area": 7.373526718119005,
+   "Umag_max": 12.680527687072754,
+   "p_static_avg_Pa": 0.09164505778640847,
+   "p_total_avg_Pa": 39.95477996042922,
+   "Umag_mean_flux": 9.779188839212898,
+   "p_total_fluxavg_Pa": 60.45659421550036
+  },
+  "port_35": {
+   "type": "rect",
+   "area_sampled_mm2": 23.878400000000013,
+   "area_fluid_mm2": 23.878400000000013,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": 0.00017005483063025782,
+   "U_normal_mean_area": 7.121701229155125,
+   "Umag_mean_area": 8.116697481812178,
+   "Umag_max": 11.098899841308594,
+   "p_static_avg_Pa": -0.2114762964244423,
+   "p_total_avg_Pa": 42.9680042642775,
+   "Umag_mean_flux": 9.272763499651708,
+   "p_total_fluxavg_Pa": 51.708376430429325
+  },
+  "feed_F": {
+   "type": "rect",
+   "area_sampled_mm2": 398.00249999999994,
+   "area_fluid_mm2": 320.24249999999995,
+   "valid_fraction": 0.804624342811917,
+   "Q_through_m3_s": 0.000583641030637077,
+   "U_normal_mean_area": 1.8224971096499596,
+   "Umag_mean_area": 1.8313346609129963,
+   "Umag_max": 4.0639238357543945,
+   "p_static_avg_Pa": 101.90999478725725,
+   "p_total_avg_Pa": 104.81962407560545,
+   "Umag_mean_flux": 2.7445446740628445,
+   "p_total_fluxavg_Pa": 151.38810317262502
+  },
+  "feed_R": {
+   "type": "rect",
+   "area_sampled_mm2": 398.00249999999994,
+   "area_fluid_mm2": 344.3175,
+   "valid_fraction": 0.8651139126010515,
+   "Q_through_m3_s": 0.0005479222547617464,
+   "U_normal_mean_area": 1.5913285115097153,
+   "Umag_mean_area": 1.6881958449314949,
+   "Umag_max": 7.6585588455200195,
+   "p_static_avg_Pa": 51.77580411824616,
+   "p_total_avg_Pa": 56.2709170329047,
+   "Umag_mean_flux": 4.740088884830609,
+   "p_total_fluxavg_Pa": 153.92144945777943
+  },
+  "lidar_line": {
+   "type": "rect",
+   "area_sampled_mm2": 87.6,
+   "area_fluid_mm2": 87.6,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": -1.1260801069140435e-05,
+   "U_normal_mean_area": -0.12854795741027897,
+   "Umag_mean_area": 0.17856148816815257,
+   "Umag_max": 0.3152059316635132,
+   "p_static_avg_Pa": -0.03486861401969848,
+   "p_total_avg_Pa": -0.015254946809091934
+  },
+  "lidar_window": {
+   "type": "rect",
+   "area_sampled_mm2": 813.4399999999998,
+   "area_fluid_mm2": 813.4399999999998,
+   "valid_fraction": 1.0,
+   "Q_through_m3_s": -6.68302494588634e-05,
+   "U_normal_mean_area": -0.08215756473601424,
+   "Umag_mean_area": 0.173378524130883,
+   "Umag_max": 0.4500006139278412,
+   "p_static_avg_Pa": -0.025362135811110218,
+   "p_total_avg_Pa": -0.00449693634938654
+  }
+ },
+ "points": {
+  "jet_240": {
+   "xyz_mm": [
+    -7.37,
+    -11.518,
+    4.97
+   ],
+   "valid": true,
+   "U": [
+    2.4390199184417725,
+    11.578729629516602,
+    -4.0500898361206055
+   ],
+   "Umag": 12.506760597229004,
+   "p_Pa": -0.285033255815506
+  },
+  "jet_275": {
+   "xyz_mm": [
+    0.373,
+    -11.421,
+    5.014
+   ],
+   "valid": true,
+   "U": [
+    -3.1544599533081055,
+    7.822309970855713,
+    -3.749039888381958
+   ],
+   "Umag": 9.230086326599121,
+   "p_Pa": -2.769498825073242
+  },
+  "jet_320": {
+   "xyz_mm": [
+    13.052,
+    -11.766,
+    4.937
+   ],
+   "valid": true,
+   "U": [
+    -3.987220048904419,
+    1.7490500211715698,
+    -2.1787099838256836
+   ],
+   "Umag": 4.8686604499816895,
+   "p_Pa": -2.438499689102173
+  },
+  "jet_0": {
+   "xyz_mm": [
+    14.016,
+    -0.624,
+    4.965
+   ],
+   "valid": true,
+   "U": [
+    -3.1551599502563477,
+    -0.06748999655246735,
+    -1.90378999710083
+   ],
+   "Umag": 3.6856436729431152,
+   "p_Pa": -0.636296808719635
+  },
+  "jet_35": {
+   "xyz_mm": [
+    14.597,
+    9.46,
+    4.938
+   ],
+   "valid": true,
+   "U": [
+    -4.989019870758057,
+    -2.313810110092163,
+    -2.572740077972412
+   ],
+   "Umag": 6.07149600982666,
+   "p_Pa": -0.32869476079940796
+  },
+  "lidar_line_centre": {
+   "xyz_mm": [
+    -36.0,
+    -21.34,
+    -0.5
+   ],
+   "valid": true,
+   "U": [
+    0.07489000260829926,
+    0.03550000116229057,
+    -0.14855000376701355
+   ],
+   "Umag": 0.17010754346847534,
+   "p_Pa": -0.031722672283649445
+  },
+  "below_tip": {
+   "xyz_mm": [
+    0,
+    0,
+    -0.1
+   ],
+   "valid": false,
+   "U": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "Umag": 0.0,
+   "p_Pa": 0.0
+  }
+ },
+ "lines": {
+  "feed_F_centerline": {
+   "length_mm": 58.05829503118511,
+   "valid_fraction": 1.0,
+   "p_start_Pa": 147.6782989501953,
+   "p_end_Pa": 132.79141235351562,
+   "dp_static_Pa": 14.886886596679688,
+   "Umag_max": 5.386125564575195
+  },
+  "feed_R_centerline": {
+   "length_mm": 38.55988874955172,
+   "valid_fraction": 1.0,
+   "p_start_Pa": 148.90467834472656,
+   "p_end_Pa": 53.09907150268555,
+   "dp_static_Pa": 95.80560302734375,
+   "Umag_max": 13.154743194580078
+  }
+ },
+ "walls": {
+  "duct": {
+   "area_mm2": 17031.30794662873,
+   "p_static_avg_Pa": 44.380438409913125,
+   "p_total_avg_Pa": 44.380438409913125,
+   "wss_mean_Pa": 0.19911512805712964,
+   "wss_max_Pa": 28.490074157714844,
+   "yplus_mean": 1.9072244139384646,
+   "yplus_max": 18.919658660888672
+  },
+  "nozzle": {
+   "area_mm2": 100.25001360314354,
+   "p_static_avg_Pa": 28.195885571885697,
+   "p_total_avg_Pa": 28.195885571885697,
+   "wss_mean_Pa": 1.7260150565588446,
+   "wss_max_Pa": 30.695322036743164,
+   "yplus_mean": 3.52897424318855,
+   "yplus_max": 11.141695022583008
+  },
+  "sock": {
+   "area_mm2": 2489.2745191186273,
+   "p_static_avg_Pa": 1.956763212156302,
+   "p_total_avg_Pa": 1.956763212156302,
+   "wss_mean_Pa": 0.19148492750528232,
+   "wss_max_Pa": 2.886085033416748,
+   "yplus_mean": 2.161218553861384,
+   "yplus_max": 13.052106857299805
+  },
+  "heatsink": {
+   "area_mm2": 1657.5471269864217,
+   "p_static_avg_Pa": -0.017774967733727623,
+   "p_total_avg_Pa": -0.017774967733727623,
+   "wss_mean_Pa": 0.0022965127593940053,
+   "wss_max_Pa": 0.011178741231560707,
+   "yplus_mean": 1.215896098153601,
+   "yplus_max": 2.840581178665161
+  },
+  "part_top": {
+   "area_mm2": 399.3870434679707,
+   "p_static_avg_Pa": 27.665164920105422,
+   "p_total_avg_Pa": 27.665164920105422,
+   "wss_mean_Pa": 1.1364690870314165,
+   "wss_max_Pa": 5.359757900238037,
+   "yplus_mean": 6.491351374805153,
+   "yplus_max": 15.110156059265137
+  },
+  "part_side": {
+   "area_mm2": 1600.0266799368453,
+   "p_static_avg_Pa": 0.5229217659259567,
+   "p_total_avg_Pa": 0.5229217659259567,
+   "wss_mean_Pa": 0.19937007276036284,
+   "wss_max_Pa": 2.423182725906372,
+   "yplus_mean": 5.40577926515,
+   "yplus_max": 20.245460510253906
+  },
+  "bed": {
+   "area_mm2": 18500.2637828072,
+   "p_static_avg_Pa": 0.1068187530064472,
+   "p_total_avg_Pa": 0.1068187530064472,
+   "wss_mean_Pa": 0.027231551227036337,
+   "wss_max_Pa": 0.3164924383163452,
+   "yplus_mean": 11.144977223413347,
+   "yplus_max": 27.137056350708008
+  }
+ },
+ "wall_regions": {
+  "part_top_r5": {
+   "patch": "part_top",
+   "n_faces": 3060,
+   "area_mm2": 77.64741131164531,
+   "wss_mean_Pa": 1.4011365113877603,
+   "yplus_mean": 4.621503213443109,
+   "Unear_mean": 7.844688394159842,
+   "Unear_valid_fraction": 0.9996732026143791,
+   "delta_mm": 0.3
+  },
+  "part_top_r10": {
+   "patch": "part_top",
+   "n_faces": 8468,
+   "area_mm2": 314.38095174016087,
+   "wss_mean_Pa": 1.1631878147909709,
+   "yplus_mean": 5.921204105094354,
+   "Unear_mean": 8.051788177541404,
+   "Unear_valid_fraction": 0.9998819083608881,
+   "delta_mm": 0.3
+  },
+  "part_top_all": {
+   "patch": "part_top",
+   "n_faces": 9282,
+   "area_mm2": 399.3870434679707,
+   "wss_mean_Pa": 1.13646911963431,
+   "yplus_mean": 6.491351374805153,
+   "Unear_mean": 8.045182454923477,
+   "Unear_valid_fraction": 0.999892264598147,
+   "delta_mm": 0.3
+  },
+  "part_side_xp_top3": {
+   "patch": "part_side",
+   "n_faces": 345,
+   "area_mm2": 61.4159265026328,
+   "wss_mean_Pa": 0.8798505659169129,
+   "yplus_mean": 10.714494803825959,
+   "Unear_mean": 6.765518183447468,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  },
+  "part_side_xm_top3": {
+   "patch": "part_side",
+   "n_faces": 345,
+   "area_mm2": 61.44635220283607,
+   "wss_mean_Pa": 0.7495349030662593,
+   "yplus_mean": 9.393998685053367,
+   "Unear_mean": 6.903654087570082,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  },
+  "part_side_yp_top3": {
+   "patch": "part_side",
+   "n_faces": 344,
+   "area_mm2": 61.45457598958356,
+   "wss_mean_Pa": 0.09236162358884566,
+   "yplus_mean": 3.4024740290217266,
+   "Unear_mean": 0.9117137043089826,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  },
+  "part_side_ym_top3": {
+   "patch": "part_side",
+   "n_faces": 344,
+   "area_mm2": 61.46179122803797,
+   "wss_mean_Pa": 0.4610717284218308,
+   "yplus_mean": 7.984924408492757,
+   "Unear_mean": 4.727815947073426,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  },
+  "nozzle_all": {
+   "patch": "nozzle",
+   "n_faces": 3432,
+   "area_mm2": 100.25001360314354,
+   "wss_mean_Pa": 1.7260151064565714,
+   "yplus_mean": 3.52897424318855,
+   "Unear_mean": 7.741518062379565,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  },
+  "nozzle_cone": {
+   "patch": "nozzle",
+   "n_faces": 1518,
+   "area_mm2": 48.46678809643578,
+   "wss_mean_Pa": 2.0611736836592045,
+   "yplus_mean": 3.4270386655532734,
+   "Unear_mean": 8.874374170500852,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  },
+  "sock_bottom": {
+   "patch": "sock",
+   "n_faces": 3926,
+   "area_mm2": 359.8045158228787,
+   "wss_mean_Pa": 1.113144188043924,
+   "yplus_mean": 8.281563666417277,
+   "Unear_mean": 6.927170590898893,
+   "Unear_valid_fraction": 1.0,
+   "delta_mm": 0.3
+  }
+ },
+ "losses": {
+  "inlet_F->feed_F": {
+   "dp_total_Pa": 0.5626561462691768,
+   "dp_static_Pa": 45.89658680930192
+  },
+  "inlet_F->port_240": {
+   "dp_total_Pa": 27.196469760347057,
+   "dp_static_Pa": 144.24745946353627
+  },
+  "inlet_F->port_275": {
+   "dp_total_Pa": 23.839757124276616,
+   "dp_static_Pa": 143.8796319182166
+  },
+  "inlet_F->port_320": {
+   "dp_total_Pa": 43.88971819798233,
+   "dp_static_Pa": 143.793883679926
+  },
+  "inlet_F->port_0": {
+   "dp_total_Pa": 91.49416510339384,
+   "dp_static_Pa": 147.71493653877275
+  },
+  "inlet_F->port_35": {
+   "dp_total_Pa": 100.24238288846487,
+   "dp_static_Pa": 148.01805789298362
+  },
+  "inlet_R->feed_R": {
+   "dp_total_Pa": 0.5504660096459588,
+   "dp_static_Pa": 99.03033117684183
+  },
+  "inlet_R->port_240": {
+   "dp_total_Pa": 29.717625908878247,
+   "dp_static_Pa": 147.2470131620651
+  },
+  "inlet_R->port_275": {
+   "dp_total_Pa": 26.360913272807807,
+   "dp_static_Pa": 146.87918561674542
+  },
+  "inlet_R->port_320": {
+   "dp_total_Pa": 46.41087434651352,
+   "dp_static_Pa": 146.79343737845483
+  },
+  "inlet_R->port_0": {
+   "dp_total_Pa": 94.01532125192503,
+   "dp_static_Pa": 150.71449023730156
+  },
+  "inlet_R->port_35": {
+   "dp_total_Pa": 102.76353903699606,
+   "dp_static_Pa": 151.01761159151243
+  }
+ },
+ "plots": [
+  "line_feed_F_centerline.png",
+  "line_feed_R_centerline.png",
+  "slice_xz_y0_Umag.png",
+  "slice_yz_x0_Umag.png",
+  "slice_xy_zeval_Umag.png",
+  "slice_xy_z4_Umag.png",
+  "convergence.png",
+  "streamlines3d.png"
+ ],
+ "timing_s": {
+  "mesh": 109.57,
+  "solve": 1417.4,
+  "post": 11.65,
+  "mesh_solve_post_total": 1538.62
+ },
+ "np": 4,
+ "_spec": {
+  "design": "D2",
+  "env": "part",
+  "curve": "proxy",
+  "tag": "",
+  "level": 2,
+  "sets": null,
+  "wall_time_total_s": 1551.4
+ },
+ "_geometry": {
+  "name": "D2",
+  "label": "D2: 2x4020, independent manifolds, improved ports (yaw 12, aim r 6), 17 mm plenum",
+  "keepout_violations_mm3": {},
+  "envelope": {
+   "min": [
+    -21.3,
+    -56.5,
+    2.1
+   ],
+   "max": [
+    52.2,
+    27.5,
+    63.4
+   ]
+  },
+  "soft_limit_excess_mm": {
+   "FRONT_LIMIT_Y": 1.5,
+   "width_right_of_nozzle_mm": 52.2,
+   "width_left_of_nozzle_mm": 21.3
+  },
+  "intake_window_3010": {
+   "ok": true,
+   "gap_mm": 5.0,
+   "stock_gap_mm": -1.3,
+   "open_side_area_mm2": 300.0,
+   "note": "gap between PCB component zone front and the part-fan rear face over the 3010; stock is -1.3 mm (fan overlaps the ESTIMATED zone), so >= stock keeps the stock intake path"
+  },
+  "printability": {
+   "orientation": "upright (nozzle-frame +Z = print Z), fan socket on top, external supports only under the lips",
+   "air_path_overhangs": {
+    "print_up": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "limit_deg": 45.0,
+    "air_surface_mm2": 7107.598085649009,
+    "overhang_area_mm2": 173.37233340393388,
+    "worst_face_angle_from_horizontal_deg": 59.141357436615394
+   },
+   "wall_mm": 1.2,
+   "min_channel_mm": 3.0
+  },
+  "mass": {
+   "body_volume_cm3": 10.184,
+   "volume_within_15mm_of_heater_cm3": 1.852,
+   "mass_all_PC_g": 12.22,
+   "mass_all_ASA_g": 10.9,
+   "mass_PC_near_ASA_rest_g": 11.14,
+   "fans_g": 48.0,
+   "fan_types": {
+    "F": "4020",
+    "R": "4020"
+   },
+   "total_PC_g": 60.22,
+   "notes": "fan masses from interfaces.py: Creality K1 stock 4020 blower 24.0 g ESTIMATED; Creality K1 stock 4020 blower 24.0 g ESTIMATED; duct at 100 % infill; screws/inserts not included"
+  },
+  "ports": [
+   {
+    "az": 240,
+    "r_o": 16.595,
+    "L": 4.528,
+    "w": 8.0,
+    "w_back": 10.183,
+    "h": 3.0,
+    "z_ob": 3.47,
+    "z_ot": 6.47,
+    "z_back": [
+     5.037940879828288,
+     10.998113152982421
+    ],
+    "c_out": [
+     -8.29726312259969,
+     -14.37128129211024,
+     4.9699099227069645
+    ],
+    "dir_h": [
+     0.30901699437494795,
+     0.9510565162951535,
+     -0.0
+    ],
+    "lat": [
+     0.9510565162951535,
+     -0.30901699437494795,
+     0.0
+    ],
+    "area_mm2": 24.0,
+    "jet_bisector_deg": 32.05,
+    "aim_r_at_part_top": 8.337,
+    "min_channel_mm": 3.0,
+    "inscribed_d_outlet": 2.949
+   },
+   {
+    "az": 275,
+    "r_o": 14.344,
+    "L": 4.123,
+    "w": 8.0,
+    "w_back": 10.299,
+    "h": 3.0,
+    "z_ob": 3.514,
+    "z_ot": 6.514,
+    "z_back": [
+     5.349205351457339,
+     10.636482559467304
+    ],
+    "c_out": [
+     1.2501890023193947,
+     -14.28972568484775,
+     5.013563534207256
+    ],
+    "dir_h": [
+     -0.29237170472273644,
+     0.9563047559630355,
+     -0.0
+    ],
+    "lat": [
+     0.9563047559630357,
+     0.2923717047227365,
+     -0.0
+    ],
+    "area_mm2": 24.0,
+    "jet_bisector_deg": 34.5,
+    "aim_r_at_part_top": 6.759,
+    "min_channel_mm": 3.0,
+    "inscribed_d_outlet": 2.949
+   },
+   {
+    "az": 320,
+    "r_o": 20.496,
+    "L": 5.065,
+    "w": 7.0,
+    "w_back": 8.73,
+    "h": 3.0,
+    "z_ob": 3.437,
+    "z_ot": 6.437,
+    "z_back": [
+     4.709399195713619,
+     11.501808784360776
+    ],
+    "c_out": [
+     15.701150559734346,
+     -13.174829643732044,
+     4.937276652061859
+    ],
+    "dir_h": [
+     -0.8829475928589268,
+     0.4694715627858911,
+     -0.0
+    ],
+    "lat": [
+     0.4694715627858911,
+     0.8829475928589268,
+     -0.0
+    ],
+    "area_mm2": 21.0,
+    "jet_bisector_deg": 29.55,
+    "aim_r_at_part_top": 11.435,
+    "min_channel_mm": 3.0,
+    "inscribed_d_outlet": 2.949
+   },
+   {
+    "az": 0,
+    "r_o": 16.95,
+    "L": 4.65,
+    "w": 7.0,
+    "w_back": 8.92,
+    "h": 3.0,
+    "z_ob": 3.465,
+    "z_ot": 6.465,
+    "z_back": [
+     5.021259005399298,
+     11.115390769714637
+    ],
+    "c_out": [
+     16.95000000000003,
+     0.0,
+     4.965390769714668
+    ],
+    "dir_h": [
+     -0.9781476007338057,
+     -0.20791169081775934,
+     -0.0
+    ],
+    "lat": [
+     -0.20791169081775934,
+     0.9781476007338057,
+     0.0
+    ],
+    "area_mm2": 21.0,
+    "jet_bisector_deg": 31.75,
+    "aim_r_at_part_top": 8.603,
+    "min_channel_mm": 3.0,
+    "inscribed_d_outlet": 2.949
+   },
+   {
+    "az": 35,
+    "r_o": 20.317,
+    "L": 5.038,
+    "w": 7.0,
+    "w_back": 8.736,
+    "h": 3.0,
+    "z_ob": 3.438,
+    "z_ot": 6.438,
+    "z_back": [
+     4.722568452115914,
+     11.47648127442409
+    ],
+    "c_out": [
+     16.643092099650257,
+     11.653618547293576,
+     4.938369988336284
+    ],
+    "dir_h": [
+     -0.6819983600624985,
+     -0.7313537016191705,
+     -0.0
+    ],
+    "lat": [
+     -0.7313537016191706,
+     0.6819983600624986,
+     0.0
+    ],
+    "area_mm2": 21.0,
+    "jet_bisector_deg": 29.65,
+    "aim_r_at_part_top": 11.291,
+    "min_channel_mm": 3.0,
+    "inscribed_d_outlet": 2.949
+   }
+  ],
+  "outlet_area_total_mm2": 111.0,
+  "manifolds": [
+   {
+    "id": "MF",
+    "fan": "F",
+    "W": 9.0,
+    "H_in": 6.898113152982422,
+    "H_in_profile": [
+     [
+      3.84,
+      6.9
+     ],
+     [
+      15.54,
+      6.54
+     ]
+    ],
+    "z0": 4.5,
+    "apex_z": 15.898113152982422,
+    "area_mm2": 82.3330183768418,
+    "az": [
+     231.5,
+     292.0
+    ],
+    "path_length": 21.110533708052536,
+    "inscribed_d": 8.847457627118645
+   },
+   {
+    "id": "MR",
+    "fan": "R",
+    "W": 9.0,
+    "H_in": 7.401808784360776,
+    "H_in_profile": [
+     [
+      9.25,
+      7.4
+     ],
+     [
+      25.66,
+      7.02
+     ],
+     [
+      39.86,
+      7.38
+     ]
+    ],
+    "z0": 4.5,
+    "apex_z": 16.401808784360774,
+    "area_mm2": 86.86627905924699,
+    "az": [
+     300.0,
+     52.0
+    ],
+    "path_length": 47.671949845235076,
+    "inscribed_d": 8.847457627118645
+   }
+  ],
+  "feeds": [
+   {
+    "fan": "F",
+    "kind": "front_plenum",
+    "inlet_area_mm2": 221.0,
+    "drop_area_mm2": 208.0,
+    "plenum_area_mm2": 174.25,
+    "t_eff": 1.2012618565390976,
+    "lean_deg": 2.626405638290786
+   },
+   {
+    "fan": "R",
+    "kind": "right_low",
+    "inlet_area_mm2": 221.0,
+    "end_area_mm2": 92.42170541232932,
+    "t_eff": 1.2
+   }
+  ],
+  "tabs": [
+   {
+    "id": "T_left",
+    "xyz": [
+     -7.5,
+     -37.75,
+     19.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "screw": "M3",
+    "face_y": -36.5,
+    "pad": [
+     7.0,
+     2.5,
+     7.0
+    ],
+    "arm_from_x": 2.5,
+    "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+   },
+   {
+    "id": "T_right",
+    "xyz": [
+     24.0,
+     -37.75,
+     22.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "screw": "M3",
+    "face_y": -36.5,
+    "pad": [
+     7.0,
+     2.5,
+     7.0
+    ],
+    "arm_from_x": 17.5,
+    "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+   }
+  ]
+ }
+}

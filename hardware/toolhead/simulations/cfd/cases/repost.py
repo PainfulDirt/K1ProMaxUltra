@@ -26,6 +26,23 @@ def patch(cfg_path):
     for k, v in UPDATES.items():
         if k in names:
             planes[names.index(k)] = v
+    # feed plane of front-fed designs: mid-drop, normal = blow direction (fixed after the first batch)
+    import numpy as np
+    sys.path.insert(0, str(HERE.parents[2] / "cad/source/ducts"))
+    gdir = Path(cfg_path).parent
+    geo = json.loads((gdir / "geometry_report.json").read_text()) if (gdir / "geometry_report.json").exists() else {}
+    for i, pl in enumerate(planes):
+        if pl["name"].startswith("feed_") and "params.json" in [q.name for q in gdir.iterdir()]:
+            par = json.loads((gdir / "params.json").read_text())
+            fid = pl["name"][5:]
+            fan = par["fans"][fid]
+            if fan["blow"] == [0, 0, -1]:
+                oc = np.array(fan["outlet_c"], float)
+                pl["origin"] = (oc + np.array([0, 0, -2.0 - 0.5 * (pl["origin"][2] if False else 0)])).round(4).tolist()
+                zb = None
+                pl["normal"] = [0, 0, -1]
+                pl["u"] = [1, 0, 0]
+                pl["half"] = [max(fan["outlet_a"], fan["outlet_b"]) / 2 + 1.5] * 2
     if "annulus_z03" not in names:
         z_eval = next(p["origin"][2] for p in planes if p["name"] == "layer_annulus")
         planes.insert(1, {"name": "annulus_z03", "type": "annulus", "origin": [0, 0, z_eval + 0.4],

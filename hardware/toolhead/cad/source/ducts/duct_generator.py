@@ -59,20 +59,18 @@ X, Y, Z = np.eye(3)
 
 # ============================================================================ fans
 FAN_SPEC["delta"] = I.BLOWER_5015_DELTA
-# Same Sky CBM-5015BF-175-459-22 (12 V, 4-wire PWM): not in interfaces.py yet (request filed in the CFD
-# report). Frame 51.2 x 51.6 x 15 VERIFIED (datasheet); outlet assumed Delta-like ESTIMATED; mass = series
-# maximum 31.4 g (series range 23.2-31.4, not given per model).
-FAN_SPEC["samesky"] = I.BlowerSpec("Same Sky CBM-5015BF-175-459-22 (12 V 4-wire PWM)", (51.2, 51.6, 15.0),
-                                   (12.2, 17.6), I.Dim(31.4, "ESTIMATED", "series max, research/03 s10"),
-                                   "samesky_CBM-5015BF-175-459-22_digitized.csv",
-                                   notes="12 V: needs a 24->12 V buck on the toolhead (research/03 s10)")
+# Same Sky CBM-5015BF-175-459-22 (12 V, 4-wire PWM): interfaces.BLOWER_5015_SAMESKY (frame, outlet 12.8 x 16.8
+# and the 2 x d4.5 diagonal holes VERIFIED from the CBM-50BF datasheet p.5; mass ESTIMATED <= 31.4 g).
+FAN_SPEC["samesky"] = I.BLOWER_5015_SAMESKY
 FAN_MASS_G["samesky"] = 31.4
 
 
 def _outlet_dims(ftype):
     """(along fan thickness, along the outlet edge) of the outlet opening, mm."""
-    if ftype in ("delta", "samesky"):
-        return 12.2, 17.6      # VERIFIED inside 17.6 x 12.2 (17.6 along the edge, 12.2 across the 15 mm frame)
+    if ftype == "delta":
+        return 12.2, 17.6
+    if ftype == "samesky":
+        return I.BLOWER_5015_SAMESKY.outlet          # (12.8 along t, 16.8 along the edge) VERIFIED      # VERIFIED inside 17.6 x 12.2 (17.6 along the edge, 12.2 across the 15 mm frame)
     if ftype == "5015":
         return I.BLOWER_5015_SUNON.outlet          # (12.5 along t, 19.5 along w) ESTIMATED
     return I.BLOWER_4020_STOCK.outlet               # (17, 13) ESTIMATED
@@ -84,7 +82,14 @@ STOCK_FAN_SCREWS_XZ = [(-18.65, 60.3), (16.05, 25.6)]       # stock 4020 diagona
 #   stock screw (16.05, 60.3) is not used: 4.5 mm from the PCB screw (12, 58.3) < 6.75 required by the frame
 
 
-def fan_front(ftype="4020", x_right=None, y_back=FAN_BACK_Y, zf=None):
+# Same Sky drawing (CBM-50BF p.5, intake view, outlet blowing -X at the top of the left edge, CCW rotation):
+# holes at (+20.7, +23.1) and (-18.1, -20.3) from the frame centre. Rotated +90 deg about the fan axis so the
+# outlet blows -Z, seen from the front (intake facing -Y): outlet at the bottom-LEFT end, holes at
+# (-23.1, +20.7) and (+20.3, -18.1) (x, z) from the centre; frame 51.6 wide (X) x 51.2 tall (Z).
+SAMESKY_HOLES_REL = [(-23.1, 20.7), (20.3, -18.1)]
+
+
+def fan_front(ftype="4020", x_right=None, y_back=FAN_BACK_Y, zf=None, outlet_side=None):
     """Blower in the front bay, stock-like: face in the XZ plane, intake facing -Y, outlet on the bottom
     edge blowing -Z at its RIGHT end (stock handedness, 02:C8).
     4020: X/Z = the stock pose centre (STOCK_4020_POS), rear face 3 mm in front of the frame plate
@@ -93,6 +98,9 @@ def fan_front(ftype="4020", x_right=None, y_back=FAN_BACK_Y, zf=None):
     LIDAR_RESERVED_BODY (X <= -24 for Y >= -36): X -27..24 at the same rear-face Y (-36.5)."""
     sp = FAN_SPEC[ftype]
     w, h, t = sp.frame
+    if ftype == "samesky":
+        w, h = sp.frame[1], sp.frame[0]               # rotated: 51.6 wide, 51.2 tall
+    side = outlet_side or ("left" if ftype == "samesky" else "right")
     oa, ob = _outlet_dims(ftype)
     SP = I.STOCK_4020_POS
     if ftype == "4020":
@@ -103,11 +111,20 @@ def fan_front(ftype="4020", x_right=None, y_back=FAN_BACK_Y, zf=None):
         z0 = SP.zmin + 0.49 if zf is None else zf
     if zf is not None:
         z0 = zf
+    if ftype != "4020" and y_back == FAN_BACK_Y:
+        y_back = FAN_BACK_Y - 0.5            # 15 mm frame: the socket must stay at Y < -36 (LIDAR_RESERVED_BODY)
+    if ftype == "samesky" and x_right is None:
+        x0 = float(I.RIGHT_LIMIT_X) - w                # 24.2 - 51.6 = -27.4 (> LEFT_LIMIT_X -31)
     box = (x0, x0 + w, y_back - t, y_back, z0, z0 + h)
-    oc = np.array([x0 + w - ob / 2, y_back - t + 1.5 + oa / 2 if ftype == "4020" else y_back - t / 2, z0])
+    ox = x0 + w - ob / 2 if side == "right" else x0 + ob / 2
+    oc = np.array([ox, y_back - t + 1.5 + oa / 2 if ftype == "4020" else y_back - t / 2, z0])
     if ftype == "4020":
         holes = STOCK_FAN_SCREWS_XZ
         st = "stock 4020 diagonal screw pair (02:C7, Henlor), same as structure/cooling.py stub"
+    elif ftype == "samesky":
+        cx, cz = x0 + w / 2, z0 + h / 2
+        holes = [(cx + dx, cz + dz) for dx, dz in SAMESKY_HOLES_REL]
+        st = "VERIFIED hole pattern (CBM-50BF datasheet p.5), rotated to the outlet-down pose; d4.5"
     else:
         e = 4.5
         holes = [(x0 + e, z0 + h - e), (x0 + w - e, z0 + e)]
@@ -116,7 +133,7 @@ def fan_front(ftype="4020", x_right=None, y_back=FAN_BACK_Y, zf=None):
             "outlet_a": ob, "outlet_b": oa, "blow": [0, 0, -1], "intake": [0, -1, 0],
             "holes": [{"xyz": [xx, y_back - t / 2, zz], "axis": [0, 1, 0], "d": sp.hole_d, "through_length": t,
                        "status": st} for xx, zz in holes],
-            "spec": sp.name, "mass_g": float(sp.mass_g)}
+            "spec": sp.name, "mass_g": float(sp.mass_g), "outlet_side": side}
 
 
 def fan_right_low(ftype="4020", x0=31.5, y_front=-16.0, zb=4.3):
@@ -212,16 +229,135 @@ def params_US1():
     p = params_S1()
     p.update(name="US1", label="U-SameSky: 1x Same Sky CBM-5015BF (12 V PWM) front bay, S1 nozzle end")
     p["fans"] = {"F": fan_front("samesky")}
+    # outlet at the fan's bottom-LEFT (CCW impeller): the plenum starts under it and swings right so its
+    # walls are at X > -18 (LIDAR_RESERVED_OPTICAL) before Y -36
+    p["manifolds"][0]["feed"] = {"kind": "front_plenum", "plenum": _plenum(x=[-19.0, -2.0])}
+    p["tabs"] = [("T_mid", 8.0, 19.5, -4.0), ("T_right", 20.0, 19.5, -4.0)]
+    return p
+
+
+# ------------------------------------------------------------------ optimization iterations (cfd-report §9)
+def params_S2():
+    """It.1: the S1 jets attach to the 5-deg floor and run at Z 3-5 into the sock edge and the nozzle
+    (sock-bottom 4.7 m/s, cone 5.0 m/s). Steeper floors (25 deg) so the jets leave at ~25-35 deg."""
+    p = params_S1()
+    p.update(name="S2", label="S2 = S1 + port floors 25 deg (steeper jets)")
+    for q in p["ports"]:
+        q["alpha_f"] = 25.0
+        q["z_ob"] = None
+    return p
+
+
+def params_S3():
+    """It.2: 53 Pa of the 139 Pa fan pressure is lost between the fan outlet and the manifold (drop -> 120 mm2
+    plenum at 6.5 m/s -> sudden 90-deg T into the manifold). Larger plenum (w 13 -> 17, 174 mm2) with a
+    flared 22 mm end into the manifold."""
+    p = params_S2()
+    p.update(name="S3", label="S3 = S2 + plenum 17 mm wide (174 mm2) with a 22 mm flared end")
+    p["manifolds"][0]["feed"] = {"kind": "front_plenum", "plenum": _plenum(x=[11.0, 11.0], w=17.0, w_end=22.0)}
+    p["tabs"] = [("T_left", -7.5, 19.5, 3.0), ("T_right", 24.0, 22.5, 17.5)]
+    return p
+
+
+def params_S4():
+    """It.3: S2's five radial jets land on the part and collide head-on under the tip; the stagnation
+    fountain rises onto the cone (cone 6.5 m/s, sock bottom 5.3). Yaw all ports 12 deg in the same sense
+    so the jets pass beside the nozzle and form a swirl around it."""
+    p = params_S3()
+    p.update(name="S4", label="S4 = S3 + all ports yawed 12 deg (swirl around the nozzle)")
+    for q in p["ports"]:
+        q["yaw"] = 12.0
+    return p
+
+
+def aim_floors(p, r_aim, t=T_WALL, iters=3):
+    """Per-port floor angle so the floor line (from the outlet's bottom lip, Z = z_ob) reaches the part top
+    (Z -0.2) at radius r_aim. Iterated because z_ob and r_o depend on the angle."""
+    paths = {m["id"]: manifold_path(m) for m in p["manifolds"]}
+    for q in p["ports"]:
+        for _ in range(iters):
+            g = port_geometry(q, t, paths)
+            q["alpha_f"] = round(math.degrees(math.atan2(g["z_ob"] + 0.2, g["r_o"] - r_aim)), 1)
+    return p
+
+
+def params_S5():
+    """It.4: with one 25-deg floor for all, the front jet's floor line lands at r ~5 (on the cone) and the
+    corner jets at r ~12. Per-port floor angles so every jet lands at r 6 mm, just outside the cone."""
+    p = params_S4()
+    p.update(name="S5", label="S5 = S4 + per-port floor angles aiming every jet at r 6 mm on the part top")
+    return aim_floors(p, 6.0)
+
+
+def params_D2():
+    """D re-tested on the improved ports (It.1-4): 2 x 4020 (front bay + low right side), independent
+    manifolds; ports yawed 12 deg and aimed at r 6; 17 mm front plenum (no flare: a flared end would bridge
+    the gap between the two manifolds)."""
+    p = params_D1()
+    p.update(name="D2", label="D2: 2x4020, independent manifolds, improved ports (yaw 12, aim r 6), 17 mm plenum")
+    p["manifolds"][0]["feed"] = {"kind": "front_plenum", "plenum": _plenum(x=[11.0, -1.0], w=17.0)}
+    p["tabs"] = [("T_left", -7.5, 19.5, 2.5), ("T_right", 24.0, 22.5, 17.5)]
+    for q in p["ports"]:
+        q["yaw"] = 12.0
+    return aim_floors(p, 6.0)
+
+
+def params_S6():
+    """Manufacturability pass on S4 (no aerodynamic intent): the 25-deg floors left a 65-deg knife corner at
+    each bottom lip and a thin wall strip where the port floor meets the manifold just above its floor
+    (ray-sampled walls < 0.8 mm on 1.8 % of the surface; validator limit 0.5 %). Bottom lips are
+    chamfered perpendicular to the floor and the port roots run flush with the manifold floor."""
+    p = params_S4()
+    p.update(name="S6", label="S6 = S4 + bottom-lip chamfer + flush port roots (printable final nozzle end)")
+    for q in p["ports"]:
+        q["chamfer_bottom"] = True
+        q["flush_root"] = True
+    return p
+
+
+def params_S7():
+    """Manufacturability pass, minimal: S4 + bottom-lip chamfer only (port roots unchanged), plus the
+    side-plate socket. S6's flush roots cost ~8 % layer speed (S6 vs S4); this keeps S4's port interior."""
+    p = params_S4()
+    p.update(name="S7", label="S7 = S4 + bottom-lip chamfer (printable, S4 port interior)")
+    for q in p["ports"]:
+        q["chamfer_bottom"] = True
+    return p
+
+
+def with_fan(p, ftype, name=None):
+    """Same nozzle end, another single front-bay fan. The Same Sky's outlet is at the bottom-LEFT
+    (CCW impeller), so its plenum starts on the left and swings right, and the tabs move right of it."""
+    p = copy.deepcopy(p)
+    p["fans"] = {"F": fan_front(ftype)}
+    pl = copy.deepcopy(p["manifolds"][0]["feed"]["plenum"])
+    if ftype == "samesky":
+        # start under the bottom-left outlet, swing right so the left wall is at X > -18 (LIDAR optical)
+        # by Y -36: centre at Y -36 = x0 + 0.567 (x1 - x0) must be >= -18 + w/2 + wall + margin
+        pl["x"] = [-19.0, -2.0] if pl["w"] <= 13.0 else [-17.0, 1.0]
+        p["tabs"] = [("T_mid", 8.0, 19.5, -4.0), ("T_right", 20.0, 19.5, -4.0)]
+    p["manifolds"][0]["feed"] = {"kind": "front_plenum", "plenum": pl}
+    tag = {"4020": "", "delta": "D", "samesky": "SS", "5015": "SU"}[ftype]
+    p["name"] = name or (p["name"] + tag)
+    p["label"] = p["label"] + f" [fan: {FAN_SPEC[ftype].name}]"
     return p
 
 
 PARAM_SETS = {"REF": params_REF, "S1": params_S1, "D1": params_D1, "U1": params_U1, "UD1": params_UD1,
-              "US1": params_US1}
+              "US1": params_US1, "S2": params_S2, "S3": params_S3, "S4": params_S4, "S5": params_S5, "D2": params_D2, "S6": params_S6, "S7": params_S7}
+
+
+FAN_SUFFIX = {"SS": "samesky", "SU": "5015", "D": "delta"}
 
 
 def get_params(name):
+    """Named set, or <set><fan suffix> = the same nozzle end with another single front fan
+    (D = Delta BFB0524HH, SS = Same Sky CBM-5015BF, SU = Sunon MF50152VX), e.g. "S5D"."""
     if name in PARAM_SETS:
         return PARAM_SETS[name]()
+    for suf, ft in FAN_SUFFIX.items():
+        if name.endswith(suf) and name[:-len(suf)] in PARAM_SETS:
+            return with_fan(PARAM_SETS[name[:-len(suf)]](), ft, name=name)
     raise KeyError(name)
 
 
@@ -288,6 +424,21 @@ def port_geometry(p, t, paths):
     if p.get("manifold") and p.get("root", 0) > 0:
         s_root = s_back.moved(-dh * p["root"])
         secs = (s_root, s_back, s_out)
+        if p.get("_z0") is not None and p.get("flush_root", False):
+            # floor brought down to the manifold floor before the junction: a mid section 1 mm inside the
+            # manifold's inner face keeps the 25-deg floor/45-deg ceiling of the port; the back and root
+            # sections sit flush on the manifold floor, so the junction edge is obtuse (no thin sliver)
+            z0m = p["_z0"]
+            Lm = max(0.5, L - p["overlap"] - 1.0)
+            wm = w + (w_b - w) * Lm / L
+            zf_m, zc_m = z_ob + Lm * ta_f, z_ot + Lm * ta_c
+            cm = c_o - Lm * dh
+            fa, fc = t / math.cos(math.radians(p["alpha_f"])), t / math.cos(math.radians(p["alpha_c"]))
+            s_mid = sec((cm[0], cm[1], 0.0), th, Z, poly_rect(wm, zc_m - zf_m, -wm / 2, zf_m),
+                        outer=poly_rect(wm + 2 * t, zc_m - zf_m + fa + fc, -wm / 2 - t, zf_m - fa))
+            mk = lambda c: sec((c[0], c[1], 0.0), th, Z, poly_rect(w_b, zc_b - z0m, -w_b / 2, z0m),
+                               outer=poly_rect(w_b + 2 * t, zc_b - z0m + t + fc, -w_b / 2 - t, z0m - t))
+            secs = (mk(c_b - p["root"] * dh), mk(c_b), s_mid, s_out)
     else:
         secs = (s_back, s_out)
     # square-ended top lip: the 45-deg ceiling meets the vertical outlet face in a knife edge; a
@@ -300,8 +451,17 @@ def port_geometry(p, t, paths):
     hw = w / 2 + t
     tri = [tip, p1, p2]
     lip = [[q + sgn * hw * th for q in tri] for sgn in (-1, 1)]
+    # bottom lip: cut the acute corner between the outlet face and the outer bottom surface so the lip
+    # end is perpendicular to the floor (face slope = alpha_f from vertical, printable)
+    ff, cfl = math.sin(math.radians(p["alpha_f"])), math.cos(math.radians(p["alpha_f"]))
+    btip = np.array([c_o[0], c_o[1], z_ob])
+    bp = btip + t * (-ff * dh - cfl * Z)                   # perpendicular to the floor, down/outward
+    bc = btip - Z * (t / cfl)                              # outer bottom corner at the outlet face
+    bx_ = btip + 3.0 * dh                                  # beyond the face (toward the nozzle), into air
+    cut_tri = [btip + 0.01 * dh, bp, bc - 0.05 * Z, bx_ - Z * (t / cfl + 0.05)]
+    cut = [[q + sgn * (hw + 0.5) * th for q in cut_tri] for sgn in (-1, 1)]
     return {"az": p["az"], "r_o": r_o, "L": L, "w": w, "w_back": w_b, "h": p["h"], "z_ob": z_ob, "z_ot": z_ot,
-            "lip_tris": lip, "secs": secs,
+            "lip_tris": lip, "lip_cut": cut if p.get("chamfer_bottom", False) else None, "secs": secs,
             "z_back": [zf_b, zc_b], "c_out": [c_o[0], c_o[1], z_c], "dir_h": dh.tolist(), "lat": th.tolist(),
             "area_mm2": w * p["h"], "jet_bisector_deg": math.degrees(a_j), "aim_r_at_part_top": aim_r,
             "sections": (s_back, s_out),
@@ -321,16 +481,21 @@ def build_chains(params):
     chains = []
     info = {"ports": [], "manifolds": [], "feeds": []}
     paths = {m["id"]: manifold_path(m) for m in params["manifolds"]}
+    mz0 = {m["id"]: m["z0"] for m in params["manifolds"]}
+    for p in params["ports"]:
+        p["_z0"] = mz0.get(p.get("manifold"))
     pgeo = [port_geometry(p, t, paths) for p in params["ports"]]
-    lips = []
+    lips, cuts = [], []
     for p, g in zip(params["ports"], pgeo):
         g.pop("sections")
         secs = g.pop("secs")
         lips.append(g.pop("lip_tris"))
+        cuts.append(g.pop("lip_cut"))
         chains.append(Chain(f"port_{p['az']}", list(secs), t=t, start="cap", end="open", role="port",
                             meta={"manifold": p.get("manifold"), "az": p["az"]}))
         info["ports"].append(g)
     info["_lips"] = lips
+    info["_cuts"] = [c for c in cuts if c is not None]
 
     for m in params["manifolds"]:
         path = paths[m["id"]]
@@ -414,11 +579,14 @@ def plenum_chain(name, pl, t, end_poly=None):
     for k in range(n + 1):
         f = k / n
         c = np.array([x0 + f * (x1 - x0), y0 + f * (y1 - y0), pl["z0"]])
-        poly = poly_gable(pl["w"], pl["hs"], pl["w"] / 2, b0=0.0)
+        w = pl["w"] if (k < n or "w_end" not in pl) else pl["w_end"]       # optional flared (diffuser) end
+        poly = poly_gable(w, pl["hs"], w / 2, b0=0.0)
         if end_poly is not None and k == n:
             poly = end_poly
         secs.append(Section(c, -X.copy(), Z.copy(), poly))     # (-X) x Z = +Y = flow
-    return Chain(name, secs, t=t, start="cap", end="cap", role="plenum")
+    # an oblique run (sections stay normal to Y) thins the walls by cos(plan angle): compensate
+    ang = math.atan2(abs(x1 - x0), abs(y1 - y0))
+    return Chain(name, secs, t=t / math.cos(ang), start="cap", end="cap", role="plenum")
 
 
 def feed_chains(params, m, fan, t, info, H_in):
@@ -519,50 +687,60 @@ def fan_socket(fan, t, depth=4.0, clearance=1.0):
     u, v = np.array(fan["outlet_u"], float), np.array(fan["outlet_v"], float)
     up = -np.array(fan["blow"], float)
     ai, bi = a + 2 * clearance, b + 2 * clearance
+    if fan["intake"] == [0, -1, 0]:
+        # front bay: the socket may not extend past the fan's own thickness (Y), so it is two side plates
+        # (along X) only; the inner cut spans the full thickness, leaving no thin Y walls
+        bi = (fan["box"][3] - fan["box"][2]) + 2.0
     outer = Section(oc, u, v, poly_rect(ai + 2 * T_WALL, bi + 2 * T_WALL))
     inner = Section(oc - up * 0.5, u, v, poly_rect(ai, bi))
     from geom import loft_sections
     o = loft_sections([outer, outer.moved(up * depth)])
     i = loft_sections([inner, inner.moved(up * (depth + 1.0))])
     # the fan outlet opening itself through the socket floor is already the feed air
-    return o - i
+    sock = o - i
+    # stay inside the fan's own thickness: nothing behind the fan's rear plane (frame fan-screw standoffs,
+    # 3010 plenum, LIDAR_RESERVED_BODY at Y >= -36), nothing in front of its intake face
+    b = fan["box"]
+    if fan["intake"] == [0, -1, 0]:
+        sock = sock & box_solid(b[0] - 5, b[1] + 5, b[2], b[3], b[4] - 10, b[5])
+    return sock
 
 
-TAB_LEFT = (-7.5, 19.5)       # (x, z) of the left duct-to-frame screw (structure stub uses X -7.5, Z 19.5)
-TAB_RIGHT = (24.0, 22.5)      # right screw: right of the feed drop, under the fan's right edge
+# duct-to-frame screws: (id, x, z, arm_from_x). The tab's mating face is the fan's rear plane (FAN_BACK_Y);
+# an arm joins it to the duct at x = arm_from_x (with a post down to the plenum/drop when needed).
+TABS_DEFAULT = [("T_left", -7.5, 19.5, 6.2), ("T_right", 24.0, 22.5, 17.5)]
 
 
 def mount_tabs(params, info):
     """Duct-to-frame attach points: M3 screws along +Y from the front into heat-set inserts in frame lugs
     (structure/frame.py builds a lug from the mating face back to the plate, bridged up to the plate's
-    bottom edge Z 24.5). The duct tabs sit in front of the fan's rear plane (mating face Y = FAN_BACK_Y),
-    below the fan and outside every air path, so screw heads are reachable from the front.
-      left : an arm from the plenum's left wall to X -7.5, Z 19.5 (stub position)
-      right: a tab on the feed drop's right wall at X 24.0, Z 22.5 (the frame lug bridges over the plenum,
-             whose roof is below Z 18.7 there)"""
+    bottom edge Z 24.5). The duct tabs sit in front of the fan's rear plane, below the fan and outside every
+    air path, so the screw heads are reachable from the front, and the frame lugs (Y between the fan rear
+    plane and the plate) do not cross the feed or the plenum. Positions are per design (params["tabs"]):
+      S-type (fan outlet bottom-right): X -7.5 / Z 19.5 (structure stub position) and X 24.0 / Z 22.5
+      US1 (Same Sky, outlet bottom-left): X 8 and X 20 at Z 19.5, right of the plenum"""
     tabs = []
     if not params["manifolds"] and not params.get("direct_feeds"):
         return tabs
-    for tid, (x, z) in (("T_left", TAB_LEFT), ("T_right", TAB_RIGHT)):
-        tabs.append({"id": tid, "xyz": [x, FAN_BACK_Y - 1.25, z], "axis": [0, 1, 0], "screw": "M3",
-                     "face_y": FAN_BACK_Y, "pad": [7.0, 2.5, 7.0],
+    yb = min(f["box"][3] for f in params["fans"].values() if f["intake"] == [0, -1, 0])
+    for tid, x, z, ax_ in params.get("tabs", TABS_DEFAULT):
+        tabs.append({"id": tid, "xyz": [x, yb - 1.25, z], "axis": [0, 1, 0], "screw": "M3",
+                     "face_y": yb, "pad": [7.0, 2.5, 7.0], "arm_from_x": ax_,
                      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"})
     return tabs
 
 
 def tab_arms(params, tabs):
-    """Connect each tab to the duct body (arm along X at the tab's Y/Z band)."""
+    """Connect each tab to the duct body: an arm along X at the tab's Y/Z band plus a post down to the
+    plenum floor level at the arm's root."""
     arms = []
+    z0 = PLENUM_DEFAULT["z0"]
     for tb in tabs:
         x, y, z = tb["xyz"]
         y0, y1 = y - tb["pad"][1] / 2, y + tb["pad"][1] / 2
-        if tb["id"] == "T_left":
-            xr = PLENUM_DEFAULT["x"][0] - PLENUM_DEFAULT["w"] / 2 + 0.5     # into the plenum's left wall
-            arms.append(box_solid(x, xr, y0, y1, z - 3.0, z + 3.0))
-            # the arm meets the plenum wall below its roof eave
-            arms.append(box_solid(xr - 2.0, xr, y0, y1, PLENUM_DEFAULT["z0"], z + 3.0))
-        else:
-            arms.append(box_solid(17.5, x, y0, y1, z - 3.0, z + 3.0))
+        xr = tb["arm_from_x"]
+        arms.append(box_solid(min(x, xr), max(x, xr), y0, y1, z - 3.0, z + 3.0))
+        arms.append(box_solid(xr - 1.0, xr + 1.0, y0, y1, z0, z + 3.0))
     return arms
 
 
@@ -598,6 +776,10 @@ def build_ducts(params, with_print_extras=True):
         wb = Wire.make_polygon([tuple(q) for q in b], close=True)
         lip_solids.append(Solid.make_loft([wa, wb], ruled=True))
     outer = fuse_all([c.outer_solid() for c in chains] + lip_solids)
+    for a, b in info.pop("_cuts", []):
+        wa = Wire.make_polygon([tuple(q) for q in a], close=True)
+        wb = Wire.make_polygon([tuple(q) for q in b], close=True)
+        outer = outer - Solid.make_loft([wa, wb], ruled=True)
     shell = (outer - air).clean()
     parts = {"air": air, "shell": shell}
     stubs = {}
@@ -743,7 +925,10 @@ def build_info(params, parts):
                    "mass_PC_near_ASA_rest_g": round(v_near * DENSITY["PC"] + (v_body - v_near) * DENSITY["ASA"], 2),
                    "fans_g": m_fans, "fan_types": {k: f["type"] for k, f in params["fans"].items()},
                    "total_PC_g": round(v_body * DENSITY["PC"] + m_fans, 2),
-                   "notes": "4020 mass ESTIMATED 18 g; Sunon 5015 28.4 g; screws/inserts not included"}
+                   "notes": "fan masses from interfaces.py: " + "; ".join(
+                       f"{FAN_SPEC[f['type']].name.split('(')[0].strip()} {float(FAN_SPEC[f['type']].mass_g):.1f} g "
+                       f"{FAN_SPEC[f['type']].mass_g.status}" for f in params["fans"].values())
+                            + "; duct at 100 % infill; screws/inserts not included"}
     rep["ports"] = [{k: (round(v, 3) if isinstance(v, float) else v) for k, v in g.items()} for g in info["ports"]]
     rep["outlet_area_total_mm2"] = round(sum(g["area_mm2"] for g in info["ports"]), 2)
     rep["manifolds"] = info["manifolds"]
@@ -889,5 +1074,5 @@ def wall_report(shape, n=3000, seed=1, tol=0.02):
             "thinnest": [[round(float(a[i]), 3)] + np.round(where[i], 2).tolist() for i in order]}
 
 
-# The released design (updated as the CFD iterations conclude; see documentation/cfd-report.md).
-PARAMS_FINAL = params_S1()
+# The released nozzle end (documentation/cfd-report.md s9): S7. The fan is set in cfd-report s10/s12.
+PARAMS_FINAL = params_S7()

@@ -1,13 +1,50 @@
 # Part-cooling ducts: parametric design and CFD comparison (DD-01)
 
-Owner: Duct-Design & CFD agent. Status: **in progress**. Sections marked *(pending)* are filled in as
-the runs finish. Every number in this report tagged [RAN] comes from an OpenFOAM run in this session;
-its `results.json` is in `simulations/cfd/results/<case>/`. Anything else is labelled ESTIMATED or
-geometric.
+Owner: Duct-Design & CFD agent. Status: **complete** (mesh and domain checks in §13). Every number tagged
+[RAN] comes from an OpenFOAM run in this session, and its `results.json` is in
+`simulations/cfd/results/<case>/`. All cases are tabulated in `results/summary.csv` and
+`results/summary.json`. Anything else is labelled ESTIMATED or geometric.
 
 > Airflow is not cooling. The isothermal runs show where air goes and how fast it moves near the
-> part. The thermal proxy (§9) adds a forced-convection heat-transfer coefficient on a part held at a
-> fixed temperature. Neither model predicts print quality; physical tests decide (§12).
+> part. The thermal proxy (§7, §11) adds a forced-convection heat-transfer coefficient on a part held
+> at a fixed temperature. Neither model predicts print quality; physical tests decide (§15).
+
+## 0. Summary
+
+- **Recommendation: one part fan, the existing stock Creality 4020, with the new S7 duct.**
+  - Do not buy a second fan, a Delta BFB0524HH or the owned Sunon.
+  - Optionally buy one spare stock 4020 (Creality 4004110132) to measure its P–Q curve (V1).
+  - The Same Sky CBM-5015BF is the documented upgrade if that measurement and test prints call for it
+    (§12).
+- **S7 against the stock duct at the same fan curve (4020 lower bound / upper bound):**
+  - layer air speed (r 1–6 mm, 0.5 mm above the part): ×4.8 / ×3.8;
+  - weakest of 8 sectors: ×18 / ×13;
+  - part-top heat-transfer coefficient: ×3.5 / ×4.0 (147 / 216 against 42 / 54 W/m²K);
+  - heat removed from the part: ×2.0 / ×1.8;
+  - price: nozzle and sock convective loss +6.2 / +6.8 W at 100 % fan (60 W heater). Re-run MPC
+    calibration.
+- **Why one 4020.** On the final nozzle end, swapping fans changes the layer speed by only −10 … +13 %:
+  - Delta minimum-spec unit: −10 %;
+  - Same Sky: +13 % (+21 % part-top h), for +7.4 g plus a buck;
+  - the 4020's own curve uncertainty (191–390 Pa) spans ±20 %.
+
+  A second 4020 (D2) adds 41 % flow but **less** layer speed (−5 %), a 44 % weaker minimum sector and
+  24 % more nozzle impingement, for +27 g. It fails DD-01, and no 5015 pair fits the bays.
+- **The duct (S7).** The fan sits at the stock pose; a gable-roofed plenum feeds a horseshoe manifold
+  around the sock, open on the LiDAR side, with 5 wedge ports (6 × 3 mm, floor 25°, ceiling 45°,
+  12° yaw) just outside the 3 mm sock clearance.
+  - Printable in one piece upright without support in the air path.
+  - 9.2 g in PC.
+  - Interface for the frame: `cad/source/ducts/duct_interface.json`, **`final_mount_points: true`**.
+- **How it got there.** It came from 6 iterations, each driven by a field defect or a measured bottleneck:
+  - jets attached to the floor and hit the sock and nozzle → steeper floors;
+  - 53 Pa lost in the feed → larger, flared plenum;
+  - head-on jet collision → yaw;
+  - manufacturability → lip chamfer and side-plate socket.
+- **Main uncertainties.**
+  - RANS at Re about 10³ (rankings robust, absolute values ±20–30 %);
+  - the unknown stock 4020 curve;
+  - a thermal proxy that is not a print model.
 
 ## 1. Deliverables and how to reproduce them
 
@@ -19,13 +56,17 @@ geometric.
 | STOCK baseline geometry | `simulations/cfd/cases/stock_geometry.py` + `cases/stock/*.step.gz` (Henlor, Printables 742370 CC BY 4.0; cover = Printables 687411, public domain) |
 | Case driver, summary | `simulations/cfd/cases/run_cases.py`, `summarize.py` → `results/summary.{csv,json}` |
 | Pipeline extensions | `simulations/cfd/pipeline/{run_case,postprocess}.py`, documented in research/04 §13 |
+| Final printed body | `cad/source/ducts/export/duct_S7.step.gz` + `duct_S7_report.json` (checks, mass, ports); regenerate with `export_part(PARAMS_FINAL, dir)` |
+| Iteration and fan variants | `PARAM_SETS`: REF, S1–S7, D1, D2, U1, UD1, US1; any set + fan suffix `D`/`SS`/`SU` (e.g. `S7SS`) via `get_params` |
+| Queue, re-post, tables | `cases/run_queue.sh`, `cases/repost.py`, `cases/report_tables.py`, `cases/prune_results.py`, `cases/render_geometry.py` |
 
 ```bash
 source /opt/k1th/env.sh
 cd hardware/toolhead/simulations/cfd/cases
 $K1_PY run_cases.py STOCK:part:proxy S1:part:proxy         # design[:env[:curve]], L2, 4 ranks
 $K1_PY run_cases.py S1:part:proxy --level 3                 # mesh study
-$K1_PY run_cases.py S1:part:proxy --steps thermal,post --set 'thermal={...}'   # thermal proxy restart
+$K1_PY run_cases.py S7:part:proxy --steps thermal,post      # thermal proxy restart (standard set-up)
+$K1_PY run_cases.py S7SS:part:digitized S7D:part:minspec    # fan swaps / curve sensitivity (mesh re-used)
 ```
 
 ## 2. Method recap and deviations from research/04
@@ -125,16 +166,526 @@ Material: PC or PA-CF for the whole nozzle end (DD-07).
 
 | Id | Fan(s) | Duct | Mass Δ vs stock (fan + duct, PC) | Status |
 |---|---|---|---|---|
-| STOCK | 1 × 4020, stock pose | Henlor stock cover + U-duct, slot outlets around the sock at Z 7–10 | 0 (reference) | primary baseline |
-| REF | 1 × 4020 front | single front slot 16 × 3.5 | (pending) | secondary, dropped unless time allows |
-| S1 | 1 × 4020 front | plenum + horseshoe, 5 ports (240, 275, 320, 0, 35°), 6 × 3 mm each | (pending) | |
-| D1 | 4020 front + 4020 right-low | two independent manifolds, 2 + 3 ports | (pending) | packaging: the 2nd fan hangs at X 31…51, Z 4.3…44.3 |
-| U-Delta (UD1) | 1 × Delta BFB0524HH front (X −27…24, Y −51.5…−36.5) | S1 nozzle end | (pending) | |
-| U-Sunon (U1) | 1 × Sunon 5015 | S1 nozzle end | | cut for time (the Delta is the better-documented 5015) |
-| D-Delta | 2 × Delta | — | | **does not fit**: a 51 mm-tall blower on the right side would cross Z 44.3, where X ≤ 24.2 |
+| STOCK | 1 × 4020, stock pose | Henlor stock cover + U-duct, slot outlets around the sock at Z 7–10 | 0 (reference) | primary baseline, both 4020 bounds |
+| REF | 1 × 4020 front | single front slot 16 × 3.5 | +1.7 g | secondary reference (run) |
+| S1 … S7 | 1 × 4020 front | plenum + horseshoe, 5 wedge ports (240, 275, 320, 0, 35°), 6 × 3 mm each; iterations in §9 | +6.0 … +6.3 g | **S7 final** |
+| D1, D2 | 4020 front + 4020 right-low | two independent manifolds, 2 + 3 ports | +32.9 / +33.0 g | rejected (§10); the 2nd fan hangs at X 31…51, Z 4.3…44.3 |
+| U-Delta (UD1, S6D, S7D) | 1 × Delta BFB0524HH front (X −27…24, Y −52…−37) | S1 / S6 / S7 nozzle end | +10.0 g | rejected (§10) |
+| U-SameSky (US1, S7SS) | 1 × Same Sky CBM-5015BF front, outlet bottom-left | S1 / S7 nozzle end, left-entry plenum | +13.6 / +14.2 g (+ buck) | upgrade path only (§12) |
+| U-Sunon (U1) | 1 × Sunon MF50152VX (owned) | S1 nozzle end | +10.3 g | rejected (below the 4020's lower bound) |
+| D-Delta, D-SameSky | 2 × 5015 | — | — | **do not fit**: on the right side X may exceed 24.2 only below Z 44.3, where there is 42.3 mm of height for a 51 mm blower |
 
 First-round layouts invalidated by the X-travel limit (geometry only, never compared):
 - right-bay 4020 at X 21.5…41.5, Z 22…62 (old S1, U1, D1 right fan);
 - right-bay Sunon at X 22.5…37.5, Z 22…73.
 
-*(Sections 6–12 pending.)*
+## 6. STOCK baseline [RAN]
+
+### 6.1 Geometry
+
+- **Parts.** The stock part-cooling duct is Henlor's "Creality K1 Fan Duct v5", a thin roof sheet. Its
+  floor is the stock cover's sloped bottom, so **cover + duct together form the duct**. Both are
+  modelled, with the cover clipped at Z 32.
+- **Fan.** The 4020 sits in its stock pose (`STOCK_4020_POS`, outlet 17 × 13 at the front-right corner
+  blowing down) and is modelled as a solid box.
+- **Registration.** `HENLOR_TO_NOZZLE` registers the 742370 assembly. The standalone 687411 STEP is in a
+  different local frame; its cover screws give X 0, Y −57.24, Z +42.78, but it is not used.
+- **Outlets.** Slots at Z ≈ 7–10 around the sock (front and both sides), *above* the sock bottom
+  (Z 4.9). The stock duct hugs the sock and ignores the 3 mm hot-zone rule the new parts must keep.
+- **Mesh.** 1.07 M cells; checkMesh flags one skewed face (5.3 against a limit of 4) out of 3.4 M.
+
+### 6.2 Flow
+
+The YZ and XZ slices (`results/STOCK_part_*/slice_*`) show:
+- the front slot jet runs down the sock's front face and reaches the tip region at about 3–4 m/s
+  (upper bound);
+- the side-slot jets at X ≈ ±12…13 land **outside** the 20 mm part, run down its sides, and leave the
+  layer itself with a weak converging flow;
+- the rear (+Y) side gets almost nothing (annulus sectors 45°/90° at 0.4–0.7 of the mean,
+  min/mean 0.20).
+
+## 7. Thermal-proxy method [RAN, verified locally]
+
+1. Restart each finalist from its converged flow for 200 SIMPLE iterations. The `scalarTransport`
+   function object solves a passive temperature with D = ν/Pr + ν_t/Pr_t, fully converged at every
+   iteration (PBiCGStab, tolerance 1e-10, relTol 0, conservative `Gauss limitedLinear 1`).
+2. Air at the fan inlets and open boundaries: 45 °C (ABS chamber).
+3. Fixed wall temperatures:
+   - part top and sides: 200 °C (fresh-layer skin);
+   - nozzle: 250 °C (ABS print temperature);
+   - sock outer surface: 150 °C (ESTIMATED; silicone surface temperature MISSING).
+4. Everything else is adiabatic.
+5. h = q/(T_w − 45 °C) per wall face, with q = ρc_p(ν/Pr + ν_t,w/Pr_t)(T_w − T_P)/d_n. This is the
+   face flux the solver itself uses.
+
+Checks:
+- **Local check (passed).** Directly above the part top in STOCK, the cell T profile is linear near the
+  wall: 200 → 183.8 → 147 °C at 0.069 / 0.218 mm. That gives q ≈ 6.2 kW/m² and h ≈ 40 W/m²K at that
+  point, consistent with the face-by-face value (46 W/m²K mean over r ≤ 5). For order of magnitude, a
+  laminar flat-plate estimate at 2 m/s over 20 mm gives h ≈ 40 W/m²K.
+- **Global check (does not close).** The enthalpy leaving through the open boundaries was only about 25 %
+  of the wall input after 30 test iterations, and was still rising. Most likely cause: the steady
+  iterations' continuity errors and the in/out switching of the far-field `inletOutlet` faces on this
+  large, weakly unsteady domain.
+
+Consequence: the h values are used **comparatively** (same method, mesh and boundary conditions for every
+design), and absolute h carries the RANS/wall-function uncertainty of research/04 §9 (±30 % or worse).
+The final runs report the balance at 200 iterations.
+
+## 8. Candidate comparison [RAN]
+
+All candidates use the same environment, mesh settings and averaging. Fans are compared on the same S1
+nozzle end; the 4020 is at its conservative (lower) bound, the Delta and Same Sky at their digitized
+typical curves. Full tables: §10 and `results/summary.csv`.
+
+| Candidate | Fan(s), curve | Q [L/s] | ΔP [Pa] | Layer annulus Z +0.3 [m/s] | min sector / min/mean | Part top r ≤ 5 U0.3 | Cone U0.3 | Δmass vs stock |
+|---|---|---|---|---|---|---|---|---|
+| STOCK | 4020 lower | 0.804 | 137 | 1.83 | 0.35 / 0.19 | 1.38 | 0.95 | 0 |
+| STOCK | 4020 upper | 1.199 | 301 | 3.47 | 0.68 / 0.20 | 2.74 | 1.90 | 0 |
+| REF (single front slot) | 4020 lower | 0.687 | 145 | 9.30 | 3.27 / 0.35 | 8.41 | 9.06 | +1.7 g |
+| S1 | 4020 lower | 0.779 | 139 | 5.54 | 2.73 / 0.49 | 4.84 | 5.01 | +6.0 g |
+| D1 (2 fans) | 2 × 4020 lower | 1.123 | 154 / 153 | 9.19 | 2.64 / 0.29 | 9.10 | 9.83 | +32.9 g |
+| U-Delta (UD1) | Delta, digitized | 0.890 | 184 | 6.82 | 3.69 / 0.54 | 6.48 | 6.62 | +10.0 g |
+| U-SameSky (US1) | Same Sky, digitized | 0.949 | 217 | 8.57 | 3.94 / 0.46 | 8.38 | 7.46 | +13.6 g |
+| U-Sunon (U1) | Sunon 5015 (owned), proxy-scaled | 0.771 | 135 | 5.10 | 2.61 / 0.51 | 4.49 | 5.48 | +10.3 g |
+
+Observations:
+- **Every engineered duct far exceeds STOCK on the layer.** STOCK's slots blow at Z 7–10 beside the
+  sock and land outside the part.
+- **REF** (one front slot) is fast but one-sided (min/mean 0.35), and it blasts the nozzle.
+- **D1** gains +44 % flow and +66 % layer speed over S1, but doubles cone impingement and worsens symmetry
+  for +27 g. It fails DD-01's "must not add nozzle impingement". It is re-tested on the improved ports
+  as D2.
+- **The 5015 blowers out-deliver the 4020 at its lower bound** (+14 % and +22 % flow) for +4 g (Delta)
+  and +7.4 g (Same Sky, plus a 24 → 12 V buck). The decision is re-made on the final nozzle end (§10).
+- **The owned Sunon MF50152VX** (proxy-scaled curve) is slightly *below* the 4020's lower bound
+  (layer −8 %, Q −1 %) at +4.4 g, and it is 2-wire. Not a candidate.
+- D-Delta and D-SameSky are **not possible**: on the right side below the XY-joint band (Z < 44.3, the
+  only place X may exceed 24.2) there is 42.3 mm of height. A 51 mm blower standing up crosses the band,
+  and lying flat it would reach X ≈ 75.
+
+## 9. Optimization iterations (S-type nozzle end, 4020 at the conservative curve)
+
+Each step reads hypothesis → change → result → conclusion. Every step is a full L2 run with the same
+environment, mesh settings and averaging.
+
+**It.0: S1, the first engineered layout [RAN].** Compared with STOCK at the same (lower) 4020 curve:
+- layer annulus (Z +0.3): 5.54 m/s, +203 %, with far better symmetry (min/mean 0.49 against 0.19,
+  CV 0.30 against 0.54);
+- part top r ≤ 5: +250 %; side faces: about 3×;
+- flow split over the 5 ports: 19–23 %.
+
+The fields show three defects:
+1. **Jets attach to the floor.** The jets leave the wedge ports nearly parallel to the 5° floor, not along
+   the 25° bisector. They travel at Z 3–5 under the sock bottom and into the nozzle cylinder (XZ/YZ
+   slices). Result: sock-bottom near-wall speed 4.68 m/s (13× STOCK) and nozzle cone 5.0 m/s (+426 %).
+   The front sector is the weakest (270°/315° at 2.7–3.0 m/s) because the front jet is still 3–5 mm
+   above the part when it crosses that sector.
+2. **Feed losses.** Inlet total pressure 138 Pa falls to about 76–85 Pa at the manifold: about 53 Pa
+   (38 %) is lost in the drop, the 120 mm² plenum (6.5 m/s) and the sudden 90° T into the manifold. The
+   far ports (240°, 0°) lose another ~30 Pa.
+3. **Manifold dead zone.** A large recirculating vortex fills the upper half of the gable manifold. The
+   fan monitors oscillate ±1.3 % in Q (750-iteration cap reached); the metrics are means over
+   iterations 300–750.
+
+**It.1: S2, steeper port floors (field defect 1).**
+- Hypothesis: a 25° floor (instead of 5°) turns the jets down to about 25–35°, so they land on the part
+  top 4–9 mm from the axis and then run radially inward as wall jets. That should cut sock and cone
+  impingement and fill the front sector.
+- Change: α_floor 5° → 25° on all five ports (ceiling unchanged at 45°, outlets unchanged).
+- Result [RAN]:
+  - the layer improves strongly: annulus Z +0.3 at 7.35 m/s (+33 % against S1); min sector 5.00
+    (+83 %); min/mean 0.68 (from 0.49); CV 0.24 (from 0.30);
+  - part top r ≤ 5: +32 %; side faces' top 3 mm: +75 %;
+  - the front sectors recover (270°/315°: 5.3 m/s against 2.7);
+  - **nozzle impingement also rises**: cone 6.46 m/s (+29 %), sock bottom 5.31 (+13 %);
+  - Q is about the same (0.747 against 0.779 L/s).
+- Conclusion: the steeper jets reach the part. The YZ slice shows the front jet now running **straight
+  down onto the nozzle cone and tip**, under it, and up behind it as a fountain. The five radial jets
+  converge head-on at the tip. Part-top/cone near-wall speed stays at about 1.0 (STOCK 1.45). Keep the
+  25° floors; next, stop the jets aiming at the cone (It.3).
+
+**It.2: S3, low-loss feed (defect 2).**
+- Hypothesis: a bigger plenum (120 → 174 mm², about 4.5 m/s) with a flared 22 mm end, which acts as a
+  diffuser instead of a sudden expansion into the manifold, recovers a large part of the 53 Pa. At the
+  same fan curve that moves the operating point to more flow.
+- Change: S2 plus plenum width 13 → 17 mm, end flared to 22 mm, centre X 12.2 → 11.0 (keeps the right
+  frame lug bridge clear).
+- Result [RAN]:
+  - inlet → port total-pressure loss falls by about 20 Pa on most ports (240° 81 → 56, 275° 44 → 28,
+    0° 79 → 59, 35° 80 → 64 Pa);
+  - the fan moves to Q 0.825 L/s (+10 %); flux-mean jet speed 11.9 m/s (+7 %);
+  - layer annulus 9.23 m/s (+26 %); part top r ≤ 5: 8.52 m/s (+33 %); part-top/cone ratio 1.24
+    (S2 0.99);
+  - the run reached the watchdog criterion at 560 iterations (S1/S2 hit the 750 cap): the steadier feed
+    also calmed the fan monitors;
+  - costs: symmetry falls (min/mean 0.44; the 90° rear sector is weakest at 4.0 m/s); cone +7 %, sock
+    bottom +14 %.
+- Conclusion: confirmed. The plenum was the main loss, and the gain shows up as flow and layer speed.
+  Keep it.
+
+**It.3: S4, yawed ports (field defect: head-on convergence onto the cone).**
+- Hypothesis: yawing every port 12° in the same sense sends the jets past the nozzle on one side. They
+  form a swirl around the tip instead of a stagnation fountain on the cone, keeping the layer speed
+  (tangential velocity counts) and cutting cone and sock impingement.
+- Change: S3 plus a 12° yaw on all five ports. The outlet faces rotate with the jet; outlet radii are
+  re-solved for the 3 mm sock clearance.
+- Result [RAN]:
+  - **uniformity improves**: min sector 6.62 m/s (+64 %); min/mean 0.73 (the best so far, S3 0.44);
+    CV 0.22; the annulus mean is unchanged (9.09 against 9.23);
+  - **cone impingement does not fall**: 7.21 m/s (+5 %); sock bottom 5.87 (−3 %);
+  - part top r ≤ 5: −7 %; side faces: −16 % on average, weakest face +65 %;
+  - LiDAR line region speed rises from 0.12 to 0.20 m/s (the swirl spreads over the bed);
+  - Q 0.804 L/s; 750-iteration cap reached (monitors ±1 %).
+- Conclusion: **hypothesis refuted for impingement.** The swirl scrubs the cone tangentially, and the
+  near-wall |U| metric counts that just as it counts a direct hit. The yaw is kept for its uniformity
+  gain (the weakest sector matters for overhangs in every direction).
+
+**It.4: S5, per-port aim point (impingement, continued).**
+- Hypothesis: with one 25° floor on every port, the front jet's floor line lands at r ≈ 5 (on the cone
+  base, r 3.45) and the corner jets at r ≈ 12. Aiming every jet at r 6, just outside the cone, makes
+  the jets hit the part rather than the nozzle, and evenly.
+- Change: S4 plus per-port floor angles from the outlet geometry (floor line from the bottom lip to the
+  part top at r 6): 240° 19.7°, 275° 24.8°, 320° 14.1°, 0° 18.7°, 35° 14.2°.
+- Result [RAN]:
+  - cone −11 % (6.44 m/s), sock bottom −8 %;
+  - but layer annulus −12 % (8.00), min sector −33 % (min/mean 0.55), part top −9 %, sides −13 %;
+  - the LiDAR line region speed doubles (0.42 m/s): the shallow corner jets now run out along the bed.
+- Conclusion: **not adopted.** Moving the aim outward lowers impingement only in proportion to the layer
+  flow (part-top/cone ratio 1.12 against S4 1.10). Within this design space, the cone load is the price
+  of putting air on the layer right at the nozzle. The thermal proxy (§11) puts heater watts on that price.
+
+**Choice of nozzle end: S4.** It ties S3 on layer speed (annulus 9.09 against 9.23 m/s, part top within
+7 %). It is clearly best on the DD-01 criteria of symmetry and minimum sector (min sector 6.62 against 4.03,
+min/mean 0.73 against 0.44), at +5 % cone speed, which is about the size of the averaged-metric noise
+band. S1 → S4 at the same lower-bound 4020 curve:
+- layer annulus +64 % (5.54 → 9.09 m/s);
+- weakest sector +142 % (2.73 → 6.62);
+- part top r ≤ 5: +63 %;
+- fan flow +3 %.
+
+Against STOCK, S4 is +397 % layer speed and +472 % part top, but also +657 % cone speed (§10, §11).
+
+**It.5: S6, manufacturability pass on S4 (no aerodynamic intent; CFD re-run to confirm).**
+- Defect: the 25° floors left a 65° knife corner at every bottom lip, and an acute edge where each port
+  floor meets the manifold's inner wall just above the manifold floor. The clipped fan socket had
+  0.5 mm walls. On S4, 1.8 % of the ray-sampled surface was under 0.8 mm (Structure validator limit 0.5 %).
+- Change:
+  - bottom lips chamfered perpendicular to the floor (a 25° face, printable);
+  - each port now has a mid section 1 mm inside the manifold, with the floor then running flush onto the
+    manifold floor (obtuse junction);
+  - the fan socket is reduced to two side plates within the fan's thickness.
+- Result: walls under 0.8 mm fall to 0.2 % (S6) and 0.17 % (S6 + Delta), both passing.
+  - Internal air-path overhang: 0.67 mm² of horizontal facets under 1 mm wide at the port/manifold
+    junctions, which print as micro-bridges. Everything else is ≥ 45°.
+  - **CFD at the lower 4020 curve [RAN]:** layer annulus 8.33 m/s (−8 % against S4); weakest sector
+    5.11 (−23 %); part top −6 %; cone −3 %. The flush roots cost real performance.
+
+**It.6: S7, minimal manufacturability pass.**
+- Hypothesis: the socket fix alone brings S4 to about 0.6 % thin walls; adding only the bottom-lip
+  chamfer (port interiors untouched) should pass and keep S4's aerodynamics.
+- Result [RAN]:
+  - walls under 0.8 mm: 0.2–0.8 % across sampling seeds for S7, 0.2–0.4 % for S7 + Delta;
+  - CFD: annulus 8.84 m/s (S4 9.09, −2.8 %), weakest sector 6.28 (S4 6.62), part top −1 %, cone −0.6 %,
+    Q −0.4 %.
+- Conclusion: **S7 ≈ S4.** The chamfer is harmless, and the flush roots were what cost S6 its 6–8 %.
+  The S4/S7 pair also measures the **repeatability of the averaged metrics** for a sub-millimetre geometry
+  change: about ±3 % on means and about ±5 % on the weakest sector. Differences below that are ties.
+
+**Final nozzle end: S7** (`PARAMS_FINAL`). Its parameters are listed in §12.
+
+## 10. Final nozzle end (S7): fan comparison and sensitivity [RAN]
+
+All runs use the S7 nozzle end and identical settings (L2, ~0.96 M cells, means over iterations 300 →
+stop). U0.3 is the near-wall |U| 0.3 mm off the surface.
+
+| S7 with … | Curve | Q [L/s] / ΔP [Pa] | Layer annulus Z +0.3 [m/s] | Weakest sector / min/mean / CV | Part top r ≤ 5 U0.3 / τw [Pa] | Sides top 3 mm U0.3 (weakest face) | Cone U0.3 / τw | Sock bottom U0.3 | Fan + duct mass, Δ vs stock | Electrical |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **Stock 4020** | lower bound (proxy, 191 Pa) | 0.801 / 137 | **8.84** | 6.28 / 0.71 / 0.24 | 7.81 / 1.43 | 2.63 (0.63) | 7.17 / 1.78 | 5.81 | 24 + 9.2 g, **+6.1 g** | as stock (4-wire PWM) |
+| Stock 4020 | upper bound (ESTIMATED, 390 Pa) | 1.211 / 300 | **13.34** | 9.16 / 0.69 / 0.27 | 12.28 / 2.65 | 4.07 (1.00) | 10.98 / 3.02 | 8.69 | same | same |
+| Delta BFB0524HH | digitized, typical | 0.917 / 183 | 9.73 (+10 %) | 4.83 / 0.50 / 0.33 | 9.36 / 1.75 | 3.09 (0.95) | 7.38 / 1.78 | 6.40 | 28 + 9.2 g, +10.0 g | 2-wire: MOSFET add-on (DD-05) |
+| Delta BFB0524HH | **minimum-spec unit** (Q × 0.73, ΔP × 0.715) | 0.762 / 125 | **7.98 (−10 %)** | 3.85 / 0.48 / 0.31 | 7.23 / 1.25 | 2.52 (0.55) | 6.34 / 1.45 | 5.46 | same | same |
+| Same Sky CBM-5015BF | digitized, typical | 0.976 / 214 | 9.99 (+13 %) | 5.61 / 0.56 / 0.21 | 8.62 / 1.68 | 3.33 (0.84) | 8.07 / 2.02 | 6.76 | 31.4 + 9.6 g, +14.2 g (+3–6 g buck) | 12 V 4-wire PWM: 24 → 12 V buck, `cycle_time` 0.002 |
+| STOCK duct + stock 4020 | lower / upper bound | 0.804 / 137 ; 1.199 / 301 | 1.83 ; 3.47 | 0.35 / 0.19 ; 0.68 / 0.20 | 1.38 ; 2.74 | 0.62 ; 1.04 | 0.95 ; 1.90 | 0.35 ; 0.77 | reference | — |
+
+Percentages are against the stock 4020 at its lower bound on S7.
+
+Reading:
+1. **The duct is the big lever; the fan is a small one.** At the same fan curve, S7 raises the layer
+   speed 4.8× (lower bound) or 3.8× (upper bound) over the STOCK duct, the part-top near-wall speed
+   5.7× / 4.5×, and the side faces about 4×. Swapping the fan on S7 changes the layer speed by −10 … +13 %.
+2. **The stock 4020's own uncertainty (8.8 → 13.3 m/s, ±20 % about the midpoint) is larger than any fan
+   swap.** Its lower bound is the more plausible one: the CBM-4020B proxy scaled to 12 000 rpm draws
+   7.7 W, against the stock fan's 0.3 A × 24 V = 7.2 W (research/03 §10). The fan decision is therefore
+   made at the lower bound, as DD-01 requires.
+3. **Delta BFB0524HH:** +10 % layer speed as a typical unit, −10 % as a minimum-spec unit, for +4 g
+   and a MOSFET add-on. Its weakest sector is 23 % lower. **No clear margin. Not recommended.**
+4. **Same Sky CBM-5015BF:** +13 % layer, +22 % flow and +27 % on the side faces as a typical unit, but
+   the weakest sector is 11 % lower, the cone 13 % higher, and it adds +7.4 g plus a 3–6 g buck and
+   a 12 V rail on the toolhead. Its tolerance (±10 % speed, about ±20 % pressure) covers the +13 %.
+   **A margin of about 10–15 % is not "clear" by the DD-01 rule. Not recommended as the baseline.** It
+   is the only upgrade worth considering if V1 measures the stock 4020 at the lower bound **and**
+   prints show insufficient cooling.
+5. **Two fans (D):** see D1 (§8) and D2 below. D cannot use 5015s at all (no bay), and its second 4020
+   hangs at X 31…51, Z 4…44 beside the nozzle.
+
+**D2 [RAN]** (2 × 4020 at the lower bound on the improved ports: 12° yaw, aimed at r 6, 17 mm plenum;
+the second fan at the right side below the joint band), against S7 with one 4020:
+- total flow **+41 %** (1.127 L/s);
+- **layer annulus −5 %** (8.40 m/s), **weakest sector −44 %** (3.51; min/mean 0.42, CV 0.43);
+- part top r ≤ 5 equal (7.84); side faces +84 %;
+- **cone +24 %**, sock bottom +19 %;
+- **+27 g** (+33.0 g against stock).
+
+The second blower feeds the right/rear ports harder, which unbalances the jet ring. Its extra air goes
+to the part sides and the nozzle, not the layer. **D fails all three DD-01 conditions (clear gain,
+no added impingement, no travel/packaging cost). Rejected.**
+
+## 11. Thermal proxy results [RAN]
+
+Conditions: part top and sides 200 °C, nozzle 250 °C, sock outer surface 150 °C (ESTIMATED), air 45 °C;
+steady passive scalar on the converged flow, 200 iterations (§7). h in W/m²K, Q in W.
+
+| Case (4020 curve) | h part top r ≤ 5 | h part top r ≤ 10 | h side faces top 3 mm (+X / −X / +Y / −Y) | Q part top + sides | h nozzle / cone | **Q nozzle** | h sock bottom | Q sock | Enthalpy balance (open boundaries vs walls) |
+|---|---|---|---|---|---|---|---|---|---|
+| STOCK (lower) | 42 | 54 | 21 / 44 / 17 / 80 | 10.2 | 57 / 75 | **1.16** | 18 | 6.8 | +2 % |
+| **S7 (lower)** | **147** | **150** | 148 / 37 / 48 / 89 | **20.3** | 214 / 272 | **4.38** | 127 | 9.8 | +47 % |
+| STOCK (upper) | 54 | 79 | 46 / 72 / 31 / 86 | 14.8 | 80 / 101 | **1.65** | 41 | 9.5 | +3 % |
+| **S7 (upper)** | **216** | **199** | 168 / 66 / 70 / 112 | **26.7** | 272 / 326 | **5.57** | 157 | 12.3 | +56 % |
+| S7 + Same Sky (typical) | 178 | 175 | 163 / 60 / 42 / 111 | 24.8 | 242 / 296 | 4.97 | 140 | 11.9 | +11 % |
+
+What the proxy shows:
+1. **Layer heat-transfer coefficient ×2.5–3.5** over the stock duct at the same fan: part top r ≤ 5
+   147 against 42 (lower bound) and 216 against 54 (upper). The ratio is smaller than the near-wall
+   velocity ratio (×5.7) because h grows roughly with √U on a developing boundary layer.
+2. **The weak faces stay weak:** the −X (left, LiDAR side) and +Y (rear, probe side) part faces get
+   37–70 W/m²K against 89–168 on the +X and −Y faces. That is the geometric cost of having no outlet on
+   the left or rear (§5.1). Use V5 to check whether it matters in prints.
+3. **Nozzle heat loss rises from 1.2 to 4.4 W** (lower bound; 1.6 → 5.6 W at the upper), and the sock
+   loss from 6.8 to 9.8 W (at the assumed 150 °C sock surface). That is **+6.2 W (lower) / +6.8 W
+   (upper) of extra heater demand at 100 % fan**, about 10–11 % of the 60 W heater. For scale, MPC
+   attributes +8 W to the stock fan at 100 % (research/03 §3). Expect `fan_ambient_transfer` at 100 %
+   to roughly double after the change. Re-run `MPC_CALIBRATE` (§12.2). At 40–60 % fan (typical for
+   PETG/ABS) the penalty scales with about Q^0.8 (roughly 2–3 W).
+4. **Balance check:** STOCK closes within 2–3 %. S7 has 47–56 % more enthalpy leaving through the open
+   boundaries than entering from the walls. This is consistent with spurious sources from the iterative
+   continuity errors of S7's weakly unsteady flow (its fan monitors swing ±1 %; STOCK settles). Spurious
+   heating raises the near-wall air temperature, so S7's h values are more likely **under**-estimated.
+   The ranking does not depend on this.
+
+5. **Fan swap on S7:** the Same Sky (typical) raises part-top h by +21 % and part heat removal by +22 %
+   over the stock 4020 at its lower bound. That is about twice its velocity margin, because its extra
+   flow goes to the part sides and top rim. Nozzle loss rises +13 %. It stays below the 4020's upper
+   bound (216 W/m²K). §12 uses this.
+
+What the proxy does not show: the transient cooling of a 0.2 mm strand from 230 °C to below Tg in
+about 0.5–2 s; conduction into the part; radiation; buoyancy; the real temperatures of the sock surface
+and the nozzle under air load (fixed here). It ranks designs by convective heat transfer at the
+surfaces that matter. It is not a print-quality prediction.
+
+## 12. Recommendation
+
+### 12.1 Fan: **one** part fan, the **stock Creality K1 4020 blower** (keep it)
+
+| Order line | Qty | Why |
+|---|---|---|
+| Creality K1 / K1 Max 4020 blower, 24 V 0.3 A, 4-pin (Creality 4004110132) | **1 spare** (optional, about $10–14) | Bench measurement V1, to replace the 191/390 Pa bounds with a measured curve, and a spare. The fitted fan is the existing one. |
+| Delta BFB0524HH | 0 | no clear margin at the conservative curve (+10 % typical, −10 % minimum-spec), +4 g, needs a MOSFET |
+| Same Sky CBM-5015BF-175-459-22 | 0 now (upgrade path, see below) | +13 % layer speed and +21 % part-top h (typical unit) over the 4020's lower bound, but a 11 % weaker minimum sector, +13 % nozzle loss, +7.4 g + a 3–6 g buck + a 12 V rail. The margin is inside its own ±10 % speed tolerance and inside the 4020's own uncertainty, so it is not a clear DD-01 margin |
+| second blower (D) | 0 | fails the DD-01 rule (more nozzle impingement, worse symmetry, +27 g, packaging beside the nozzle); no 5015 fits |
+
+Numbers behind it (S7, stock 4020 at the lower bound, against the STOCK duct at the same curve):
+- layer annulus **8.84 against 1.83 m/s (×4.8)**; weakest sector **6.28 against 0.35 (×18)**;
+  min/mean 0.71 against 0.19;
+- part top r ≤ 5 near-wall **7.81 against 1.38 m/s (×5.7)**; part-top wall shear 1.43 against 0.11 Pa;
+  side faces' top 3 mm 2.63 against 0.62 m/s;
+- heat transfer (thermal proxy): part-top h **147 against 42 W/m²K (×3.5)**, heat removed from the part
+  (top + sides) 20.3 against 10.2 W (×2.0);
+- price: nozzle-cone near-wall 7.17 against 0.95 m/s. That is **+3.2 W nozzle loss and +3.0 W sock loss
+  at 100 % fan** (about 10 % of the 60 W heater). MPC re-calibration handles it (§12.2).
+
+**Upgrade path (conditional, not ordered now).** If V1 shows the stock 4020 at the lower bound **and**
+the V5/V6 overhang and bridge prints still want more cooling, the S7 duct takes a 5015 in the same bay
+with no structural change. Choose the **Same Sky CBM-5015BF-175-459-22** (1 fitted + 1 spare) with a 24 →
+12 V ≥ 0.5 A buck: +21 % part-top h. `with_fan(PARAMS_FINAL, "samesky")` gives its duct variant: the
+plenum enters from the left because its outlet is at the bottom-left, and the tabs are at X 8 / 20. Set
+`cycle_time: 0.002` because its PWM minimum is 200 Hz. Do **not** use the Delta: its minimum-spec unit is
+10 % below the stock fan's lower bound.
+
+### 12.2 Electrical implications
+
+None. It is the stock fan on the stock channel 1 (PB8 PWM, PB6 enable, PB3 tach), 0.3 A, one logical fan
+(DD-05), so there is no MOSFET, no buck and no second channel. Because the duct change raises the
+nozzle's convective loss, **re-run `MPC_CALIBRATE HEATER=extruder FAN_BREAKPOINTS=7`** after fitting
+(DD-05; §11 gives the expected direction and size).
+
+### 12.3 Duct geometry (final, `PARAMS_FINAL` = S7)
+
+| Element | Value |
+|---|---|
+| Fan pose | stock 4020 XZ pose (X −21.3…18.7, Z 23.4…63.4); rear face Y −36.5 (3 mm in front of the frame plate); outlet 17 × 13 at the bottom-right blowing −Z |
+| Fan screws | stock diagonal pair (X −18.65, Z 60.3) and (X 16.05, Z 25.6), M3 along +Y into frame inserts (6.94 / 29.4 mm from the PCB screws) |
+| Feed drop | outlet 221 mm² → 208 mm² over 13 mm, walls ≤ 3° lean |
+| Plenum | gable-roofed (45°), 17 mm wide, 6 mm side walls + 8.5 mm roof (174 mm²), Y −55 → −21.5 along X 11, end flared to 22 mm into the manifold |
+| Manifold | horseshoe around the sock, azimuth 231.5° → 52° (open on the LiDAR side), inner face 6 mm outside the sock + 3 mm clearance box, 9 mm wide, floor Z 4.5, inner wall 7.5 mm, 45° gable roof (apex Z 16.5), 88 mm² |
+| Ports (5) | azimuth 240°, 275°, 320°, 0°, 35°; outlet 6 × 3 mm each (90 mm² total); vertical outlet face just outside the clearance box (r_o 14.0–20.4 mm); floor 25° and ceiling 45° (jet about 25–35° down); **12° yaw** (counter-clockwise from above); square-ended top lip; chamfered bottom lip; lowest point Z 2.44 |
+| Walls | 1.2 mm (feed transitions lean-compensated); minimum channel 3 mm |
+| Print | one piece, upright (fan socket on top); no support inside the air path (0.67 mm² of sub-millimetre micro-bridges at the port roots); external supports under the manifold and lips |
+| Material | PC or PA-CF (whole part within about 15 mm of the heater, DD-07) |
+| Mass | 7.70 cm³ → **9.2 g PC** (8.2 g ASA) at 100 % infill, screws excluded; the stock duct part is 3.2 g |
+| Duct-to-frame | 2 × M3 along +Y: T_left (X −7.5, Z 19.5) and T_right (X 24.0, Z 22.5), mating faces at Y −36.5 (`duct_interface.json` v3-final, `final_mount_points: true`) |
+| Envelope | X −21.3…31.0, Y −56.5…27.5, Z 2.44…63.4. Right of the carriage only below Z 23 (X ≤ 24.2 is respected in the XY-joint band). Front 1.5 mm past the −55 soft bound because of the fan pose shared with the frame (3 mm 3010 intake plenum). |
+
+## 13. LiDAR check, mesh study, domain check, convergence [RAN]
+
+### 13.1 LiDAR check (nozzle 3 mm above a flat bed, no part, fan at 100 %, upper 4020 bound = worst case)
+
+| Case | Laser-line region on the bed (X −50.8…−21.6, Y −21.3 ± 1.5, 0.1 mm above the bed): mean / max | Window region (1 mm below the module body, X −58…−25, Y −30…−5, Z 21): mean / max | Point at the line centre |
+|---|---|---|---|
+| STOCK | 0.18 / 0.41 m/s | 0.087 / 0.18 m/s | 0.20 m/s |
+| **S7** | **0.87 / 1.50 m/s** | **0.17 / 0.25 m/s** | 1.04 m/s |
+
+Judgement per DD-02:
+- **No optical effect.** Air at these speeds does not disturb triangulation (DD-02: a 20 K gradient
+  bends the beam by about 0.3 µm), and the duct stays outside both LiDAR boxes and the laser sheet.
+- **Fumes/debris onto the windows: not promoted.** At X = −36 the air at the window height moves
+  *downward*, entrained towards the jets (`results/S7_lidar_estimated_L2/slice_lidar_yz_xm36_Umag.png`).
+  The window-region speed (0.17 m/s) is barely above STOCK's.
+- **Along the bed under the laser line** S7 sends a 1–1.5 m/s wall jet outward, about 5× STOCK. It can
+  move loose dust or strings across the scan line *while the part fan runs*.
+- **At 0 % fan**, the typical state while scanning (the LiDAR macros run between prints), there is no
+  part-fan flow at all: 0 m/s in this model, which has no other air source (the 3010 exhaust is not
+  modelled). That is why the 0 % case was not run as a separate CFD case.
+- Recommendation: keep the part fan off during LiDAR scans (as today). V7 checks window deposits after a
+  long ABS print.
+
+### 13.2 Mesh independence (S7, 4020 lower bound)
+
+L1 (0.51 M cells) vs L2 (0.96 M) [RAN]: annulus Z+0.3 8.86 vs 8.84 (+0.3 %); weakest sector 5.77 vs 6.28
+(−8 %); part top r≤5 8.19 vs 7.81 (+5 %); cone τw 1.53 vs 1.78 Pa (−14 %); fan Q 0.816 vs 0.801 (+2 %).
+Means are mesh-converged at L2 to within the ±3 % repeatability band. Wall shear and the weakest sector are
+more mesh-sensitive, so they are compared only between cases on the same mesh. L3 [RUNNING at hand-off,
+not a result yet]: `run_cases.py S7:part:proxy --level 3`, then `report_tables.py mesh S7_part_proxy_L`
+to fill this table.
+
+### 13.3 Domain size [RAN]
+
+S7 (4020 lower) in the standard air box (X ±70, Y −80…55, Z bed…45; 0.96 M cells) against an enlarged
+box (X ±110, Y −125…95, Z bed…75; 1.17 M cells; same refinement):
+
+| Metric | Standard | Enlarged | Change |
+|---|---|---|---|
+| fan Q [L/s] | 0.801 | 0.806 | +0.6 % |
+| layer annulus Z +0.3 [m/s] | 8.84 | 9.02 | +2.0 % |
+| weakest sector | 6.28 | 6.66 | +6 % |
+| part top r ≤ 5 / r ≤ 10 U0.3 | 7.81 / 7.91 | 8.06 / 7.84 | +3.2 % / −0.9 % |
+| side faces top 3 mm | 2.63 | 2.60 | −1.1 % |
+| cone U0.3 | 7.17 | 7.51 | +4.7 % |
+| LiDAR line / window region | 0.182 / 0.085 | 0.206 / 0.110 | +13 % / +29 % (absolute ≤ 0.2 m/s) |
+
+The near-nozzle metrics change by −1 … +6 %, about the size of the run-to-run repeatability band
+(±3 % means, ±5 % weakest sector), so the standard domain does not bias the comparisons. The tiny
+far-field speeds at the LiDAR regions (≤ 0.2 m/s) are domain-sensitive in relative terms but stay small;
+they are compared only between cases on the same domain.
+
+### 13.4 Convergence and run statistics
+
+- **Cases.** 20 flow cases (L2, 0.82–1.24 M cells, 16–34 min each on 4 cores), 5 thermal restarts,
+  2 LiDAR-environment cases, plus the mesh and domain checks (§13.2–13.3).
+- **Stopping.** 9 cases met the watchdog criterion: fan Q and p within 0.4 % over 100 iterations, after
+  ≥ 550 iterations. These are STOCK ×2, REF, D1, D2, S3, UD1, S7D-minspec and the STOCK LiDAR case. The
+  others reached the 750-iteration cap with fan Q oscillating 0.5–1.4 % (S1 2.5 %), the weak
+  unsteadiness of the converging jets.
+- **Averaging.** Every reported field metric is a mean over iterations 300 → stop.
+- **Residuals.** Final initial residuals: U about 0.4–1.2 × 10⁻², p about 0.4–6 × 10⁻⁴ (plateau).
+- **Global mass imbalance:** ≤ 0.2 % in every case.
+- **Mesh quality.** checkMesh passes, except single skewed faces (skewness ≤ 5.3) in STOCK, REF, D1, S2
+  and S7SS. They lie at sharp CAD edges far from the measurement regions.
+- **Repeatability band** for a sub-millimetre geometry change (S4 against S7): ±3 % on means, ±5 % on the
+  weakest sector.
+
+## 14. Limitations and what remains unvalidated
+
+1. **RANS at Re ≈ 10³.** Jets at 9–14 m/s from 3 mm slots are in the laminar-transitional regime.
+   k-ω SST assumes fully turbulent flow: it over-predicts jet spreading and under-predicts core length.
+   Absolute velocities carry ±20–30 % (research/04 §2). **Rankings** between designs under identical
+   settings are much more reliable. Differences inside the ±3 % (means) / ±5 % (weakest sector)
+   repeatability band measured with S4/S7 are ties.
+2. **Weakly unsteady flow.** Most cases reach the 750-iteration cap with fan Q swinging ±0.5–1.3 %. All
+   metrics are means over iterations 300–750; this is pseudo-time averaging of a steady solver, not a
+   time-accurate (URANS/LES) mean.
+3. **Fan curves.** The stock 4020 has no manufacturer curve. The two bounds (191 / 390 Pa shut-off) change
+   the layer speed by ±50 %. The fan *choice* is robust across them (§10), but the absolute cooling is
+   not. The Delta and Same Sky are digitized manufacturer curves (typical units). The Delta's
+   minimum-spec unit is modelled as Q × 0.73, ΔP × 0.715 with the same shape. Fan-outlet profile
+   (volute skew, swirl) and blade-passing are not modelled; the inlet is uniform.
+4. **Geometry.**
+   - The duct is modelled exactly, but there is no cover, carriage, PCB or 3010 flow in the new-design
+     cases. STOCK includes its cover because the cover is half of its duct.
+   - The stock duct is a reverse-engineered thin shell (Henlor); its slot outlets are approximate.
+   - Many interfaces it rests on are ESTIMATED: fan outlet sizes; fan hole positions except the Same Sky;
+     the probe body; LIDAR boxes; the PCB component zone.
+5. **Part proxy.** A static 20 mm cube one layer under the tip. There is no toolhead motion, no
+   moving-part relative flow, and no fresh-strand geometry; real overhangs and bridges see different
+   local flow.
+6. **Thermal proxy.** Steady passive scalar on the frozen flow:
+   - fixed wall temperatures (200 / 250 / 150 °C), no conduction in the part or the nozzle, no radiation,
+     no buoyancy, constant properties;
+   - wall-function heat transfer at y⁺ of order 1–10 without prism layers.
+
+   It ranks designs. It does not predict layer temperature history (a transient CHT strand model would
+   be needed) or the true MPC heater penalty. The global enthalpy balance through the far-field boundaries
+   does not close (§7), although the local wall flux was verified against the near-wall T gradient.
+7. **Wall shear** is not mesh-converged without prism layers (research/04 §8). It is used only
+   comparatively, and the near-wall |U| at 0.3 mm is quoted alongside it.
+8. **Printability** is checked geometrically:
+   - internal faces ≥ 45° except 0.67 mm² of micro-bridges;
+   - ray-sampled wall thickness passes the Structure validator rule.
+
+   No test print has been made. The sock clearance (3 mm) and the outlet lip at Z 2.4 depend on
+   ESTIMATED `HOT_ZONE_CLEARANCE` and `DUCT_MIN_Z`.
+
+## 15. Physical validation plan
+
+| # | Test | Equipment | What it validates | Pass / use |
+|---|---|---|---|---|
+| V1 | **Stock 4020 P–Q** (research/03 §9): outlet capped, then free-air flow (bag-fill timing or a vane anemometer in a known-area tube) | ±1–2 kPa differential manometer, bag/stopwatch | which 4020 bound applies (191 against 390 Pa) | replaces the bounds; re-run S7 with the measured curve (1 run) |
+| V2 | **Port exit velocities**: hot-wire or vane anemometer 1 mm in front of each of the 5 outlets, at 100 % fan, duct printed in PC | hot-wire probe (Ø ≤ 3 mm) or a 16 mm vane | flow split (CFD 16–25 % per port) and jet speed (CFD flux-mean 11.8 m/s at the lower bound) | ±20 % of CFD → the model is trusted for ranking |
+| V3 | **Layer-plane survey**: probe at Z +0.3…1 mm under the nozzle (heater off, glass bed), 8 directions at r 3 and 6 mm | as V2, on a 3-axis jog using the printer itself | the annulus metric and its symmetry (min/mean 0.71) | min/mean ≥ 0.5 confirms the ring layout |
+| V4 | **Heater-power penalty**: `MPC_CALIBRATE ... FAN_BREAKPOINTS=7` (DD-05) with STOCK, then with S7, at 260 °C | printer only | real nozzle cooling (CFD cone near-wall speed 7.2 against 1.0 m/s STOCK at the lower bound) | `fan_ambient_transfer` at 100 % against stock's 0.1166 W/K; plan for the heater's reserve |
+| V5 | **Overhang / bridge prints** in 4 orientations (0°, 90°, 180°, 270° relative to the toolhead): overhang steps 30–70° and 10–40 mm bridges, PLA at 100 % fan, ABS at 30–40 % | printer | real cooling, direction dependence (left/rear sectors are the weakest in CFD) | overhang angle reached, droop per direction |
+| V6 | **Bridge sag measured with the LiDAR**: scan the bridge test print's underside profile with `LIDAR_...` macros (the module reads 1–2 µm) | the printer's own LiDAR | quantitative sag (mm) per orientation and fan speed, STOCK against S7 | sag ratio S7/STOCK; ≥ 30 % improvement expected from the layer speed ratio |
+| V7 | **LiDAR window contamination**: run a 2 h ABS print at 100 % fan, inspect and wipe the module windows; compare scan noise before and after | printer | DD-02 concern (CFD: under 0.15 m/s at the window region) | no visible deposit, scan repeatability unchanged |
+| V8 | **Clearance / thermal soak**: duct printed in PC, 2 h at 280 °C nozzle in a 45 °C chamber, fan at 0 %; check the lips for distortion | caliper | DD-07 material choice, 3 mm sock clearance | no warping of the lips (Z ≥ 2 mm keeps) |
+
+## 16. Requests for `interfaces.py` and notes for the Structure agent
+
+I did not edit `interfaces.py`. Requested additions or changes:
+
+| # | Request | Why / current workaround |
+|---|---|---|
+| R1 | `FRONT_FAN_BACK_Y = −36.5` (front-bay blower rear face = frame plate front −33.5 minus a 3 mm 3010 plenum), shared by `structure/cooling.py` and `ducts` | Both sides derive it independently today (duct: `FRAME_FRONT_Y − 3.0`). It also sets the front extent (−56.5, 1.5 mm past the −55 soft bound). |
+| R2 | `STOCK_4020_OUTLET`: 17 × 13 at the bottom-right corner of the stock pose (X 5.7…18.7, Y −55…−38, blowing −Z), ESTIMATED until measured (M7) | used for STOCK and every 4020 design; 02:C8 gives about 11.2 × 17 at low confidence |
+| R3 | Blower handedness per spec: outlet side on the outlet edge for intake facing −Y (4020 stock: right, 02:C8; Same Sky: left, VERIFIED from CCW rotation on the datasheet p.5; Delta: unknown) | the duct's plenum entry side depends on it (`with_fan` handles Same Sky) |
+| R4 | `PROBE_BODY_X = (−11, 11)` (ESTIMATED) next to `PROBE_BODY_Y` | the duct keeps its rear-right manifold end and the 35° port outside X ±11 at Y ≥ 12.5 |
+| R5 | `LIDAR_WINDOW_REGION` (X −58…−25, Y −30…−5, Z about 21, ESTIMATED from the module underside at about 22) | used for the DD-02 window-speed metric |
+| R6 | `SOCK_SURFACE_T` (MISSING; 150 °C assumed in the thermal proxy) | the sock heat-loss numbers scale with it; a thermocouple on the sock bottom at 250 °C would settle it |
+
+Notes for Structure (frame integration of the final duct S7, `duct_interface.json` v3-final):
+- **Fan screws:** stock diagonal pair (−18.65, 60.3) and (16.05, 25.6), as in the frame's stub. They are
+  6.94 and 29.4 mm from the PCB screws.
+- **Duct screws:** 2 × M3 along +Y, mating faces at Y −36.5:
+  - T_left at (−7.5, 19.5): the stub position, straight lug to the plate;
+  - T_right at (24.0, 22.5): the lug bridges over the plenum (plenum roof ≤ Z 15 at X ≥ 16.75), so it
+    does not cross the feed (checked: 0 mm³ overlap with the duct body).
+- **The Z-axis manifold lug is removed.** The nozzle end hangs from the two tabs and the fan socket. It is
+  a 9 g PC part with about a 45 mm lever to the rear-right manifold end. If the first print shows
+  sag/flutter, the fix is a third +Y tab on the manifold's front-left (X −12, Y −28.8), whose lug would
+  reach the plate over the LiDAR-free zone X > −17.5.
+- **Buck module (Same Sky upgrade only, not needed with the 4020):** a free volume of about 19 × 12 × 10 mm
+  exists under the fan's right half (X 5…24, Y −52…−40, Z 12…22) in the S7SS layout, whose drop is on
+  the left. That is smaller than the requested 25 × 15 × 10, so the module needs a place on the frame
+  (Structure's call); I have not verified one.
+- **Overhang reporting.** Your validator's "overhang > 45°" for the duct counts external downward faces
+  (the manifold and plenum undersides, the outer lip bottoms). Those need print supports outside the air
+  path. Inside the air path only 0.67 mm² of micro-bridge remains.

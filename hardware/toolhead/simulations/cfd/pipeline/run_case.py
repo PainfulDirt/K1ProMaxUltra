@@ -555,10 +555,17 @@ def step_thermal(cfg, case, np_, meta):
                             "boundaryField\n{\n" + "\n".join(ents) + "\n}\n")
     sch = (case / "system/fvSchemes").read_text()
     if "div(phi,T)" not in sch:
-        sch = sch.replace("div(phi,k)", "div(phi,T)      bounded Gauss limitedLinear 1;\n    div(phi,k)", 1)
+        sch = sch.replace("div(phi,k)", "div(phi,T)      Gauss limitedLinear 1;\n    div(phi,k)", 1)
         (case / "system/fvSchemes").write_text(sch)
     sol = (case / "system/fvSolution").read_text()
     sol = sol.replace('"(U|k|omega)"\n', '"(U|k|omega|T)"\n', 1)
+    # T is linear on the (converged) flow: solve it fully every iteration (exact key beats the regex)
+    if "\n    T\n" not in sol:
+        sol = sol.replace("solvers\n{", "solvers\n{\n    T\n    {\n        solver PBiCGStab; preconditioner DILU; "
+                                          "tolerance 1e-10; relTol 0; maxIter 3000;\n    }", 1)
+    # scalarTransport relaxes with factor 0 (-> division by zero) unless a factor for T is given
+    if "T 1;" not in sol:
+        sol = re.sub(r"equations\s*\{", "equations { T 1;", sol, count=1)
     (case / "system/fvSolution").write_text(sol)
     end = int(round(t0)) + int(th["iters"])
     fo = (f'    scalarT {{ type scalarTransport; libs ("libsolverFunctionObjects.so"); field T; phi phi; '
@@ -580,6 +587,8 @@ def step_thermal(cfg, case, np_, meta):
     (case / "system/controlDict").write_text(cd)
     for d in case.glob("processor*"):
         shutil.rmtree(d)
+    dp = case / "system/decomposeParDict"
+    dp.write_text(re.sub(r"numberOfSubdomains\s+\d+;", f"numberOfSubdomains {np_};", dp.read_text()))
     t = {}
     if np_ > 1:
         t["decomposePar"] = run_foam("decomposePar -force -latestTime", case, "log.decomposePar.thermal")

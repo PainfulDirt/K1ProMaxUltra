@@ -304,10 +304,27 @@ validation case does. The duct results and report are in `documentation/cfd-repo
 
   The flow log is kept as `log.simpleFoam`, and the thermal restart log as `log.simpleFoam.thermal`.
   The template files are not changed: `div(phi,T)` and the T solver are added to the case copy only.
+  - The T equation gets its own solver (PBiCGStab, tolerance 1e-10, relTol 0), so it is solved fully every
+    iteration.
+  - It gets an equation relaxation factor of 1. Without one, `scalarTransport` relaxes with factor 0
+    and aborts with a floating-point exception in v2512.
+  - It uses the conservative `Gauss limitedLinear 1` convection scheme.
+- **Iteration averaging** (`solver.average_start`, opt-in): a `fieldAverage` function object averages U, p
+  and wall shear from the given iteration. The post-processing then uses UMean/pMean/wallShearStressMean in
+  place of the instantaneous fields and records `results["averaging"]`. Watchdog probes that sit inside
+  solids (VGREAT values) are ignored. Used by the duct study because its converging jets are weakly
+  unsteady (U residual plateau about 5e-3, jet-core probes swinging 2–60 % between iterations).
 - **Case driver** (`simulations/cfd/cases/run_cases.py`): geometry → pipeline → results copy →
-  `summary.csv/json`. It re-uses the mesh of the same design for a different fan curve, so only the
-  solve and post steps run again.
+  `summary.csv/json`.
+  - It re-uses the mesh of the same design for a different fan curve, so only the solve and post steps
+    run again.
+  - `run_queue.sh` runs a dynamic queue file.
+  - `repost.py` re-runs post-processing with updated probe definitions.
+  - `--steps thermal,post` applies the standard thermal set-up (part 200 °C, nozzle 250 °C, sock 150 °C,
+    air 45 °C).
 - **Mesh settings for the toolhead cases** (`cad/source/ducts/export_for_cfd.py`):
+  - stopping: ≥ 550 iterations, then fan Q and p within 0.4 % over 100 iterations, cap 750;
+    averaging from iteration 300;
   - same base cell (3.2 mm at L1, 2.54 mm at L2) and `n_between` 2 as the validation case;
   - duct, sock and part-top surfaces at level 3; nozzle at level 4;
   - level-2 box around the toolhead, level-3 box over the jets (r ≤ 17, Z −0.2…6.5), and a level-4 box
