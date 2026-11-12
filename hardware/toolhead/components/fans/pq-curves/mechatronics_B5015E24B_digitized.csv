@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Mechatronics Fan Group B5015E24B-BSR (5015 blower 51x51x15, 24 VDC, ball, 2 wires; tach output optional per series sheet) - curve 'E'
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage 24 V
+# status: DIGITIZED (manufacturer curve, vector-extracted) - table values VERIFIED: 24 V 180 mA, 6500 rpm, 0.13 m3/min (5 CFM), 22.45 mmH2O (0.88 inH2O), 45 dB, 25 g
+# source: https://www.mechatronics.com/pdf/B5015.pdf (Mechatronics B5015 series sheet, dated 12.11.14)
+# method: the three curves are one vector path; subpath 3 (curve E, 7 beziers) sampled at 30 points per bezier and mapped with the grid (x 0..0.14 m3/min = pt 460.18..576.75, y 0..24 mmH2O = pt 181.35..63.94); ends interpolated to the axes; resampled to 21 points
+# estimated digitizing error: < +-1 % of full scale (small chart, 2 pt stroke); check: 22.40 mmH2O / 0.1311 m3/min vs table 22.45 / 0.13
+# derived end points: dP(Q=0) = 219.7 Pa (0.882 inH2O, 22.40 mmH2O); Q(dP=0) = 2.1854e-03 m3/s (4.63 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,219.72
+1.092717e-04,218.47
+2.185433e-04,216.94
+3.278150e-04,214.80
+4.370867e-04,209.90
+5.463583e-04,203.23
+6.556300e-04,194.88
+7.649017e-04,185.32
+8.741733e-04,175.33
+9.834450e-04,165.09
+1.092717e-03,154.59
+1.201988e-03,143.27
+1.311260e-03,130.30
+1.420532e-03,116.86
+1.529803e-03,102.93
+1.639075e-03,88.03
+1.748347e-03,71.14
+1.857618e-03,52.18
+1.966890e-03,33.33
+2.076162e-03,17.25
+2.185433e-03,0.00

@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon PF75302B1-1B00U-S99 (7530 blower 75x75x30, 24 VDC, ball, S99 = auto-restart + FG + PWM 4-wire) - the only 24 V PWM blower at sunon.cz; 88 g, off-toolhead use only
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage 24 V, 100 % PWM
+# status: DIGITIZED (manufacturer curve) - table values VERIFIED: 115 mA / max 133 mA, 2.76 W, 3400 rpm, 15.5 CFM, 0.57 inH2O, 42.0 dBA, 88 g, op. 20.4-27.6 V; PWM 22-28 kHz (25 kHz typ), min start duty 10 %, 50 % -> 2200 rpm, unconnected -> full speed
+# source: https://www.sunon.cz/user/related_files/pf75302b1-1b00u-s99.pdf (Sunon spec, 2022-06-27, page 5)
+# method: the curve is a vector path in the PDF; read with PyMuPDF get_drawings(); filled outline, centre line on 1 pt scan lines; axis frame x 0..16 CFM = pt 184.38..385.56, y 0..0.6 inH2O = pt 506.64..267.12; resampled to 21 points
+# estimated digitizing error: < +-0.5 % of full scale; check: 0.570 inH2O / 15.51 CFM vs table 0.57 / 15.5
+# derived end points: dP(Q=0) = 141.9 Pa (0.570 inH2O, 14.47 mmH2O); Q(dP=0) = 7.3140e-03 m3/s (15.50 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,141.94
+3.657006e-04,137.90
+7.314011e-04,133.90
+1.097102e-03,130.12
+1.462802e-03,126.53
+1.828503e-03,122.21
+2.194203e-03,117.09
+2.559904e-03,111.57
+2.925604e-03,105.67
+3.291305e-03,99.56
+3.657006e-03,93.15
+4.022706e-03,86.50
+4.388407e-03,79.88
+4.754107e-03,73.21
+5.119808e-03,66.54
+5.485508e-03,61.07
+5.851209e-03,53.55
+6.216910e-03,41.63
+6.582610e-03,27.97
+6.948311e-03,13.89
+7.314011e-03,0.00

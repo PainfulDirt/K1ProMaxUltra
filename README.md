@@ -47,6 +47,7 @@ helper/
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
 orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59 processes: Balanced everywhere, Precision (10 mm3/s quality cap) and Fast where they make a difference, plus Speed Benchy profiles (0.4: 12:28, 0.8: 9:14, 1.0: 8:45), 12 filaments)
+hardware/toolhead/       custom toolhead (cooling module, S8 duct, cover, probe mount): CAD, CFD, docs. Work in progress, not installed
 ```
 
 ## Switches and buttons
@@ -206,6 +207,9 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 3. Change the hardware-specific values above, restart, then run `CONFIG_OVERRIDES` so updates keep your changes.
 
 ## Roadmap
+
+**Toolhead** ([hardware/toolhead/](hardware/toolhead/README.md))
+- **New part cooling.** The design keeps the stock 4020 fan and replaces the stock duct with a CFD-designed multi-port duct, a new cooling-module frame and a new cover. The LiDAR and Microprobe positions are unchanged. In simulation (steady RANS, 20 mm part proxy, at the conservative end of the stock fan's unknown curve, against the stock duct re-run with the same fan and settings) the airflow in the layer around the nozzle is about 4.4× the stock duct's (4.3–5.3× over the robustness checks, 4.2× at the other end of the curve), every side of the part gets more air than with the stock duct, and the heater needs about 7.6 W more at full fan. The duct is to be made in high-temperature resin by a print service. Nothing has been printed or measured yet. Next: print the fit-check coupon and take the measurements in [missing-information.md](hardware/toolhead/documentation/missing-information.md).
 
 **LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check, first-layer thickness check, LiDAR bed mesh levels 1-5 used by START_PRINT, combined probe + LiDAR twist calibration, XY skew, open driver with the middleware retired)
 - **True first-layer thickness: done (2026-10-29).** `First_Layer_Check`: bare plate before, first layer after, the difference is the real thickness (test print 0.194 mm for 0.200). Since 2026-11-01 a short prime line in front of the objects refills the nozzle after the pause for the scan, so layer 2 starts clean (`PRIME=3` mm). Since 2026-11-02 the plate's own change between the two scans may be curved: the bare plate between and around the objects showed a bowl of 40-60 µm (middle lower) on the 9-pad test prints, which made the middle look 25-38 µm too thin. With bare plate inside the objects' area (gaps between parts or islands) a quadratic surface comes off instead of a plane; the pads then spread 6-8 µm rms instead of 16-23, and the Microprobe (pad minus plate) agrees. Left: store the PLA line ramp per filament for parts under 40 mm.

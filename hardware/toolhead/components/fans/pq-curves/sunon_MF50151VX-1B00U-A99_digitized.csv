@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon MF50151VX-1B00U-A99 (5015 MagLev blower 50x50x15, 12 VDC, 6200 rpm, 1.86 W) - nearest Sunon blower sheet to our 24 V MF50152VX-1L02C-A99 (no sheet published for that OEM suffix)
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage
+# status: DIGITIZED (manufacturer curve, vector-extracted) - table values VERIFIED: nominal 5.4 (min 4.6) CFM, 0.97 (min 0.65) inH2O, 0.155 A / max 0.179 A at 12 V, 42.2 dBA, 30 g
+# source: https://www.fansco.com/datasheets/sunon/MF50151VX-1B00U-A99.pdf (Sunon spec D05073850G-00, 2020-08-18, page 7)
+# method: the curve is a filled vector outline; centre line = mid-point of the outline's upper and lower edge on vertical scan lines every 1 pt (axis x 0..5.5 CFM = pt 186.96..467.52, y 0..1.0 inH2O = pt 449.40..138.12); resampled to 21 uniform Q points
+# estimated digitizing error: < +-0.5 % of full scale; check: 0.966 inH2O at Q=0 and 5.40 CFM at dP=0 vs table 0.97 / 5.4
+# derived end points: dP(Q=0) = 241.9 Pa (0.971 inH2O, 24.67 mmH2O); Q(dP=0) = 2.5498e-03 m3/s (5.40 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,241.88
+1.274886e-04,225.63
+2.549773e-04,210.58
+3.824659e-04,200.94
+5.099545e-04,194.90
+6.374432e-04,187.27
+7.649318e-04,177.99
+8.924204e-04,168.90
+1.019909e-03,161.20
+1.147398e-03,152.52
+1.274886e-03,140.93
+1.402375e-03,128.00
+1.529864e-03,115.50
+1.657352e-03,103.33
+1.784841e-03,90.98
+1.912329e-03,78.57
+2.039818e-03,64.21
+2.167307e-03,48.55
+2.294795e-03,32.36
+2.422284e-03,16.23
+2.549773e-03,0.00

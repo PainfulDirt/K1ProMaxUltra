@@ -1,0 +1,25 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Same Sky (ex CUI) CBM-4020B-160-367 (4020 blower 40x40x20, 12 VDC, 6000 rpm, 0.96 W, dual ball) - manufacturer-curve proxy for the stock K1 4020 blower
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage
+# status: DIGITIZED (manufacturer curve; the 11 plotted measurement markers) - table values VERIFIED: 2.66 CFM, 0.19 inH2O, 0.08 A typ / 0.12 A max, 36.7 dBA
+# source: https://www.sameskydevices.com/product/resource/cbm-40b.pdf (CBM-40B series datasheet, 2025-11-04, page 3, embedded raster image 1528x792 px)
+# method: embedded image extracted at native resolution; axes from gridlines (x 0..3 CFM = px 56..1505, y 0..5 mmH2O = px 718.5..145); diamond markers found by an 11x11 px dark-pixel density window and their centroids used as the data points
+# estimated digitizing error: +-0.01 CFM and +-0.03 mmH2O per point; check: 4.88 mmH2O (0.192 inH2O) at Q=0 and 2.65 CFM at dP=0 vs table 0.19 inH2O / 2.66 CFM
+# derived end points: dP(Q=0) = 47.9 Pa (0.192 inH2O, 4.88 mmH2O); Q(dP=0) = 1.2534e-03 m3/s (2.66 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,47.85
+1.595494e-04,43.66
+2.641696e-04,38.87
+3.778975e-04,35.18
+5.024791e-04,29.78
+6.590084e-04,23.47
+7.573523e-04,20.86
+8.877383e-04,16.18
+1.043229e-03,9.95
+1.142517e-03,4.57
+1.251007e-03,0.10
+1.253361e-03,0.00

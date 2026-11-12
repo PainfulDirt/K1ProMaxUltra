@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon MF50201V1-1B00U-F99 (5020 MagLev blower 50x50x20, 12 VDC, F99 = auto-restart + R-type locked-rotor signal; -A99 = 2-wire, same aero)
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage 12 V
+# status: DIGITIZED (manufacturer curve) - table values VERIFIED: 124 mA, 1.49 W, 5300 rpm, 5.8 CFM, 0.66 inH2O, 34.8 dBA, 34 g
+# source: https://www.sunon.cz/user/related_files/mf50201v1-1b00u-f99.pdf (Sunon spec, page 5)
+# method: the curve is a vector path in the PDF; read with PyMuPDF get_drawings(); stroked path (beziers sampled at 25 points each); axis frame x 0..6 CFM = pt 172.80..445.32, y 0..0.7 inH2O = pt 563.64..261.36; resampled to 21 points
+# estimated digitizing error: < +-0.5 % of full scale; check: 0.661 inH2O / 5.80 CFM vs table 0.66 / 5.8
+# derived end points: dP(Q=0) = 164.5 Pa (0.661 inH2O, 16.78 mmH2O); Q(dP=0) = 2.7354e-03 m3/s (5.80 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,164.53
+1.367701e-04,155.18
+2.735401e-04,145.58
+4.103102e-04,134.16
+5.470803e-04,121.41
+6.838503e-04,112.40
+8.206204e-04,108.38
+9.573905e-04,104.87
+1.094161e-03,99.73
+1.230931e-03,94.00
+1.367701e-03,87.49
+1.504471e-03,80.25
+1.641241e-03,73.17
+1.778011e-03,66.66
+1.914781e-03,59.06
+2.051551e-03,48.44
+2.188321e-03,36.87
+2.325091e-03,27.05
+2.461861e-03,17.93
+2.598631e-03,9.00
+2.735401e-03,0.00

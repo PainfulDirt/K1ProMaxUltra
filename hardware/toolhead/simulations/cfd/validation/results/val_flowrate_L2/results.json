@@ -1,0 +1,218 @@
+{
+  "case": "val_flowrate_L2",
+  "time": 304.0,
+  "level": 2,
+  "mesh": {
+    "cells": 602008,
+    "base_cell_mm": 2.539841683149119,
+    "checkMesh_ok": true,
+    "max_nonortho": 45.88054,
+    "max_skewness": 1.4959138
+  },
+  "units": {
+    "p": "Pa gauge (rho*p_kinematic)",
+    "length": "mm",
+    "Q": "m^3/s",
+    "U": "m/s"
+  },
+  "fluid": {
+    "nu": 1.6e-05,
+    "rho": 1.16
+  },
+  "convergence": {
+    "iterations": 304,
+    "max_iter": 1500,
+    "stopped_by_watchdog_at": 302,
+    "residualControl_reached": false,
+    "final_initial_residuals": {
+      "Ux": 5.3090002e-05,
+      "Uy": 0.00032338617,
+      "Uz": 0.00011215921,
+      "k": 0.0018796047,
+      "omega": 0.0026262545,
+      "p": 2.4030427e-07
+    },
+    "monitor_rel_range_last_window": {
+      "flow_inlet": 0.0,
+      "pavg_inlet": 5.836145192277316e-06,
+      "probe_Umag_max": 0.001941164843176991
+    },
+    "criteria": {
+      "window": 100,
+      "tol_Q": 0.002,
+      "tol_p": 0.005,
+      "tol_probe": 0.01,
+      "probe_floor": 0.1,
+      "res_p_max": 0.001,
+      "res_U_max": 0.001
+    },
+    "converged": true,
+    "solver_execution_time_s": 333.12
+  },
+  "inlets": {
+    "inlet": {
+      "Q_m3_s": 0.00045,
+      "Q_cfm": 0.9534960887590439,
+      "area_mm2": 300.0000052154062,
+      "U_mean_m_s": 1.4999999739229695,
+      "p_static_avg_Pa": 98.32701084275229,
+      "p_total_avg_Pa": 99.6320108427523,
+      "bc": {
+        "kind": "flowRate",
+        "Q_m3_s": 0.00045
+      }
+    }
+  },
+  "mass_balance": {
+    "Q_in_m3_s": 0.00045,
+    "Q_net_out_atmosphere_m3_s": 0.000449910079,
+    "imbalance_rel": -0.00019982444444444005
+  },
+  "planes": {
+    "slot_exit": {
+      "type": "rect",
+      "area_sampled_mm2": 58.8,
+      "area_fluid_mm2": 42.99999999999999,
+      "valid_fraction": 0.7312925170068028,
+      "Q_through_m3_s": 0.0004438968534898758,
+      "U_normal_mean_area": 10.323182639299441,
+      "Umag_mean_area": 10.792111018286198,
+      "Umag_max": 12.204781532287598,
+      "p_static_avg_Pa": 25.91707685237708,
+      "p_total_avg_Pa": 94.63524105335948,
+      "Umag_mean_flux": 10.99537146914931,
+      "p_total_fluxavg_Pa": 96.83214498383705
+    },
+    "tip_annulus": {
+      "type": "annulus",
+      "area_sampled_mm2": 78.53981633974483,
+      "area_fluid_mm2": 78.53981633974483,
+      "valid_fraction": 1.0,
+      "Q_through_m3_s": -0.00018152699512572905,
+      "U_normal_mean_area": -2.3112734863102538,
+      "Umag_mean_area": 10.917487700806364,
+      "Umag_max": 13.28808307647705,
+      "p_static_avg_Pa": 0.17160634441575365,
+      "p_total_avg_Pa": 74.33842297520367,
+      "sector_Umag_mean": [
+        11.8383,
+        12.8608,
+        11.6834,
+        7.302,
+        7.2772,
+        11.6777,
+        12.863,
+        11.8375
+      ],
+      "sector_angles_deg_start": [
+        0.0,
+        45.0,
+        90.0,
+        135.0,
+        180.0,
+        225.0,
+        270.0,
+        315.0
+      ],
+      "symmetry_min_over_max": 0.5657525695928071,
+      "symmetry_cv": 0.19630120792352065
+    }
+  },
+  "points": {
+    "lidar_line": {
+      "xyz_mm": [
+        -36,
+        -21,
+        -0.5
+      ],
+      "valid": true,
+      "U": [
+        0.030209999531507492,
+        0.11614000052213669,
+        -0.012149999849498272
+      ],
+      "Umag": 0.12062297016382217,
+      "p_Pa": -0.007622415199875832
+    },
+    "below_tip_1mm": {
+      "xyz_mm": [
+        0,
+        0,
+        -1.0
+      ],
+      "valid": true,
+      "U": [
+        -11.93025016784668,
+        -0.03976999968290329,
+        -3.016469955444336
+      ],
+      "Umag": 12.305753707885742,
+      "p_Pa": -1.0373295545578003
+    },
+    "nozzle_front": {
+      "xyz_mm": [
+        3.6,
+        0,
+        1.5
+      ],
+      "valid": true,
+      "U": [
+        -2.102989912033081,
+        -0.0030900000128895044,
+        -0.49285000562667847
+      ],
+      "Umag": 2.1599762439727783,
+      "p_Pa": -0.2706524133682251
+    }
+  },
+  "lines": {
+    "duct_centerline": {
+      "length_mm": 61.5584554781308,
+      "valid_fraction": 1.0,
+      "p_start_Pa": 98.16441345214844,
+      "p_end_Pa": -0.17218737304210663,
+      "dp_static_Pa": 98.33660125732422,
+      "Umag_max": 13.311906814575195
+    }
+  },
+  "walls": {
+    "duct": {
+      "area_mm2": 8599.855125697899,
+      "p_static_avg_Pa": 39.76045407940597,
+      "p_total_avg_Pa": 39.76045407940597,
+      "wss_mean_Pa": 0.06818230926783889,
+      "wss_max_Pa": 2.655313491821289,
+      "yplus_mean": 0.9754713997673428,
+      "yplus_max": 7.85252571105957
+    },
+    "nozzle": {
+      "area_mm2": 203.7546469291461,
+      "p_static_avg_Pa": -0.11078664567362759,
+      "p_total_avg_Pa": -0.11078664567362759,
+      "wss_mean_Pa": 0.0839694288340737,
+      "wss_max_Pa": 3.6492724418640137,
+      "yplus_mean": 0.5093293266838302,
+      "yplus_max": 9.074987411499023
+    }
+  },
+  "losses": {
+    "inlet->slot_exit": {
+      "dp_total_Pa": 2.79986585891524,
+      "dp_static_Pa": 72.40993399037521
+    }
+  },
+  "plots": [
+    "line_duct_centerline.png",
+    "slice_y0_Umag.png",
+    "slice_tip_z-0.5_Umag.png",
+    "convergence.png",
+    "streamlines3d.png"
+  ],
+  "timing_s": {
+    "mesh": 70.57,
+    "solve": 353.8,
+    "post": 8.79,
+    "mesh_solve_post_total": 433.16
+  },
+  "np": 4
+}

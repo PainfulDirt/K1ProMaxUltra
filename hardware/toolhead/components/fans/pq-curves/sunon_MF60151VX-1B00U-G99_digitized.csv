@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon MF60151VX-1B00U-G99 (6015 blower 60x60x15, 12 VDC, Vapo, auto-restart + FG; -A99 = 2-wire, same aero)
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage 12 V
+# status: DIGITIZED (manufacturer curve) - table values VERIFIED: 130 mA, 4500 rpm, 6.2 CFM, 0.71 inH2O, 37.7 dBA, 36 g
+# source: https://www.sunon.cz/user/related_files/mf60151vx-1b00u-g99.pdf (Sunon spec, page 5)
+# method: the curve is a vector path in the PDF; read with PyMuPDF get_drawings(); filled outline, centre line on 1 pt scan lines; axis frame x 0..7 CFM = pt 173.28..445.56, y 0..0.8 inH2O = pt 520.20..221.28; resampled to 21 points
+# estimated digitizing error: < +-0.5 % of full scale; check: 0.710 inH2O / 6.21 CFM vs table 0.71 / 6.2
+# derived end points: dP(Q=0) = 176.9 Pa (0.710 inH2O, 18.04 mmH2O); Q(dP=0) = 2.9274e-03 m3/s (6.20 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,176.87
+1.463689e-04,171.94
+2.927378e-04,167.00
+4.391067e-04,162.07
+5.854756e-04,157.14
+7.318445e-04,151.95
+8.782134e-04,146.55
+1.024582e-03,140.59
+1.170951e-03,134.19
+1.317320e-03,126.45
+1.463689e-03,117.05
+1.610058e-03,107.34
+1.756427e-03,97.77
+1.902796e-03,87.55
+2.049165e-03,75.92
+2.195534e-03,63.35
+2.341902e-03,50.75
+2.488271e-03,38.09
+2.634640e-03,25.34
+2.781009e-03,12.63
+2.927378e-03,0.00

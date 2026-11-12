@@ -1,0 +1,27 @@
+# Delta BFB0524HH "minimum spec" unit, derived for the CFD fan-curve sensitivity (Duct-Design & CFD agent)
+# = delta_BFB0524HH_digitized.csv with Q x 0.730 (min 0.095 / typ 0.130 m3/min) and dP x 0.715 (min 15.72 / typ 22.00 mmH2O),
+#   both ratios from the Delta spec sheet limited values (research/03 s10). Shape unchanged (assumption).
+Q_m3_per_s,dP_Pa
+0.000000e+00,154.36
+7.931545e-05,152.17
+1.586308e-04,150.02
+2.379463e-04,147.95
+3.172617e-04,145.62
+3.965771e-04,143.47
+4.758925e-04,141.28
+4.866667e-04,140.82
+5.552080e-04,136.99
+6.345234e-04,132.59
+7.138388e-04,128.14
+7.931545e-04,123.69
+8.724697e-04,119.29
+8.881669e-04,118.13
+9.517850e-04,108.32
+1.031100e-03,97.23
+1.110416e-03,86.54
+1.189731e-03,74.61
+1.269047e-03,59.30
+1.348363e-03,43.33
+1.427678e-03,28.63
+1.506993e-03,13.99
+1.586308e-03,0.00
