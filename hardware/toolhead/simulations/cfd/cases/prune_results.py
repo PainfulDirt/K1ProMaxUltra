@@ -8,7 +8,10 @@ from PIL import Image
 
 RES = Path(__file__).resolve().parents[1] / "results"
 KEEP_CASES = {"STOCK_part_proxy_L2", "S1_part_proxy_L2", "S2_part_proxy_L2", "S7_part_proxy_L2",
-              "S7_lidar_estimated_L2", "STOCK_lidar_estimated_L2", "REF_part_proxy_L2"}
+              "S7_lidar_estimated_L2", "STOCK_lidar_estimated_L2", "REF_part_proxy_L2", "S7_part_proxy_L3",
+              # review round (cfd-report s17)
+              "S8_part_proxy_L2", "STOCK_part_proxy_r8_L2", "S8_lidar_estimated_L2", "S8_plate_proxy_L2",
+              "S8_probe_proxy_L2"}
 KEEP_IN_OTHERS = set()
 
 

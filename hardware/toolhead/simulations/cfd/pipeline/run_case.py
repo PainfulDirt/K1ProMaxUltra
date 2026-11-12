@@ -288,8 +288,10 @@ def write_case(cfg, case: Path, level: int, np_: int, solver_only: bool = False)
                    'executeControl timeStep; executeInterval 1; '
                    f'writeControl writeTime; log false; patches ({" ".join(walls)}); }}')
     if sol.get("average_start") is not None:
+        # phi is averaged too: the mean of the per-iteration (continuity-satisfying) face fluxes is itself
+        # conservative, so the thermal proxy can be solved on the frozen averaged flow (step_thermal)
         avg = " ".join(f"{f} {{ mean on; prime2Mean off; base iteration; }}"
-                       for f in (["U", "p"] + (["wallShearStress"] if walls else [])))
+                       for f in (["U", "p", "phi"] + (["wallShearStress"] if walls else [])))
         fos.append('    fieldAverage1 { type fieldAverage; libs ("libfieldFunctionObjects.so"); '
                    f'writeControl writeTime; timeStart {sol["average_start"]}; restartOnRestart false; '
                    f'fields ( {avg} ); }}')
@@ -519,7 +521,11 @@ def step_solve(cfg, case, np_, meta):
 
 # --------------------------------------------------------------------------- thermal proxy (optional)
 THERMAL_DEFAULTS = {"T_inf": 45.0, "walls": {}, "Pr": 0.71, "Prt": 0.85, "iters": 150,
-                    "k_air": 0.0275, "cp": 1007.0}
+                    "k_air": 0.0275, "cp": 1007.0,
+                    # "frozen_mean" (default when the flow run averaged phi): scalar on the frozen iteration-
+                    # averaged flux phiMean, temperatures relative to T_inf, bounded limitedLinear after an
+                    # upwind start. "restart" = the original method (scalar on the still-iterating flow).
+                    "method": "frozen_mean", "upwind_iters": 10, "max_balance_error": 0.05}
 
 
 def latest_time_dir(case: Path):
@@ -533,6 +539,11 @@ def step_thermal(cfg, case, np_, meta):
     adiabatic. Steady, no buoyancy, no radiation, no conduction in solids."""
     th = deep_update(copy.deepcopy(THERMAL_DEFAULTS), cfg.get("thermal", {}))
     cfg["thermal"] = th
+    if th["method"] == "frozen_mean":
+        if (latest_time_dir(case) / "phiMean").exists():
+            return step_thermal_frozen(cfg, case, np_, meta)
+        th["method"] = "restart"
+        th["method_note"] = "phiMean not available (flow run predates phi averaging): restart method"
     bnd = read_boundary(case)
     last = latest_time_dir(case)
     t0 = float(last.name)
@@ -602,6 +613,111 @@ def step_thermal(cfg, case, np_, meta):
     shutil.copy(case / "log.simpleFoam.flow", case / "log.simpleFoam")      # convergence report = flow run
     meta["thermal_restart_from"] = t0
     meta["thermal_end"] = end
+    return t
+
+
+def step_thermal_frozen(cfg, case, np_, meta):
+    """Thermal proxy on the frozen, iteration-averaged flow (review R-08).
+    theta = T - T_inf is transported by phiMean (the fieldAverage mean of the per-iteration face fluxes,
+    conservative because each sample is) with D = nu/Pr + nut/Prt; nut is the SST viscosity of the restart
+    (the flow equations keep iterating but no longer move the scalar's flux). Relative temperatures keep any
+    residual continuity error from acting on a large offset. Stage 1: upwind (linear, converges in a few
+    iterations); stage 2: bounded limitedLinear started from it. Fields UMean/pMean/... of the flow run are
+    copied to the final time so post-processing reports the same flow."""
+    th = cfg["thermal"]
+    Tinf = float(th["T_inf"])
+    bnd = read_boundary(case)
+    last = latest_time_dir(case)
+    t0 = float(last.name)
+    ents = []
+    for name, b in bnd.items():
+        s = cfg["surfaces"].get(name)
+        kind = surface_kind(s) if s else meta["block_types"].get(name, "wall")
+        if b["type"] in ("symmetry", "symmetryPlane", "empty"):
+            ents.append(f"    {name} {{ type {b['type']}; }}")
+        elif kind == "inlet":
+            ents.append(f"    {name} {{ type fixedValue; value uniform 0; }}")
+        elif kind == "atmosphere":
+            ents.append(f"    {name} {{ type inletOutlet; phi phiMean; inletValue uniform 0; value uniform 0; }}")
+        elif name in th["walls"]:
+            ents.append(f"    {name} {{ type fixedValue; value uniform {float(th['walls'][name]) - Tinf}; }}")
+        else:
+            ents.append(f"    {name} {{ type zeroGradient; }}")
+    (last / "T").write_text("FoamFile { version 2.0; format ascii; class volScalarField; object T; }\n\n"
+                            "// theta = T - T_inf [K]\n"
+                            "dimensions [0 0 0 1 0 0 0];\ninternalField uniform 0;\n\n"
+                            "boundaryField\n{\n" + "\n".join(ents) + "\n}\n")
+    sch0 = (case / "system/fvSchemes").read_text()
+    sch0 = re.sub(r"\n\s*div\(phi(Mean)?,T\)[^\n]*", "", sch0)
+
+    def schemes(conv):
+        # the FO looks the convection scheme up as div(phi,T) whatever flux it transports: give both keys
+        (case / "system/fvSchemes").write_text(sch0.replace(
+            "div(phi,k)", f"div(phiMean,T)  {conv};\n    div(phi,T)      {conv};\n    div(phi,k)", 1))
+    sol = (case / "system/fvSolution").read_text()
+    if "\n    T\n" not in sol:
+        sol = sol.replace("solvers\n{", "solvers\n{\n    T\n    {\n        solver PBiCGStab; preconditioner DILU; "
+                                          "tolerance 1e-12; relTol 0; maxIter 5000;\n    }", 1)
+    if "T 1;" not in sol:
+        sol = re.sub(r"equations\s*\{", "equations { T 1;", sol, count=1)
+    (case / "system/fvSolution").write_text(sol)
+    fo = ['    readMeans { type readFields; libs ("libfieldFunctionObjects.so"); fields (phiMean); }',
+          f'    scalarT {{ type scalarTransport; libs ("libsolverFunctionObjects.so"); field T; phi phiMean; '
+          f'alphaD {1.0 / th["Pr"]:.6g}; alphaDt {1.0 / th["Prt"]:.6g}; nCorr 2; resetOnStartUp false; '
+          f'writeControl writeTime; schemesField T; }}']
+    inl = [k for k, s in cfg["surfaces"].items() if surface_kind(s) == "inlet"]
+    atm = [k for k, t in meta["block_types"].items() if t == "atmosphere"]
+    for pn in inl + atm:
+        fo.append(f'    hflux_{pn} {{ type surfaceFieldValue; libs ("libfieldFunctionObjects.so"); writeControl timeStep; '
+                  f'writeInterval 1; log false; writeFields false; regionType patch; name {pn}; operation weightedSum; '
+                  f'weightField phiMean; fields (T); }}')
+    cd0 = (case / "system/controlDict").read_text()
+    cd0 = re.sub(r"\n\s*fieldAverage1 \{[^\n]*", "", cd0)        # means stay as written by the flow run
+    cd0 = re.sub(r"\n\s*(scalarT|readMeans|hflux_\w+) \{[^\n]*", "", cd0)
+    cd0 = re.sub(r"\nstopAt\s+\w+;", "\nstopAt          endTime;", cd0)
+    cd0 = cd0.replace("functions\n{", "functions\n{\n" + "\n".join(fo), 1)
+    means = [f.name for f in last.iterdir() if f.name.endswith("Mean")]
+    if not (case / "log.simpleFoam.flow").exists():          # keep the flow log through re-runs
+        shutil.copy(case / "log.simpleFoam", case / "log.simpleFoam.flow")
+    t = {}
+    logs = []
+    sol_ = dict(cfg["solver"], watchdog=False)
+    cfg2 = dict(cfg, solver=sol_)
+    start = int(round(t0))
+    for stage, (conv, n) in enumerate((("bounded Gauss upwind", int(th["upwind_iters"])),
+                                       ("bounded Gauss limitedLinear 1", int(th["iters"])))):
+        schemes(conv)
+        wi = 10                                          # endTime must be a write time (purgeWrite keeps 1)
+        end = ((start + n + wi - 1) // wi) * wi
+        cd = re.sub(r"\nendTime\s+[^;]+;", f"\nendTime         {end};", cd0)
+        cd = re.sub(r"\nwriteInterval\s+[^;]+;", f"\nwriteInterval   {wi};", cd)
+        (case / "system/controlDict").write_text(cd)
+        for d in case.glob("processor*"):
+            shutil.rmtree(d)
+        dp = case / "system/decomposeParDict"
+        dp.write_text(re.sub(r"numberOfSubdomains\s+\d+;", f"numberOfSubdomains {np_};", dp.read_text()))
+        cur = latest_time_dir(case)
+        for m in means:                                  # every restart time carries the flow means
+            if not (cur / m).exists():
+                shutil.copy(last / m, cur / m)
+        if np_ > 1:
+            t[f"decomposePar_{stage}"] = run_foam("decomposePar -force -latestTime", case, f"log.decomposePar.thermal{stage}")
+        t[f"simpleFoam_thermal_{stage}"], _ = run_solver_watched(cfg2, case, np_)
+        if np_ > 1:
+            t[f"reconstructPar_{stage}"] = run_foam("reconstructPar -latestTime", case, f"log.reconstructPar.thermal{stage}")
+        shutil.copy(case / "log.simpleFoam", case / f"log.simpleFoam.thermal{stage}")
+        logs.append(case / f"log.simpleFoam.thermal{stage}")
+        start = end
+    fin = latest_time_dir(case)
+    for m in means:
+        shutil.copy(last / m, fin / m)
+    shutil.copy(case / "log.simpleFoam.flow", case / "log.simpleFoam")
+    res = [float(x) for x in re.findall(r"Solving for T, Initial residual = ([0-9.eE+-]+)", logs[-1].read_text())]
+    meta["thermal_restart_from"] = t0
+    meta["thermal_end"] = start
+    meta["thermal_method"] = "frozen_mean"
+    meta["thermal_T_initial_residual_last"] = res[-1] if res else None
+    th["relative"] = True
     return t
 
 

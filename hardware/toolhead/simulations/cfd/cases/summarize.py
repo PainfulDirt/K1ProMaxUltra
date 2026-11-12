@@ -73,6 +73,11 @@ def row(res, dirname=None):
         r["side3_Unear_min"] = round(min(s.get("Unear_mean", 0) for s in sides), 3)
         r["side3_Unear_by_face"] = " ".join(f"{k.split('_')[2]}:{wr[k].get('Unear_mean', 0):.2f}"
                                             for k in sorted(wr) if k.startswith("part_side_"))
+        for k in wr:                                   # per-face columns (review R-11)
+            if k.startswith("part_side_"):
+                fc = k.split("_")[2]
+                r[f"side_{fc}_Unear"] = round(wr[k].get("Unear_mean", float("nan")), 3)
+                r[f"side_{fc}_wss_Pa"] = round(wr[k].get("wss_mean_Pa", float("nan")), 4)
     for k in ("lidar_line", "lidar_window"):
         if "Umag_mean_area" in pl.get(k, {}):
             r[f"{k}_U_mean"] = round(pl[k]["Umag_mean_area"], 3)
@@ -103,6 +108,11 @@ def row(res, dirname=None):
         r["fans_g"] = 24.0
         r["delta_mass_vs_stock_g"] = 0.0
     th = res.get("thermal", {})
+    if th:
+        r["thermal_method"] = th.get("method", "restart")
+        r["thermal_balance_err"] = round(_g(th, "balance", "rel_error") or float("nan"), 4)
+        r["thermal_status"] = th.get("status", "proxy, energy balance unclosed"
+                                     if abs(_g(th, "balance", "rel_error") or 1) > 0.05 else "balance closed")
     for k, v in th.get("regions", {}).items():
         if "h_mean_W_m2K" in v:
             r[f"h_{k}"] = round(v["h_mean_W_m2K"], 1)

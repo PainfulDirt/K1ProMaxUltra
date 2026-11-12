@@ -1,10 +1,10 @@
 {
   "schema": "k1-toolhead duct interface",
-  "version": "v3-final",
+  "version": "v4-final",
   "final_mount_points": true,
   "frame": "nozzle frame: origin nozzle tip, +X right, +Y rear, +Z up, mm",
-  "duct_param_set": "S7",
-  "label": "S7 = S4 + bottom-lip chamfer (printable, S4 port interior)",
+  "duct_param_set": "S8",
+  "label": "S8: S7 nozzle end, review round (layout b, sock clearance 4.5 mm, flat base Z 3.0)",
   "fans": {
     "F": {
       "type": "4020",
@@ -69,15 +69,47 @@
         }
       ],
       "mass_g": 24.0,
-      "status": "ESTIMATED outlet size and hole positions (generic frames); measure (M7)"
+      "status": "ESTIMATED outlet size and hole positions (generic frames); measure (M7)",
+      "outlet_nozzle": {
+        "depth_mm": 4.0,
+        "outer_size_mm": [
+          13.0,
+          17.0
+        ],
+        "status": "ESTIMATED (same as structure/cooling.py FAN_NOZZLE_DEPTH), M7"
+      },
+      "m7_dependency": {
+        "outlet_size": [
+          13.0,
+          17.0
+        ],
+        "outlet_right_inset": 0.0,
+        "outlet_front_inset": 1.5,
+        "nozzle_protrusion": 0.0,
+        "nozzle_depth": 4.0,
+        "spout_wall": 1.0,
+        "holes_xz": [
+          [
+            -18.65,
+            60.3
+          ],
+          [
+            16.05,
+            25.6
+          ]
+        ],
+        "status": "outlet ESTIMATED (02:C8), holes DERIVED from a generic fan (02:C7), spout MISSING: all M7",
+        "contradiction": "lower-right hole (16.05, 25.6) lies in the ESTIMATED outlet column X 5.7..18.7 (M7)",
+        "update": "one line each in cad/source/ducts/duct_generator.py FAN4020_M7 (outlet_size, outlet_right_inset, outlet_front_inset, nozzle_depth, holes_xz)"
+      }
     }
   },
-  "fan_mounting": "fans are held by the cooling-module frame (Structure) through their own corner holes; screw_bosses give hole centre, axis and length through the fan frame. The duct's fan socket slides over the fan outlet nozzle (4 mm deep, 1.0 mm clearance per side, ESTIMATED).",
+  "fan_mounting": "fans are held by the cooling-module frame (Structure) through their own corner holes; screw_bosses give hole centre, axis and length through the fan frame. The duct's socket encloses the outlet nozzle on all four sides (0.25 mm clearance per side, 0.25 mm under the fan body, notched around the lower-right fan screw shank/head with >= 0.6 mm); leakage path = those slots.",
   "duct_attach_points": [
     {
       "id": "T_left",
       "hole_centre": [
-        -7.5,
+        -2.0,
         -37.75,
         19.5
       ],
@@ -119,23 +151,46 @@
         7.0
       ],
       "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+    },
+    {
+      "id": "T_3",
+      "hole_centre": [
+        -3.0,
+        -37.75,
+        9.0
+      ],
+      "screw": "M3",
+      "screw_axis": [
+        0,
+        1,
+        0
+      ],
+      "mating_face": {
+        "face_y": -36.5
+      },
+      "tab_size_mm": [
+        7.0,
+        2.5,
+        7.0
+      ],
+      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
     }
   ],
   "duct_envelope": {
     "min": [
       -21.3,
       -56.5,
-      2.44
+      3.0
     ],
     "max": [
       31.0,
-      27.5,
+      9.8,
       63.4
     ]
   },
   "keep_clear_for_duct": "the duct body's space: see duct_envelope and the STEP; the frame must not enter the duct air path or come within 3 mm of the sock (interfaces.HOT_ZONE_CLEARANCE)",
   "duct_materials": "nozzle end PC or PA-CF (DD-07); printed upright, fan socket up",
-  "duct_mass_g": 9.24,
+  "duct_mass_g": 9.4,
   "keepout_violations_mm3": {},
   "soft_limit_excess_mm": {
     "FRONT_LIMIT_Y": 1.5,
@@ -149,6 +204,50 @@
     "open_side_area_mm2": 300.0,
     "note": "gap between PCB component zone front and the part-fan rear face over the 3010; stock is -1.3 mm (fan overlaps the ESTIMATED zone), so >= stock keeps the stock intake path"
   },
+  "review_checks": {
+    "rear_footprint": {
+      "behind_y": 10.0,
+      "volume_behind_mm3": 0.0,
+      "excess_mm3": 0.0,
+      "body_max_y": 9.8
+    },
+    "sock_clearance_mm": 4.543,
+    "manifold_inner_wall_to_sock_mm": 7.8,
+    "lowest_z": 3.0,
+    "margins_mm": {
+      "HOT_ZONE_CLEARANCE": 1.543,
+      "DUCT_MIN_Z": 1.0
+    },
+    "fan_interface": {
+      "F": {
+        "overlap_with_fan_solid_mm3": 0.0,
+        "screws": [
+          {
+            "xz": [
+              -18.65,
+              60.3
+            ],
+            "shank_gap_mm": 38.05,
+            "head_gap_mm": 37.441
+          },
+          {
+            "xz": [
+              16.05,
+              25.6
+            ],
+            "shank_gap_mm": 0.6,
+            "head_gap_mm": 0.6
+          }
+        ]
+      }
+    },
+    "print": {
+      "orientation": "upright, nozzle-frame +Z = print Z, base plane on the bed",
+      "bed_contact_mm2": 1378.2,
+      "overhang_gt45_external_mm2 (support area)": 94.5,
+      "overhang_gt45_in_air_path_mm2": 4.78
+    }
+  },
   "generated_by": "cad/source/ducts/duct_generator.py::write_interface_file",
-  "status_note": "FINAL mount points for the released duct parameter set (PARAMS_FINAL)."
+  "status_note": "FINAL mount points for the released duct parameter set (PARAMS_FINAL). v4 = S8 (Phase 6 review round): 3 tabs (T_left, T_right, T_3), nothing behind Y +10, four-sided fan socket, flat base. Fan outlet, nozzle and hole positions remain ESTIMATED/DERIVED (M7, see fans.F.m7_dependency)."
 }

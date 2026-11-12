@@ -1,0 +1,355 @@
+{
+  "name": "S8",
+  "label": "S8: S7 nozzle end, review round (layout b, sock clearance 4.5 mm, flat base Z 3.0)",
+  "keepout_violations_mm3": {},
+  "envelope": {
+    "min": [
+      -21.3,
+      -56.5,
+      3.0
+    ],
+    "max": [
+      31.0,
+      9.8,
+      63.4
+    ]
+  },
+  "soft_limit_excess_mm": {
+    "FRONT_LIMIT_Y": 1.5,
+    "width_right_of_nozzle_mm": 31.0,
+    "width_left_of_nozzle_mm": 21.3
+  },
+  "intake_window_3010": {
+    "ok": true,
+    "gap_mm": 5.0,
+    "stock_gap_mm": -1.3,
+    "open_side_area_mm2": 300.0,
+    "note": "gap between PCB component zone front and the part-fan rear face over the 3010; stock is -1.3 mm (fan overlaps the ESTIMATED zone), so >= stock keeps the stock intake path"
+  },
+  "printability": {
+    "orientation": "upright (nozzle-frame +Z = print Z), fan socket on top; flat base plane on the bed, external supports only under the tab arms and the socket",
+    "air_path_overhangs": {
+      "print_up": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "limit_deg": 45.0,
+      "air_surface_mm2": 4203.945349943886,
+      "overhang_area_mm2": 3.1814653433445663,
+      "worst_face_angle_from_horizontal_deg": 90.0
+    },
+    "wall_mm": 1.2,
+    "min_channel_mm": 3.0
+  },
+  "mass": {
+    "body_volume_cm3": 7.836,
+    "volume_within_15mm_of_heater_cm3": 1.492,
+    "mass_all_PC_g": 9.4,
+    "mass_all_ASA_g": 8.38,
+    "mass_PC_near_ASA_rest_g": 8.58,
+    "fans_g": 24.0,
+    "fan_types": {
+      "F": "4020"
+    },
+    "total_PC_g": 33.4,
+    "notes": "fan masses from interfaces.py: Creality K1 stock 4020 blower 24.0 g ESTIMATED; duct at 100 % infill; screws/inserts not included"
+  },
+  "ports": [
+    {
+      "az": 240,
+      "r_o": 17.895,
+      "L": 3.228,
+      "w": 7.5,
+      "w_back": 8.853,
+      "h": 3.0,
+      "z_ob": 4.324,
+      "z_ot": 7.324,
+      "z_back": [
+        5.829389391113132,
+        10.552256733030429
+      ],
+      "c_out": [
+        -8.947263122599699,
+        -15.497114317030025,
+        5.82405350275499
+      ],
+      "dir_h": [
+        0.30901699437494795,
+        0.9510565162951535,
+        -0.0
+      ],
+      "lat": [
+        0.9510565162951535,
+        -0.30901699437494795,
+        0.0
+      ],
+      "area_mm2": 22.5,
+      "jet_bisector_deg": 35.0,
+      "aim_r_at_part_top": 9.291,
+      "min_channel_mm": 3.0,
+      "inscribed_d_outlet": 2.949
+    },
+    {
+      "az": 275,
+      "r_o": 15.494,
+      "L": 2.973,
+      "w": 7.5,
+      "w_back": 8.939,
+      "h": 3.0,
+      "z_ob": 4.324,
+      "z_ot": 7.324,
+      "z_back": [
+        5.710348411308437,
+        10.296972528015022
+      ],
+      "c_out": [
+        1.3504181064792027,
+        -15.435349587653274,
+        5.82405350275499
+      ],
+      "dir_h": [
+        -0.29237170472273644,
+        0.9563047559630355,
+        -0.0
+      ],
+      "lat": [
+        0.9563047559630357,
+        0.2923717047227365,
+        -0.0
+      ],
+      "area_mm2": 22.5,
+      "jet_bisector_deg": 35.0,
+      "aim_r_at_part_top": 6.891,
+      "min_channel_mm": 3.0,
+      "inscribed_d_outlet": 2.949
+    },
+    {
+      "az": 315,
+      "r_o": 22.405,
+      "L": 2.62,
+      "w": 7.5,
+      "w_back": 8.377,
+      "h": 3.0,
+      "z_ob": 4.324,
+      "z_ot": 7.324,
+      "z_back": [
+        5.545648672498862,
+        9.943772798331771
+      ],
+      "c_out": [
+        15.842640687119339,
+        -15.842640687119346,
+        5.82405350275499
+      ],
+      "dir_h": [
+        -0.8386705679454239,
+        0.5446390350150273,
+        -0.0
+      ],
+      "lat": [
+        0.5446390350150273,
+        0.8386705679454239,
+        -0.0
+      ],
+      "area_mm2": 22.5,
+      "jet_bisector_deg": 35.0,
+      "aim_r_at_part_top": 13.802,
+      "min_channel_mm": 3.0,
+      "inscribed_d_outlet": 2.949
+    },
+    {
+      "az": 355,
+      "r_o": 17.857,
+      "L": 3.823,
+      "w": 7.5,
+      "w_back": 9.106,
+      "h": 3.0,
+      "z_ob": 4.324,
+      "z_ot": 7.324,
+      "z_back": [
+        6.106709920740191,
+        11.146972528015034
+      ],
+      "c_out": [
+        17.78858409427528,
+        -1.556299448426656,
+        5.82405350275499
+      ],
+      "dir_h": [
+        -0.9925461516413221,
+        -0.12186934340514734,
+        -0.0
+      ],
+      "lat": [
+        -0.12186934340514734,
+        0.9925461516413221,
+        0.0
+      ],
+      "area_mm2": 22.5,
+      "jet_bisector_deg": 35.0,
+      "aim_r_at_part_top": 9.253,
+      "min_channel_mm": 3.0,
+      "inscribed_d_outlet": 2.949
+    }
+  ],
+  "outlet_area_total_mm2": 90.0,
+  "manifolds": [
+    {
+      "id": "M",
+      "fan": "F",
+      "W": 9.0,
+      "H_in": 6.246972528015034,
+      "H_in_profile": [
+        [
+          3.84,
+          5.65
+        ],
+        [
+          15.54,
+          5.4
+        ],
+        [
+          31.19,
+          5.04
+        ],
+        [
+          48.0,
+          6.25
+        ]
+      ],
+      "z0": 5.300000000000001,
+      "apex_z": 16.046972528015033,
+      "area_mm2": 76.4727527521353,
+      "az": [
+        231.5,
+        22.46
+      ],
+      "path_length": 58.42308453390896,
+      "inscribed_d": 8.743299683808841
+    }
+  ],
+  "feeds": [
+    {
+      "fan": "F",
+      "kind": "front_plenum",
+      "inlet_area_mm2": 221.0,
+      "drop_area_mm2": 208.0,
+      "plenum_area_mm2": 174.25,
+      "t_eff": 1.2012618565390976,
+      "lean_deg": 2.626405638290786
+    }
+  ],
+  "tabs": [
+    {
+      "id": "T_left",
+      "xyz": [
+        -2.0,
+        -37.75,
+        19.5
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "screw": "M3",
+      "face_y": -36.5,
+      "pad": [
+        7.0,
+        2.5,
+        7.0
+      ],
+      "arm_from_x": 3.5,
+      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+    },
+    {
+      "id": "T_right",
+      "xyz": [
+        24.0,
+        -37.75,
+        22.5
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "screw": "M3",
+      "face_y": -36.5,
+      "pad": [
+        7.0,
+        2.5,
+        7.0
+      ],
+      "arm_from_x": 19.5,
+      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+    },
+    {
+      "id": "T_3",
+      "xyz": [
+        -3.0,
+        -37.75,
+        9.0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "screw": "M3",
+      "face_y": -36.5,
+      "pad": [
+        7.0,
+        2.5,
+        7.0
+      ],
+      "arm_from_x": 2.0,
+      "note": "duct tab, mating face in the fan's rear plane; M3 along +Y into a frame lug insert"
+    }
+  ],
+  "review_checks": {
+    "rear_footprint": {
+      "behind_y": 10.0,
+      "volume_behind_mm3": 0.0,
+      "excess_mm3": 0.0,
+      "body_max_y": 9.8
+    },
+    "sock_clearance_mm": 4.543,
+    "manifold_inner_wall_to_sock_mm": 7.8,
+    "lowest_z": 3.0,
+    "margins_mm": {
+      "HOT_ZONE_CLEARANCE": 1.543,
+      "DUCT_MIN_Z": 1.0
+    },
+    "fan_interface": {
+      "F": {
+        "overlap_with_fan_solid_mm3": 0.0,
+        "screws": [
+          {
+            "xz": [
+              -18.65,
+              60.3
+            ],
+            "shank_gap_mm": 38.05,
+            "head_gap_mm": 37.441
+          },
+          {
+            "xz": [
+              16.05,
+              25.6
+            ],
+            "shank_gap_mm": 0.6,
+            "head_gap_mm": 0.6
+          }
+        ]
+      }
+    },
+    "print": {
+      "orientation": "upright, nozzle-frame +Z = print Z, base plane on the bed",
+      "bed_contact_mm2": 1378.2,
+      "overhang_gt45_external_mm2 (support area)": 94.5,
+      "overhang_gt45_in_air_path_mm2": 4.78
+    }
+  }
+}

@@ -331,3 +331,43 @@ validation case does. The duct results and report are in `documentation/cfd-repo
     at the tip (13 × 13 × 1.7 mm).
 
   Section 4 of the CFD report gives the cell counts.
+
+### 13.1 Review-round extensions (Phase 6 review R-08 / R-09 / R-10 / R-11; backward compatible)
+
+- **phi is averaged too.** With `solver.average_start` set, `fieldAverage` now also averages the face
+  flux `phi` (→ `phiMean`). Each sample satisfies continuity to the pressure-solver tolerance, so the mean
+  is conservative. Flow results are unchanged by this.
+- **Thermal proxy on the frozen mean flow** (`thermal.method = "frozen_mean"`, the default when the flow
+  run wrote `phiMean`; `run_case.step_thermal_frozen`):
+  1. θ = T − T_inf is solved instead of T (inlets and open boundaries θ = 0, walls T_w − T_inf), so residual
+     continuity errors do not act on a 45 K offset;
+  2. `scalarTransport` transports θ with `phi phiMean` (loaded by a `readFields` FO); the flow equations keep
+     iterating but no longer move the scalar's flux; D = ν/Pr + ν_t/Pr_t with the SST ν_t of the restart
+     (the FO's `nut` keyword was tested and does not give a closed balance in v2512, so it is not used);
+  3. stage 1: `bounded Gauss upwind` for `upwind_iters` (10) iterations (a linear problem, converges to
+     ~1e-10 in ~10 iterations); stage 2: `bounded Gauss limitedLinear 1` for `iters` iterations started
+     from it. The FO looks the scheme up as `div(phi,T)` whatever its flux is called, so both keys are written;
+  4. `fieldAverage` is removed for the restart and the flow means (UMean, pMean, phiMean, ...) are copied to
+     the final time, so post-processing reports exactly the flow of the flow run;
+  5. `postprocess.thermal_metrics` reads θ (`thermal.relative`), reports the open-boundary enthalpy flux
+     (weighted by `phiMean`) against the wall input, and labels the result `balance closed` only if
+     |error| ≤ `thermal.max_balance_error` (5 %), else `proxy, energy balance unclosed`.
+
+  Mechanics test [RAN] on the S7 L1 case with a single-iteration flux copied in as `phiMean` (a frozen
+  conservative flux, not yet a mean): θ with that frozen flux closes the balance to −0.6 % (upwind) and
+  −1.3 % (bounded limitedLinear, restarted from upwind). With `nut nutMean` added to the FO the balance was
+  −97 % (the keyword changes D in a way not documented for v2512), so it is not used. Production cases
+  report their own balance (cfd-report §17).
+  `summary.csv` gets `thermal_method`, `thermal_balance_err`, `thermal_status`.
+- **Environments** (`export_for_cfd.py --env`): `plate` = a 120 × 120 mm part proxy (same top Z) in an
+  enlarged air box (X ±80, Y −85…75); `probe` = the 20 mm part plus the MicroProbe V2 body as a wall
+  (flange footprint 21.93 × 15.6 at `PROBE_BODY_Y`, down to the body bottom Z 2.77, stowed pin Ø2 to Z 1.45;
+  plus the 785004 adapter box; all ESTIMATED).
+- **Inlet-profile sensitivity** (`export_for_cfd.py --inlet-split F --inlet-q Q`; `run_cases.py
+  --geom=--inlet-split=F --geom=--inlet-q=Q`): the fan-outlet patch is split into its −X and +X halves
+  with fixed flow rates F·Q on the +X half (the stock 4020's scroll outer-wall side) and (1 − F)·Q on the
+  other, Q held at the uniform-inlet operating point.
+- **Solver-only tags** (`lam`, `laminar`) re-use the mesh of the untagged (or `r8`) case of the same
+  design/env/curve/level.
+- **Per-face side metrics** in `summary.csv`: `side_xm/xp/ym/yp_Unear` and `_wss_Pa`
+  (`report_tables.py review <cases>`).

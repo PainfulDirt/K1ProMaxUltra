@@ -103,6 +103,48 @@ def main(which="all", cases=None):
                 d = f"{100 * (vals[2] / vals[1] - 1):+.1f} %"
                 g = f"{125 * abs(vals[2] / vals[1] - 1):.1f} %"
             out.append(f"| {k} | " + " | ".join(f(v, 3) for v in vals) + f" | {d} | {g} |")
+    if which in ("review",):
+        # review round: explicit case list (argv), per-face side metrics (R-11), relative to a named STOCK row
+        sel = [S[c] for c in (cases or []) if c in S]
+        cols = [("case", lambda r: r["case"].replace("_L2", "")),
+                ("Q [L/s]", lambda r: f(r.get("Q_total_Lps"), 3)),
+                ("annulus Z+0.3", lambda r: f(r.get("ann03_U_mean"))),
+                ("weakest sector", lambda r: f(r.get("ann03_U_minsector"))),
+                ("min/mean", lambda r: f(r.get("ann03_min_over_mean"))),
+                ("top r≤5", lambda r: f(r.get("top5_Unear"))),
+                ("cone", lambda r: f(r.get("cone_Unear"))),
+                ("side −X", lambda r: f(r.get("side_xm_Unear"))),
+                ("side +X", lambda r: f(r.get("side_xp_Unear"))),
+                ("side −Y", lambda r: f(r.get("side_ym_Unear"))),
+                ("side +Y", lambda r: f(r.get("side_yp_Unear"))),
+                ("sock bottom", lambda r: f(r.get("sockbot_Unear"))),
+                ("cells", lambda r: f"{(r.get('cells') or 0) / 1e6:.2f} M"),
+                ("iter", lambda r: f(r.get("iterations")))]
+        out.append(table(sel, cols, "Review-round cases (iteration-averaged; m/s; near-wall |U| 0.3 mm from the wall)"))
+    if which in ("robust",):
+        # review R-09/R-10: S8 / STOCK ratios under each model or environment variant (same settings per pair)
+        pairs = [("baseline L2 (k-ω SST, 20 mm part)", "S8_part_proxy_L2", "STOCK_part_proxy_r8_L2"),
+                 ("baseline vs first STOCK run", "S8_part_proxy_L2", "STOCK_part_proxy_L2"),
+                 ("laminar", "S8_part_proxy_lam_L2", "STOCK_part_proxy_lam_L2"),
+                 ("L3 mesh", "S8_part_proxy_L3", "STOCK_part_proxy_r8_L3"),
+                 ("120 mm plate", "S8_plate_proxy_L2", "STOCK_plate_proxy_r8_L2"),
+                 ("MicroProbe body as a wall", "S8_probe_proxy_L2", "STOCK_probe_proxy_r8_L2"),
+                 ("skewed fan outlet (S8 only, vs STOCK r8)", "S8_part_proxy_skew_L2", "STOCK_part_proxy_r8_L2"),
+                 ("long average 750-1500 (S8 only, vs STOCK r8)", "S8_part_proxy_long_L2", "STOCK_part_proxy_r8_L2"),
+                 ("upper 4020 bound", "S8_part_estimated_L2", "STOCK_part_estimated_L2")]
+        keys = [("ann03_U_mean", "annulus"), ("ann03_U_minsector", "weakest sector"), ("top5_Unear", "top r≤5"),
+                ("side_xm_Unear", "−X"), ("side_xp_Unear", "+X"), ("side_ym_Unear", "−Y"), ("side_yp_Unear", "+Y")]
+        out.append("| variant | " + " | ".join(f"{lab} S8 / STOCK (ratio)" for _, lab in keys) + " |")
+        out.append("|---|" + "---|" * len(keys))
+        for lab, a, b in pairs:
+            if a not in S or b not in S:
+                out.append(f"| {lab} | " + " | ".join("not run" for _ in keys) + " |")
+                continue
+            cells = []
+            for k, _ in keys:
+                va, vb = S[a].get(k), S[b].get(k)
+                cells.append(f"{f(va)} / {f(vb)} (×{va / vb:.1f})" if va and vb else "–")
+            out.append(f"| {lab} | " + " | ".join(cells) + " |")
     if which in ("thermal",):
         T = [r for r in S.values() if r["case"].endswith("_thermal")]
         cols = [("case", lambda r: r["case"].replace("_part", "").replace("_L2_thermal", "")),

@@ -53,9 +53,34 @@ def hotend():
     return fuse_all([cone, cyl, sock, neck, hs])
 
 
-def part_proxy():
+def part_proxy(env="part"):
     p = I.PART_PROXY
+    if env == "plate":       # review R-10: large flat part (120 x 120 mm, same top Z) instead of the 20 mm block
+        h = PLATE_HALF
+        return box_solid(-h, h, -h, h, p.zmin - 5.0, p.zmax)
     return box_solid(p.xmin, p.xmax, p.ymin, p.ymax, p.zmin - 5.0, p.zmax)   # penetrates the bed
+
+
+# review R-10 environment variants (ESTIMATED geometry, CFD only)
+PLATE_HALF = 60.0
+DOMAIN_PLATE = {"min": [-80.0, -85.0, float(I.BED_Z)], "max": [80.0, 75.0, 45.0]}
+
+
+def probe_body():
+    """MicroProbe V2 as a solid wall (ESTIMATED): flange footprint 21.93 x 15.6 (BIQU drawing, VERIFIED) at
+    X +-10.97, Y = interfaces.PROBE_BODY_Y (ESTIMATED 12.5..28.1), from the mount face Z 26.75 (ESTIMATED) down
+    to the body bottom 23.98 below it (Z 2.77; BIQU drawing), modelled as one box (the real body is narrower
+    under the flange); stowed pin (d 2, to Z 1.45) included; plus the 785004 adapter box
+    (interfaces.PROBE_ADAPTER_785004, ESTIMATED) clipped at the domain top."""
+    zf = float(I.PROBE_MOUNT_FACE_Z)
+    y0, y1 = float(I.PROBE_BODY_Y[0]), float(I.PROBE_BODY_Y[1])
+    hx = float(I.PROBE_FLANGE[0]) / 2
+    body = box_solid(-hx, hx, y0, y1, zf - 23.98, zf)
+    pin = Solid.make_cylinder(1.0, zf - 23.98 - float(I.PROBE_STOWED_TIP_Z) + 0.5).translate(
+        (float(I.PROBE_X), float(I.PROBE_Y), float(I.PROBE_STOWED_TIP_Z)))
+    a = I.PROBE_ADAPTER_785004
+    ad = box_solid(a.xmin, a.xmax, a.ymin, a.ymax, a.zmin - 0.5, min(a.zmax, DOMAIN["max"][2] + 5.0))
+    return fuse_all([body, pin, ad])
 
 
 def _bb(f):
@@ -76,8 +101,10 @@ def export_env(outdir, env="part"):
         lo, hi = _bb(f)
         return lo[2] >= zs - 1e-6 and hi[2] <= I.SOCK.zmax + 1e-6
     c = export_patches(he, {"nozzle": is_nozzle, "sock": is_sock}, default="heatsink", outdir=outdir)
-    if env == "part":
-        p = part_proxy()
+    if env == "probe":
+        c.update(export_patches(probe_body(), {}, default="probe", outdir=outdir))
+    if env in ("part", "plate", "probe"):
+        p = part_proxy(env)
         top = float(I.PART_PROXY.zmax)
         c.update(export_patches(p, {"part_top": lambda f: f.geom_type.name == "PLANE" and
                                     abs(_bb(f)[0][2] - top) < 1e-6 and abs(_bb(f)[1][2] - top) < 1e-6},
@@ -112,6 +139,30 @@ def export_duct(params, outdir, parts=None):
     return parts, counts, areas
 
 
+def split_inlet(outdir, cfg, fid, frac_xp, Q_Lps):
+    """Review R-09 inlet-profile sensitivity: split the fan outlet patch into its -X and +X halves and impose
+    fixed flow rates (fraction frac_xp of Q through the +X half = the scroll's outer-wall side of the stock
+    4020, whose outlet blows -Z at the fan's right edge). Q is held at the uniform-inlet operating point."""
+    import trimesh
+    f = Path(outdir) / f"inlet_{fid}.stl"
+    m = trimesh.load(f, force="mesh")
+    lo, hi = m.bounds
+    z = float(lo[2])
+    nz = float(np.sign(m.face_normals[:, 2].mean()))
+    xm = 0.5 * (lo[0] + hi[0])
+    surf = cfg["surfaces"].pop(f"inlet_{fid}")
+    for tag, (x0, x1), fr in (("a", (lo[0], xm), 1.0 - frac_xp), ("b", (xm, hi[0]), frac_xp)):
+        v = np.array([[x0, lo[1], z], [x1, lo[1], z], [x1, hi[1], z], [x0, hi[1], z]])
+        faces = np.array([[0, 1, 2], [0, 2, 3]]) if nz > 0 else np.array([[0, 2, 1], [0, 3, 2]])
+        trimesh.Trimesh(v, faces, process=False).export(Path(outdir) / f"inlet_{fid}{tag}.stl")
+        s2 = dict(surf, file=f"inlet_{fid}{tag}.stl", bc={"kind": "flowRate", "Q_m3_s": fr * Q_Lps * 1e-3})
+        cfg["surfaces"][f"inlet_{fid}{tag}"] = s2
+    f.unlink()
+    cfg["_design"]["inlet_split"] = {"fan": fid, "fraction_+X_half": frac_xp, "Q_Lps": Q_Lps,
+                                     "velocity_ratio_+X/-X": round(frac_xp / (1 - frac_xp), 3)}
+    return cfg
+
+
 def fan_csv(ftype, curve="estimated"):
     names = {("4020", "estimated"): "creality_K1_stock_4020_blower.csv",
              ("4020", "proxy"): "creality_K1_stock_4020_blower_proxy-scaled.csv",
@@ -131,15 +182,19 @@ def case_config(params, rep, info, areas, env="part", curve="estimated", name=No
         "sock": {"file": "sock.stl", "type": "wall", "level": [3, 3], "feature_level": 3},
         "heatsink": {"file": "heatsink.stl", "type": "wall", "level": [1, 2], "feature_level": 2},
     }
-    if env == "part":
+    lidar = env == "lidar"
+    if env == "probe":
+        surf["probe"] = {"file": "probe.stl", "type": "wall", "level": [2, 3], "feature_level": 2}
+    if not lidar:
         surf["part_top"] = {"file": "part_top.stl", "type": "wall", "level": [3, 3], "feature_level": 3}
         surf["part_side"] = {"file": "part_side.stl", "type": "wall", "level": [2, 2], "feature_level": 2}
     for fid, fan in params["fans"].items():
         ft = fan.get("curve_type", fan["type"])
         surf[f"inlet_{fid}"] = {"file": f"inlet_{fid}.stl", "type": "inlet", "level": [3, 3],
                                 "bc": {"kind": "fan", "csv": fan_csv(ft, curve)}}
-    dmin = list(DOMAIN["min"])
-    z_eval = -0.1 if env == "part" else -2.9
+    dom = DOMAIN_PLATE if env == "plate" else DOMAIN
+    dmin = list(dom["min"])
+    z_eval = -2.9 if lidar else -0.1
     if env == "lidar":
         dmin[2] = -3.0
     planes = [
@@ -183,17 +238,17 @@ def case_config(params, rep, info, areas, env="part", curve="estimated", name=No
             loss.append([f"inlet_{fid}", f"port_{g['az']}"])
         lines.append({"name": f"feed_{fid}_centerline", "points": [p.round(3).tolist() for p in cl]})
     # LiDAR line region (dedicated check uses the bed at Z -3; here it is the part-top level)
-    planes.append({"name": "lidar_line", "type": "rect", "origin": [-36.2, -21.34, z_eval if env == "lidar" else -0.5],
+    planes.append({"name": "lidar_line", "type": "rect", "origin": [-36.2, -21.34, z_eval if lidar else -0.5],
                    "normal": [0, 0, 1], "u": [1, 0, 0], "half": [14.6, 1.5], "ds_mm": 0.2})
     # LiDAR window region proxy: just below the module body underside (Z 18..22, research/01 §H)
     # LiDAR window region proxy: 1 mm under the module body (underside ~Z 22, outside the stock cover
     # X <= -24, research/01 H): X -58..-25, Y -30..-5
     planes.append({"name": "lidar_window", "type": "rect", "origin": [-41.5, -17.5, 21.0], "normal": [0, 0, 1],
                    "u": [1, 0, 0], "half": [16.5, 12.5], "ds_mm": 0.4})
-    points += [{"name": "lidar_line_centre", "xyz": [-36.0, -21.34, z_eval if env == "lidar" else -0.5]},
+    points += [{"name": "lidar_line_centre", "xyz": [-36.0, -21.34, z_eval if lidar else -0.5]},
                {"name": "below_tip", "xyz": [0, 0, z_eval]}]
     walls = []
-    if env == "part":
+    if not lidar:
         walls += [{"name": "part_top_r5", "patch": "part_top", "r_max": 5.0},
                   {"name": "part_top_r10", "patch": "part_top", "r_max": 10.0},
                   {"name": "part_top_all", "patch": "part_top"}]
@@ -206,19 +261,19 @@ def case_config(params, rep, info, areas, env="part", curve="estimated", name=No
         "name": name or f"{params['name']}_{env}_{curve}",
         "stl_dir": ".",
         "surfaces": surf,
-        "domain": {"min": dmin, "max": DOMAIN["max"], "cell_mm": 3.2,
+        "domain": {"min": dmin, "max": dom["max"], "cell_mm": 3.2,
                    "patches": {"zmin": {"name": "bed", "type": "wall"}}},
-        "location_in_mesh": [55.0, -65.0, max(dmin[2] + 3.0, -10.0)],
+        "location_in_mesh": [70.0, -75.0, -10.0] if env == "plate" else [55.0, -65.0, max(dmin[2] + 3.0, -10.0)],
         "refinement_boxes": [
-            {"name": "near", "min": [-30, -30, dmin[2] if env == "lidar" else -3.0], "max": [32, 26, 14], "level": 2},
-            {"name": "jets", "min": [-17, -17, -0.2 if env == "part" else -3.0], "max": [17, 17, 6.5], "level": 3},
-            {"name": "tip", "min": [-6.5, -6.5, -0.2 if env == "part" else -3.0], "max": [6.5, 6.5, 1.5], "level": 4},
+            {"name": "near", "min": [-30, -30, dmin[2] if lidar else -3.0], "max": [32, 26, 14], "level": 2},
+            {"name": "jets", "min": [-17, -17, -3.0 if lidar else -0.2], "max": [17, 17, 6.5], "level": 3},
+            {"name": "tip", "min": [-6.5, -6.5, -3.0 if lidar else -0.2], "max": [6.5, 6.5, 1.5], "level": 4},
         ],
         "probes": {"planes": planes, "points": points, "lines": lines, "walls": walls},
         "loss_pairs": loss,
         "plots": {"slices": [
-            {"name": "xz_y0", "axis": "y", "value": 0.0, "range": [[-30, 34], [-4 if env == "part" else -3.5, 26]]},
-            {"name": "yz_x0", "axis": "x", "value": 0.0, "range": [[-36, 28], [-4 if env == "part" else -3.5, 26]]},
+            {"name": "xz_y0", "axis": "y", "value": 0.0, "range": [[-30, 34], [-3.5 if lidar else -4, 26]]},
+            {"name": "yz_x0", "axis": "x", "value": 0.0, "range": [[-36, 28], [-3.5 if lidar else -4, 26]]},
             {"name": "xy_zeval", "axis": "z", "value": z_eval, "range": [[-26, 26], [-26, 26]]},
             {"name": "xy_z4", "axis": "z", "value": 4.0, "range": [[-34, 34], [-34, 30]]}],
             "streamlines": True,
@@ -244,10 +299,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("param_set")
     ap.add_argument("outdir")
-    ap.add_argument("--env", default="part", choices=["part", "lidar"])
+    ap.add_argument("--env", default="part", choices=["part", "lidar", "plate", "probe"])
     ap.add_argument("--curve", default="estimated")
     ap.add_argument("--json", help="parameter set JSON file (instead of a named set)")
     ap.add_argument("--name")
+    ap.add_argument("--inlet-split", type=float, help="fraction of Q through the +X half of the fan outlet (R-09)")
+    ap.add_argument("--inlet-q", type=float, help="total flow [L/s] with --inlet-split")
     a = ap.parse_args(argv)
     params = json.loads(Path(a.json).read_text()) if a.json else get_params(a.param_set)
     out = Path(a.outdir)
@@ -259,6 +316,9 @@ def main(argv=None):
     rep = build_info(params, parts)
     info = parts["_info"]
     cfg = case_config(params, rep, info, areas, env=a.env, curve=a.curve, name=a.name)
+    if a.inlet_split is not None:
+        for fid in params["fans"]:
+            split_inlet(out, cfg, fid, a.inlet_split, a.inlet_q)
     (out / "case.json").write_text(json.dumps(cfg, indent=1, default=float))
     (out / "geometry_report.json").write_text(json.dumps(rep, indent=1, default=float))
     (out / "params.json").write_text(json.dumps(params, indent=1, default=float))

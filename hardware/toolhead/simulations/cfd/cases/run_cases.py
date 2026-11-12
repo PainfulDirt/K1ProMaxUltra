@@ -38,15 +38,18 @@ KEEP_PNG = ("slice_xz_y0_Umag.png", "slice_yz_x0_Umag.png", "slice_xy_zeval_Umag
             "streamlines3d.png", "convergence.png", "slice_lidar_yz_xm36_Umag.png", "line_feed_F_centerline.png")
 
 
-def geometry(design, env, curve, gdir):
+def geometry(design, env, curve, gdir, geom_opts=None):
     if design == "STOCK":
         from stock_geometry import build
         return build(HERE / "stock", gdir, env, curve)
     import export_for_cfd
-    argv = [design, str(gdir), "--env", env, "--curve", curve]
+    argv = [design, str(gdir), "--env", env, "--curve", curve] + list(geom_opts or [])
     if design.endswith(".json"):
         argv = ["custom", str(gdir), "--env", env, "--curve", curve, "--json", design]
     return export_for_cfd.main(argv)
+
+
+SOLVER_ONLY_TAGS = ("lam", "laminar", "long")   # tags that change only solver settings (mesh re-used)
 
 
 def find_mesh_donor(work, dname, env, curve, tag, level):
@@ -73,7 +76,7 @@ def reuse_mesh(donor, case):
         shutil.copy(f, case / f.name)
 
 
-def run_one(spec, level, np_, sets, tag, keep_png=KEEP_PNG, steps="mesh,solve,post"):
+def run_one(spec, level, np_, sets, tag, keep_png=KEEP_PNG, steps="mesh,solve,post", geom_opts=None):
     parts = spec.split(":")
     design = parts[0]
     env = parts[1] if len(parts) > 1 else "part"
@@ -84,8 +87,14 @@ def run_one(spec, level, np_, sets, tag, keep_png=KEEP_PNG, steps="mesh,solve,po
     gdir = work / "geom" / name
     t0 = time.time()
     if "mesh" in steps:
-        cfg = geometry(design, env, curve, gdir)
+        cfg = geometry(design, env, curve, gdir, geom_opts)
         donor = find_mesh_donor(work, dname, env, curve, tag, level)
+        if donor is None and tag in SOLVER_ONLY_TAGS:   # same geometry, other solver settings: same mesh
+            for alt in ("", "r8"):
+                d = work / (f"{dname}_{env}_{curve}" + (f"_{alt}" if alt else "") + f"_L{level}")
+                if (d / "constant/polyMesh/owner").exists() and (d / "results/case_meta.json").exists():
+                    donor = d
+                    break
         if donor is not None and steps == "mesh,solve,post":      # same geometry, other fan curve
             print(f"  reusing mesh of {donor.name}", flush=True)
             reuse_mesh(donor, work / name)
@@ -126,12 +135,13 @@ def main():
     ap.add_argument("--set", action="append", dest="sets")
     ap.add_argument("--tag", default="")
     ap.add_argument("--steps", default="mesh,solve,post")
+    ap.add_argument("--geom", action="append", default=[], help="extra export_for_cfd option, e.g. --geom=--inlet-split=0.65")
     a = ap.parse_args()
     for spec in a.specs:
         t0 = time.time()
         print(f"===== {spec}", flush=True)
         try:
-            run_one(spec, a.level, a.np, a.sets, a.tag, steps=a.steps)
+            run_one(spec, a.level, a.np, a.sets, a.tag, steps=a.steps, geom_opts=a.geom)
         except Exception as e:  # keep going with the next case
             import traceback
             traceback.print_exc()

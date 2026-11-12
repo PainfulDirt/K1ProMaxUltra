@@ -296,6 +296,7 @@ def thermal_metrics(cfg, case, internal_cells, patches, rho):
     nu = cfg["fluid"]["nu"]
     cp = th["cp"]
     Tinf = th["T_inf"]
+    rel = bool(th.get("relative"))       # frozen_mean method: the solved field is theta = T - T_inf
     out = {"model": "passive scalar on the RANS flow (scalarTransport FO), D = nu/Pr + nut/Prt",
            "T_inf_C": Tinf, "walls_C": th["walls"], "Pr": th["Pr"], "Prt": th["Prt"], "cp": cp,
            "regions": {}}
@@ -318,7 +319,7 @@ def thermal_metrics(cfg, case, internal_cells, patches, rho):
             into = -nrm
             ids = internal_cells.find_containing_cell(C + into * 1e-7)
             ok = ids >= 0
-            Tw = float(th["walls"][pn])
+            Tw = float(th["walls"][pn]) - (Tinf if rel else 0.0)
             nutw = patch.cell_data["nut"] if "nut" in patch.cell_data else np.zeros(len(C))
             dn = np.full(len(C), np.nan)
             TP = np.full(len(C), np.nan)
@@ -344,8 +345,8 @@ def thermal_metrics(cfg, case, internal_cells, patches, rho):
         Q = float((q[m] * Am).sum())
         out["regions"][reg["name"]] = {"area_mm2": float(Am.sum() / MM ** 2), "Q_W": Q,
                                        "q_mean_W_m2": Q / float(Am.sum()),
-                                       "h_mean_W_m2K": Q / float(Am.sum()) / (Tw - Tinf),
-                                       "T_wall_C": Tw, "valid_fraction": float(ok.mean())}
+                                       "h_mean_W_m2K": Q / float(Am.sum()) / (Tw - (0.0 if rel else Tinf)),
+                                       "T_wall_C": Tw + (Tinf if rel else 0.0), "valid_fraction": float(ok.mean())}
     # global balance over open boundaries + fan inlets: rho cp sum(phi T)
     tot, tin = 0.0, 0.0
     for k in list(cfg["surfaces"].keys()) + ["atmosphere"]:
@@ -355,6 +356,15 @@ def thermal_metrics(cfg, case, internal_cells, patches, rho):
     qsum = sum(v["Q_W"] for k, v in out["regions"].items() if k.endswith("_patch"))
     out["balance"] = {"Q_walls_W": qsum, "Q_out_open_boundaries_W": rho * cp * tot,
                       "rel_error": (rho * cp * tot - qsum) / qsum if qsum else None}
+    out["method"] = th.get("method", "restart")
+    if rel:
+        out["model"] = ("passive scalar theta = T - T_inf on the FROZEN iteration-averaged flux phiMean (scalarTransport "
+                        "FO, bounded limitedLinear after an upwind start), D = nu/Pr + nut/Prt")
+    lim = th.get("max_balance_error")
+    if lim is not None and out["balance"]["rel_error"] is not None:
+        out["balance"]["limit"] = lim
+        out["balance"]["closed"] = abs(out["balance"]["rel_error"]) <= lim
+        out["status"] = "balance closed" if out["balance"]["closed"] else "proxy, energy balance unclosed"
     return out
 
 
