@@ -1,8 +1,16 @@
 # Post-install calibration
 
-The calibration procedure after fitting the new cooling module, cover and (later) the probe
-mount on **this** K1 Max. It uses the printer's own macros (`tuning.cfg`, `custom/*.py`, the repo
-`README.md`). Baselines are the values in the repo today:
+The calibration procedure after fitting the new cooling module (frame, stock 4020, S7 duct) and
+cover on **this** K1 Max, and later the probe mount. It uses the printer's own macros
+(`tuning.cfg`, `custom/*.py`, the repo `README.md`). **No sensor moves** (DD-02, DD-03), so there is
+no sensor recalibration in this procedure, only checks. What does change is the nozzle's airflow
+(MPC), the moving mass (input shaper, twist) and the front envelope (clearances).
+
+No printer config file in the repo is changed by this project. Every `SAVE_CONFIG` below writes
+the printer's own calibration results, as the printer's macros already do.
+
+Baselines are the values in the repo today (MEASURED on this printer by the user's existing
+calibrations):
 
 | Baseline | Value | Source |
 |---|---|---|
@@ -27,18 +35,19 @@ them once the first post-install runs are logged.
 
 | Item | Changes? | Why | Still check? |
 |---|---|---|---|
-| Probe x/y offset | no | probe position kept (DD-03); a new probe mount copies 785004's anchor-to-probe relation | no re-measure. The z_offset check below would reveal a shift |
-| Probe `z_offset` | maybe a little | same probe pose, but a different thermal environment (new duct airflow), and a new mount if one is fitted | **yes**, load-cell method (step F) |
+| Probe x/y offset | no | probe position kept (DD-03); the new probe mount, when released, copies 785004's anchor-to-probe relation | no re-measure. The z_offset check below would reveal a shift |
+| Probe `z_offset` | maybe a little | same probe pose, but a different thermal environment (new duct airflow), and a new mount once one is fitted | **yes**, load-cell method (step F) |
 | `zero_reference_position`, `mesh_min/max`, `screws_tilt_adjust` | no | follow from the probe offset | no |
-| LiDAR pose, offsets, `custom/lidar.py` reach values | no | module and bracket untouched (DD-02) | **yes**, a quick dry-run check (step G), because the cover swap happens right next to the bracket |
-| Axis twist (probe and LiDAR) | probably small | pitch behaviour depends on toolhead mass and CG; the mass delta is −7.3 … +1.6 g (validation report) | **yes** (step H) |
-| Keep-out zones | no, if nothing reaches behind Y +29.1 | new parts end at Y −22.3 (frame); the probe mount rear is 29.10 vs 29.1 for 785004 (validation report) | **verify** (step D), and re-measure if a rear part changed |
-| Front/side clearance | **yes** | new cover front −58.7 vs stock −55.0 (validation WARN; −58.2 with the duct v1) | **yes** (step D) |
-| Input shaper | small | predicted X 77.5–78.2 Hz, Y 51.95–52.23 Hz (validation report) | **yes** (step H). Also watch for a frame mode near 150 Hz (validation WARN: 147 Hz without the 4th pad) |
-| MPC fan model | **yes** | `fan_ambient_transfer` is duct-specific (DD-05, research/03 §3) | **required** (step E) |
+| LiDAR pose, offsets, `custom/lidar.py` reach values | **no** | module and bracket untouched (DD-02) | **check only** (step G): no `LIDAR_OFFSET_CALIBRATION` is run to change anything, because the cover swap happens right next to the bracket |
+| Axis twist (probe and LiDAR) | probably small | pitch behaviour depends on toolhead mass and CG; the mass change is **−0.6 … +8.4 g** (validation report) | **yes** (step H) |
+| Keep-out zones | no, if nothing reaches behind Y +29.1 | new parts end at Y −22.3 (frame), duct body at Y +27.5; the probe mount rear is 29.10 vs 29.1 for 785004 (validation report) | **verify** (step D), and re-measure if a rear part changed |
+| Front/side clearance | **yes** | new cover front **−58.2** vs stock −55.0 (validation WARN, M9); duct body reaches X +31.0 below Z 23 (outside the XY-joint band) | **yes** (step D) |
+| Input shaper | small | predicted X **76.9 … 77.7 Hz**, Y **51.8 … 52.0 Hz** (validation report, ESTIMATED at an X moving mass of 450 g) | **yes** (step H). Also watch for a frame mode near 150 Hz (validation WARN: 147 Hz without the 4th pad) and any duct flutter |
+| MPC fan model | **yes** | `fan_ambient_transfer` is duct-specific (DD-05, research/03 §3); CFD expects the fan's extra nozzle + sock loss to rise by +6.2 … +6.8 W at 100 % (`cfd-report.md` §11) | **required** (step E) |
 | Bed PID | no | bed unchanged | runs anyway with `WHAT=heaters` |
 | PA | barely | hotend and extruder unchanged | spot-check (step J) |
 | ADXL `axes_map` | no | PCB orientation unchanged | no |
+| Fan config | no | stock 4020 on the stock channel, Pellcorp's `[fan]` unchanged (`electrical.md` §1) | function test (step C) |
 | Orca bed shape, nozzle-wipe strip, park positions | no | they follow the keep-outs | no |
 
 ## 2. Order of operations
@@ -46,21 +55,21 @@ them once the first post-install runs are logged.
 | Step | What | Printer hot? | Approx. time |
 |---|---|---|---|
 | A | Baseline capture (before disassembly) | yes | 20 min |
-| B | Install, cold checks | no | — |
-| C | Fan config and fan function test | no | 10 min |
+| B | Install (`assembly.md`), cold checks | no | — |
+| C | Fan function test (no config change) | no | 10 min |
 | D | Clearances and keep-outs, motors on, slow | no | 15 min |
-| E | MPC re-calibration (+ fan-step test) | yes | 15–25 min |
+| E | **MPC re-calibration** (+ fan-step test, heater reserve) | yes | 15–25 min |
 | F | Probe z_offset via the load cells | yes | 15 min |
-| G | LiDAR offset check (`LIDAR_OFFSET_CALIBRATION APPLY=0`) | yes (prints a cross) | 10 min |
+| G | LiDAR checks (no recalibration) | yes (optional dry-run cross) | 10 min |
 | H | Twist (probe + LiDAR) and input shaper, via `CALIBRATE_NEXT_PRINT` and one sacrificial print | yes | 30 min |
-| I | Apply LiDAR offsets only if step G says so, then repeat the LiDAR twist | yes | 15 min |
+| I | LiDAR offsets and twist, **only** if step G found the bracket disturbed | yes | 15 min |
 | J | PA spot-check (`LIDAR_PA_CALIBRATION`) | yes | 15 min |
 | K | First-layer checks | yes | one print |
 | L | Save and back up | — | — |
 
 Why this order:
-- MPC goes first among the hot steps, because the nozzle wipe and every later step use the part
-  fan.
+- MPC goes first among the hot steps: the nozzle wipe cools its blob at `M106 S255`
+  (`custom/nozzle_wipe.py`), and every later touch and print uses the part fan.
 - z_offset comes before any print, because True Zero Touch falls back to Microprobe Z when the
   touch differs from the probe by more than −0.03 / +0.15 mm (`_LOAD_CELL_TOUCH_Z`).
 - The LiDAR offsets are checked before the LiDAR twist, because the twist uses them.
@@ -70,45 +79,52 @@ Why this order:
 1. `BACKUP_TO_GITHUB` and note the commit hash. This is the rollback reference (§5).
 2. `CALIBRATION_STATUS`: note the print hours and when each calibration is due.
 3. `LIDAR_OFFSET_CALIBRATION APPLY=0`: note the reported X/Y offsets and arm lengths. This gives
-   the run-to-run noise of the check on the untouched printer.
+   the run-to-run noise of the check on the untouched printer. Nothing is saved.
 4. Optional, closes M13: `SHAPER_CALIBRATE` with and without a ~50 g mass taped to the toolhead.
    Keep the CSVs.
-5. Optional: `MEASURE_AXES_NOISE` (ADXL baseline for the buck EMI check, `electrical.md` §3.4).
-6. Weigh the stock cover + 4020 on a kitchen scale (M12).
+5. Optional, for V4 (`validation.md`): note `fan_ambient_transfer` from `printer.cfg.save_config`
+   (0.1166 today). It is the stock reference for the heater-penalty test.
+6. Weigh the stock cover + 4020 on a kitchen scale (M12). Also measure the 4020 (M7): outlet
+   opening and screw-hole through-length, before the fan goes onto the frame (`assembly.md` step 2).
 
 ### B. Install, then check cold (motors off)
 
-- PCB screws: replace the stock screws **one at a time** with the 3 × M3×30 (`bill-of-materials.md`),
-  so the PCB and 3010 stay located. Tighten snug only.
-- Nothing touches the LiDAR module, its bracket or its windows. The left cover wall must clear the
-  module by ≥ 0.5 mm (validation: cover vs `LIDAR_RESERVED_BODY` 0.50 mm). Look along the laser
-  sheet: no part, cable or tie may hang below the module.
+Follow `assembly.md`. Its checks after each step are part of this calibration:
+- PCB screws replaced in sequence, snug only; frame bosses flat on the PCB.
+- Duct-to-sock gap ≥ 3 mm all round (`HOT_ZONE_CLEARANCE`; CAD 3.35 mm).
+- Duct lowest point ≥ 2.0 mm above the nozzle tip (`DUCT_MIN_Z`; CAD 2.44 mm). A 2 mm drill shank
+  under the duct while the tip sits on a flat block.
 - `PROBE_DOWN`, `QUERY_PROBE`, `PROBE_UP`: the pin deploys and retracts freely, and its lead is not
   pulled by the new tie points.
-- Duct lowest point ≥ 2.0 mm above the nozzle tip (`DUCT_MIN_Z`). Check with a 2 mm drill shank
-  under the duct while the tip sits on a flat block.
-- Cables: the probe lead goes to the TOUCH port from the left; the fan lead is tied at the frame's
-  right top corner. Nothing may rub the X rods or belts.
+- Nothing touches the LiDAR module, its bracket or its windows. The cover's left wall must clear the
+  module (CAD: 0.50 mm to the ESTIMATED `LIDAR_RESERVED_BODY` box, M6). Look along the laser sheet:
+  no part, cable or tie may hang below the module.
+- Cables: nothing rubs the X rods or belts.
 
-### C. Fan config and function test
+### C. Fan function test (no config change)
 
-1. Include the variant snippet (`electrical.md` §7), then `FIRMWARE_RESTART`.
-2. `M106 S26`, `S77`, `S128`, `S255`, then `M107`: the fan starts every time, and speed rises
-   monotonically. If a tach is wired, read the rpm in Fluidd: it should be within ±15 % of the
-   datasheet speed at S255 (ESTIMATED tolerance; datasheet ±10 %).
+The baseline uses Pellcorp's `[fan]` unchanged (`electrical.md` §1). Nothing to include.
+1. `M106 S26`, `S77`, `S128`, `S255`, then `M107`: the fan starts every time, and the speed rises
+   monotonically by ear. Feel the air at the ports at S255 (cold printer).
+2. If you chose to include `part_fan_stock4020.cfg` with the tach for commissioning (a config change,
+   `electrical.md` §5): read the rpm in Fluidd. It should be within ±15 % of the datasheet speed at
+   S255 (ESTIMATED tolerance; datasheet ±10 %). Note it as the install value for `maintenance.md` §3.
 3. Heat the nozzle to above 40 °C: the 3010 hotend fan starts (unchanged channel; its tach reads in
-   Fluidd).
-4. Tune `off_below` and `kick_start_time` (`electrical.md` §5.5) **now**, before MPC.
+   Fluidd). Its intake now draws through the frame window (693 mm² open, validation report).
+4. Only if the fan stalls at low duty: tune `off_below` and `kick_start_time` (`electrical.md` §3)
+   **now**, before MPC.
 
 ### D. Clearances and keep-outs (motors on, speed F600, a finger on the e-stop / power switch)
 
 1. `G28`, then lift Z to 50 (`G0 Z50 F600`).
-2. **Front:** `G0 X150 Y0`, then step to Y −2 in 0.5 mm steps. The gap from the cover/duct front to
-   the door and frame must be ≥ 2 mm (ESTIMATED). If it is not, stop: the Y minimum must change
-   (Pellcorp base config). Report it, because it is the M9 open point.
+2. **Front:** `G0 X150 Y0`, then step to Y −2 in 0.5 mm steps. The gap from the cover front (−58.2,
+   3.2 mm further forward than the stock −55.0) to the door and frame must be ≥ 2 mm (ESTIMATED). If
+   it is not, stop: the Y minimum would have to change (Pellcorp base config). Report it, because it
+   is the M9 open point.
 3. **Left / right:** at Y 150, step to X −2 and X 306.5 at Z 50 and at Z 5. Gap from the cover,
-   duct and fan to the XY joints ≥ 1 mm (ESTIMATED). The cover is ±24.0 against `RIGHT_LIMIT_X`
-   24.2 in the joint band, and the duct v1 reaches X +31 below that band.
+   duct and fan to the XY joints ≥ 1 mm (ESTIMATED). Inside the joint band (Z 44.3…91.8 above the tip)
+   the cover is ±24.0 against `RIGHT_LIMIT_X` 24.2; the duct body reaches X +31.0 only below Z 23,
+   outside the band (validation report).
 4. **Rear keep-outs, only if a part behind the nozzle changed** (new probe mount, or anything past
    Y +29.1): move the nozzle to each point below in 0.5 mm steps and check the gap between the
    rearmost toolhead part and the Z-rod housing. Today's zones were measured with ~3 mm left.
@@ -124,23 +140,36 @@ Why this order:
    `tuning.cfg` comment describes, and update `[keep_out]` plus the Orca bed shapes
    (`orcaslicer/make_profiles.py`). If it is more than 5 mm, leave the zones alone (conservative).
 
-### E. MPC re-calibration (required after any fan or duct change)
+### E. MPC re-calibration (required after fitting, and after any fan or duct change)
 
 1. With the printer cold and the chamber at room temperature:
-   `MPC_CALIBRATE HEATER=extruder FAN_BREAKPOINTS=7`, then `SAVE_CONFIG`.
+   `MPC_CALIBRATE HEATER=extruder FAN_BREAKPOINTS=7`, then `SAVE_CONFIG`
+   (DD-05, `cfd-report.md` §12.2).
    - Alternative: `CALIBRATE_NEXT_PRINT WHAT=heaters`. It runs MPC + bed PID (~25 min) at the next
      START_PRINT and saves 5 min after the print ends. Use this only if you can wait until after
      step H, since the nozzle wipe and every touch run on the old fan model until then.
 2. Fan-step test: `M109 S250`, wait 2 min, then `M106 S255`, then after 2 min `M107`. Watch the
    extruder graph.
+3. Heater reserve: at the hottest nozzle temperature you print with the fan at 100 %, the extruder
+   power in Fluidd must settle clearly below 100 %. The new duct takes several more watts from the
+   60 W heater at full fan (below).
+
+What to expect. The stock fan's share of the block's heat loss is 0.1166 − 0.0800 = 0.0366 W/K at
+100 %, about +8 W at ΔT ≈ 225 K (research/03 §3). The CFD thermal proxy adds +6.2 W (lower 4020
+bound) to +6.8 W (upper) of nozzle + sock loss at 100 % fan over the stock duct
+(`cfd-report.md` §11, which says to expect the fan term to roughly double). On the same 225 K that
+puts `fan_ambient_transfer` at 100 % near **0.14–0.15 W/K** (ESTIMATED, my arithmetic). Treat it as
+indicative only: the proxy ran with 45 °C air and an assumed 150 °C sock surface, and its energy
+balance closes only to 47–56 % on S7.
 
 | Quantity | Pass | Basis |
 |---|---|---|
 | block_heat_capacity | 16.36 ± 10 % | hotend unchanged (ESTIMATED tolerance) |
 | sensor_responsiveness | 0.0917 ± 15 % | ESTIMATED |
 | ambient_transfer (fan 0) | 0.0800 ± 10 % | ESTIMATED; the new cover changes natural convection a little |
-| fan_ambient_transfer at 100 % | record it. **≤ 0.1166 expected** if the duct aims below the block as designed. **> 0.14** (fan adds > 75 % heat loss) means air is hitting the block: check the sock and the duct aim | ESTIMATED |
+| fan_ambient_transfer at 100 % | **record it** (this is test V4 in `validation.md`). Expected **above** 0.1166, roughly 0.14–0.15. **≤ 0.1166**: less air reaches the nozzle than CFD predicts; check the duct is seated on the fan outlet and no port is blocked. **> ~0.18** (about twice the predicted increase, ESTIMATED limit): a jet is hitting the block or the duct is mis-seated; check the duct pose and the 3 mm sock gap | CFD proxy (indicative); ESTIMATED limits |
 | Fan-step deviation | ≤ ±1.5 °C, overshoot ≤ 0.5 °C | README baseline |
+| Heater power at the hottest print temperature, fan 100 % | settles clearly below 100 % | `cfd-report.md` §15 V4 ("plan for the heater's reserve") |
 
 ### F. Probe z_offset via the load cells
 
@@ -162,22 +191,30 @@ was measured in: bed ~70 °C with the heater off, nozzle 150 °C, after the wipe
 |---|---|---|
 | \|d\| after the update | ≤ 0.010 | `_LOAD_CELL_TOUCH_Z` comment: "a clean touch reads within ~0.01 of zero" |
 | Spread of the 3 values | ≤ 0.010 | probe spread 0.005 typical (`tuning.cfg`); touch noise ~3 µm |
-| Change vs 0.831, probe mount unchanged | ≤ 0.05 | ESTIMATED (thermal environment only) |
+| Change vs 0.831, probe mount unchanged (785004) | ≤ 0.05 | ESTIMATED (thermal environment only) |
 | Change vs 0.831, new probe mount | ≤ 0.5 | research/01 §B.4 (mount-face tolerance) |
 | Change > 1.0 | **stop**: outside DD-03's envelope; the probe mount is wrong | DD-03 |
 
-### G. LiDAR offset check (dry run)
+### G. LiDAR checks (no sensor moved: no recalibration)
 
-1. Clear the plate around X 135–165, Y 133–167.
-2. Run `LIDAR_OFFSET_CALIBRATION APPLY=0`. It prints a cross, scans it at Z3 and Z5, and reports
+The module, its bracket and its pose are untouched (DD-02). **Do not run
+`LIDAR_OFFSET_CALIBRATION` to apply anything, and never run Creality's sticker calibration with the
+glass plate fitted** (DD-02). The checks below only read.
+
+1. **Visual, cold:** the bracket screws were not loosened; the windows are clean; no part, cable or
+   tie hangs into the laser sheet or the camera view under the module (`LIDAR_RESERVED_OPTICAL`:
+   CAD clearances frame 2.50, cover 2.06, duct 2.22 mm, all ESTIMATED boxes, M6).
+2. **`LIDAR_STATUS`**: the module answers as before.
+3. **Optional dry run** (read-only, prints a small cross): clear the plate around X 135–165,
+   Y 133–167 and run `LIDAR_OFFSET_CALIBRATION APPLY=0`. It scans the cross at Z3 and Z5 and reports
    without saving.
 
 | Result vs `variables.cfg` | Meaning | Action |
 |---|---|---|
-| \|ΔX\| ≤ 0.10, \|ΔY\| ≤ 0.30, per-Z slopes within ±0.02 (X) / ±0.05 (Y), arms 20.1–20.3 mm (LIDAR-NOTES). The ΔX and slope limits are ESTIMATED | unchanged. The Y limit is wider because lines along X read up to ~0.3 mm off in Y (README, LIDAR-NOTES) | **nothing to apply** |
-| Outside that, but < 5 mm | the bracket was disturbed during the cover swap | re-seat or check the bracket screws (2.0 mm hex), then `LIDAR_OFFSET_CALIBRATION` (APPLY=1), then the LiDAR twist (step I) |
-| "more than 5mm from the current one, not applied" | the macro refuses any change > 5 mm in X or Y (`custom/lidar.py`). The module has moved or rotated | **stop**. Do not delete the saved offsets to force it. Restore the module pose (DD-02). Never run Creality's sticker calibration with the glass plate fitted |
-| "implausible change with height" | per-Z slopes are outside the macro's limits (\|kx\| > 1, \|ky\| > 3) | check that nothing has entered the laser sheet (step B), then repeat |
+| \|ΔX\| ≤ 0.10, \|ΔY\| ≤ 0.30, per-Z slopes within ±0.02 (X) / ±0.05 (Y), arms 20.1–20.3 mm (LIDAR-NOTES). The ΔX and slope limits are ESTIMATED | unchanged. The Y limit is wider because lines along X read up to ~0.3 mm off in Y (README, LIDAR-NOTES) | **nothing to apply** (expected result) |
+| Outside that, but < 5 mm | the bracket was disturbed during the cover swap | re-seat or check the bracket screws (2.0 mm hex) first and repeat the dry run. Only if it still disagrees: step I |
+| "more than 5mm from the current one, not applied" | the macro refuses any change > 5 mm in X or Y (`custom/lidar.py`). The module has moved or rotated | **stop**. Do not delete the saved offsets to force it. Restore the module pose (DD-02) |
+| "implausible change with height" | per-Z slopes are outside the macro's limits (\|kx\| > 1, \|ky\| > 3) | check that nothing has entered the laser sheet (step G.1), then repeat |
 
 Compare ΔX/ΔY against the step A dry run. A difference smaller than the A-vs-baseline noise is
 not a change.
@@ -187,7 +224,7 @@ not a change.
 1. Make sure the `Forced_Calibration` switch is on.
 2. Run `CALIBRATE_NEXT_PRINT WHAT=twist` and `CALIBRATE_NEXT_PRINT WHAT=shaper`.
    (`WHAT=heaters` too, if step E was skipped.)
-3. Print something small in PETG or PLA (e.g. a 20 mm cube) with `First_Layer_Check` on.
+3. Print something small (e.g. a 20 mm cube) with `First_Layer_Check` on.
 4. During START_PRINT:
    - the shaper + belt data run after G28 (~6 min);
    - `AXIS_TWIST_TOUCH_CALIBRATE` runs after the glass soak and hot Z re-home (~15 min). It also
@@ -202,19 +239,20 @@ not a change.
 | Probe-nozzle offset printed by the twist run | within ±0.01 of the new z_offset | cross-check of step F |
 | LiDAR twist saved | pass spread ≤ 0.040 (not saved otherwise); expect ≈ 0.012 like the baseline | `twist_touch.py`; baseline |
 | LiDAR twist range | 0.181 ± 0.03 mm | baseline; ESTIMATED tolerance |
-| Shaper X | ≥ **76.0 Hz** (DD architecture target), expected 77.5–78.2 | DD comparison table; validation report |
-| Shaper Y | 51–53 Hz, expected 51.95–52.23 | validation report; ±1 Hz ESTIMATED repeatability |
+| Shaper X | ≥ **76.0 Hz** (architecture target, DD comparison table); expected **76.9 … 77.7** | validation report (ESTIMATED) |
+| Shaper Y | 51–53 Hz; expected **51.8 … 52.0** | validation report; ±1 Hz ESTIMATED repeatability |
 | Projected max accel X | ≥ ~4300 mm/s² (baseline 4408) | research/01 §D |
-| X response graph | no new peak at 100–200 Hz. A peak near 150 Hz is the frame's fan-plate mode without the 4th pad (validation WARN 147 Hz) | validation report |
+| X response graph | no new peak at 100–200 Hz. A peak near 150 Hz is the frame's fan-plate mode without the 4th pad (validation WARN 147 Hz). Another new peak may be the duct: it hangs on two tabs and the fan socket, and its own mode is not estimated (`validation.md`) | validation report; `cfd-report.md` §16 |
 | Belt graph | both belt curves still overlap as before | — |
 
 If X is below 76 Hz, check for loose fan, duct or cover screws (a rattle shows as a broad peak).
 Then run the M13 mass test and report it.
 
-### I. LiDAR twist re-run (only if step G applied new offsets)
+### I. LiDAR offsets and twist (only if step G found the bracket disturbed and re-seating did not fix it)
 
+This is the exception, not part of the normal procedure. `LIDAR_OFFSET_CALIBRATION` (APPLY=1), then
 `LIDAR_TWIST_CALIBRATION` (homed, clear plate along Y 145). Same pass criteria as the LiDAR rows in
-step H.
+step H. Report it: DD-02 assumes the pose does not change.
 
 ### J. Pressure advance spot-check
 
@@ -237,6 +275,9 @@ Orca filament profile.
 | Thickness tilt (mesh error) | ≤ 20 µm / 100 mm | ESTIMATED |
 | Visual | even squish over the whole bed, no ridges at the front (the probe cannot reach the front ~20 mm) | README |
 
+A single-layer print runs its after-scan from `_SAF_END_PRINT_START`, possibly with the part fan
+still running (§6). If the report's gates fail only on such prints, note it for test V7.
+
 ### L. Save and back up
 
 `SAVE_CONFIG` if anything is still pending, then `CONFIG_OVERRIDES` / `BACKUP_TO_GITHUB`. Record
@@ -256,38 +297,33 @@ item as due by back-dating its counter (`tuning.cfg`). The intervals stay 200 h 
 300 h (twist) and 500 h (heaters).
 
 **Fast path after a fan-only swap** (same duct, same fan model): step C, then
-`CALIBRATE_NEXT_PRINT WHAT=heaters`, then one print. **After a fan model change:** C → E → H(shaper).
-**After a duct change:** B (duct clearance) → E → H(shaper) → K.
+`CALIBRATE_NEXT_PRINT WHAT=heaters`, then one print. **After a fan model change** (e.g. the
+conditional Same Sky upgrade): C → E → H(shaper). **After a duct change or re-print:** B (duct
+clearances) → E → H(shaper) → K.
 
 ## 4. Summary of acceptance numbers
 
 | Step | Number | Baseline | Pass |
 |---|---|---|---|
-| E | fan_ambient_transfer @100 % | 0.1166 | record; > 0.14 means investigate |
+| B | duct to sock / duct lowest point above the tip | — (CAD 3.35 / 2.44) | ≥ 3.0 / ≥ 2.0 mm |
+| E | fan_ambient_transfer @100 % | 0.1166 | record; expected ≈ 0.14–0.15; ≤ 0.1166 or > ~0.18 means investigate |
 | E | fan-step deviation | ±1.5 °C | ≤ ±1.5 °C |
 | F | True Zero Touch d | — | ≤ ±0.010 after the update |
 | F | z_offset | 0.831 | ±0.05 (same mount), ±0.5 (new mount) |
-| G | LiDAR ΔX / ΔY | −36.013 / −21.336 | ≤ 0.10 / ≤ 0.30, otherwise re-seat and apply; > 5 = stop |
+| G | LiDAR ΔX / ΔY (dry run, nothing applied) | −36.013 / −21.336 | ≤ 0.10 / ≤ 0.30, otherwise re-seat; > 5 = stop |
 | H | probe twist range | 0.267 | ±0.03; pass spread ≤ 0.04 |
 | H | LiDAR twist range | 0.181 | ±0.03; pass spread ≤ 0.04 |
-| H | shaper X / Y | 77.6 / 52.0 Hz | X ≥ 76.0, Y 51–53 |
+| H | shaper X / Y | 77.6 / 52.0 Hz | X ≥ 76.0 (expected 76.9–77.7), Y 51–53 |
 | J | PA | 0.046 PETG / 0.04 ASA | ±0.01 |
 | K | first-layer median error | — | ±0.02 mm |
 
 ## 5. Rollback to the stock cover
 
-1. **Config:** delete the `[include part_fan.cfg]` line (and the file), then `FIRMWARE_RESTART`.
-   Pellcorp's stock `[fan]` is active again.
-2. **Hardware**, printer off and cold:
-   1. Remove the 2 × M3×6 cover screws and slide the cover forward.
-   2. Unplug the fan(s) and add-on, and remove the duct (2 × M3×6) and the fan(s).
-   3. Remove the 3 × M3×30 **one at a time**, refitting the stock screw each time: 2 × M3×18 BHCS
-      upper (into the carriage inserts) and 1 × M3×20 BHCS lower-left (into the heatsink)
-      (research/02 N6/N7).
-   4. Mount the stock 4020 in the stock cover (3 × M3×18 BHCS, research/02 C7) and plug it in.
-   5. Slide the stock cover on, then fit the 2 × M3×4 ultra-low SHCS at the sides into the carriage
-      inserts (research/02 C5).
-   6. If the new probe mount was fitted, refit 785004 on the same two anchor screws.
+1. **Config:** nothing to undo for the baseline (no config was changed). If you included a
+   `part_fan.cfg` snippet, delete the `[include part_fan.cfg]` line (and the file), then
+   `FIRMWARE_RESTART`.
+2. **Hardware**, printer off and cold: `assembly.md` §3 (cover, duct, fan, frame off; stock PCB
+   screws, 4020 into the stock cover, stock cover on).
 3. **Calibration:** either
    - (preferred) `CALIBRATE_NEXT_PRINT WHAT=all` plus steps F, G and K, judged against the §4
      baselines; or
@@ -297,3 +333,43 @@ item as due by back-dating its counter (`tuning.cfg`). The intervals stay 200 h 
 
    MPC must be re-run or restored either way: the stock duct has its own `fan_ambient_transfer`.
 4. `BACKUP_TO_GITHUB`.
+
+## 6. Proposed, not applied: part fan off during LiDAR scans
+
+DD-02 proposes running every LiDAR scan with the part fan off. With S7 the air speed along the bed
+under the laser line rises to 0.87 m/s mean (1.50 max) against 0.18 m/s for STOCK at 100 % fan
+(`cfd-report.md` §13.1, upper 4020 bound). Air movement is not expected to bend the beam (DD-02),
+but the wall jet can move loose dust or strings across the scan line while the fan runs, and the
+0 % fan case was not simulated. Whether it affects readings at all is open (test V7).
+
+Where the repo's macros scan, and the fan state there:
+
+| Scan | Called from | Part fan at that moment |
+|---|---|---|
+| Bare-plate scan before the purge: `FIRST_LAYER_SCAN PHASE=before`, or `LIDAR_SCAN NAME=pa_base` for the PA test | `_SAF_START_PRINT_AFTER_BED_MESH` → `_LIDAR_PRINT_SCAN` (`tuning.cfg`) | normally off: the nozzle wipe that runs just before ends with `M106 S0` (`custom/nozzle_wipe.py`). Not enforced by `_LIDAR_PRINT_SCAN` itself |
+| First-layer scan at the layer-2 change: `FIRST_LAYER_SCAN PHASE=after` | `_FIRST_LAYER_AFTER` (`tuning.cfg`), from the slicer's layer-change G-code | **may be on**: the slicer may already have switched the fan on for layer 2 (DD-02) |
+| First-layer scan of a one-layer print: `FIRST_LAYER_SCAN PHASE=after FINAL=1` | `_SAF_END_PRINT_START` (`tuning.cfg`) | **may be on**: whatever the print left |
+| PA test scan (`LIDAR_PA_CALIBRATE`) and offset cross (`LIDAR_OFFSET_CALIBRATE`) | `custom/lidar.py` | off: both print with the fan on (`M106 S{FAN}` / `M106 S128`), cool the nozzle at `M106 S255`, then send `M106 S0` before the scan |
+
+The change, if the user wants it (a printer-config edit to `tuning.cfg`, **not applied by this
+project**, not tested):
+
+```
+[gcode_macro _FIRST_LAYER_AFTER]
+gcode:
+    {% if printer.lidar.first_layer_armed %}
+      {% set fan = printer.fan.speed %}
+      M106 S0
+      FIRST_LAYER_SCAN PHASE=after
+      M106 S{(fan * 255)|round|int}
+    {% endif %}
+```
+
+and an `M106 S0` before `FIRST_LAYER_SCAN PHASE=after FINAL=1` in `_SAF_END_PRINT_START`. Open
+points before adopting it:
+- whether the slicer's own fan command for layer 2 comes before or after the layer-change G-code
+  (if after, the restore line is redundant but harmless);
+- the 4020 needs some time to spin down; the scan may start before the air has stopped;
+- the pause with the fan off changes the first layer's cooling history for that print.
+
+Test V7 (`validation.md`) is the evidence for or against it.
