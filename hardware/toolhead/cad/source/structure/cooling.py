@@ -1,8 +1,13 @@
-"""Cooling-module interface: the STUB used until the Duct/CFD agent publishes
-cad/source/ducts/duct_interface.json + build_ducts(params), and the adapter
-that reads the real one.
+"""Cooling-module interface: the adapter that reads the Duct/CFD agent's
+cad/source/ducts/duct_interface.json + build_ducts(params), and a STUB fallback.
 
-Switch in cad/source/assembly.py:  COOLING_SOURCE = "stub" | "ducts" | "auto"
+Current state: the JSON is v3-final (final_mount_points: true, param set S7: one
+stock 4020 in the front bay + the S7 multi-port duct), so assembly.py's default
+COOLING_SOURCE = "auto-final" builds the REAL duct body. The stub below is only a
+fallback (COOLING_SOURCE = "stub", or a JSON without final mount points) and
+reproduces the pre-CFD placeholder (1 x 4020 at the stock pose + a box duct).
+
+Switch in cad/source/assembly.py:  COOLING_SOURCE = "auto-final" | "ducts" | "auto" | "stub"
 
 Expected duct_interface.json (what this adapter reads; coordinate frame =
 nozzle frame of interfaces.py, mm). Keys in [] are optional:
@@ -33,14 +38,15 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import bx, prm, cyl_y, PartSpec, group_params, FRAME_FRONT_Y
+from .common import bx, prm, cyl_y, PartSpec, group_params, FRAME_FRONT_Y, PARAMS, screw_mass_g
 import interfaces as I
+from interfaces import Dim
 
 G = "cooling_stub"
 DUCTS_DIR = Path(I.__file__).resolve().parent / "ducts"
 DUCT_JSON = DUCTS_DIR / "duct_interface.json"
 
-# ---- STUB layout (all STUB: replaced by the Duct/CFD agent's values) --------
+# ---- STUB layout (fallback only; all STUB) ----------------------------------
 STUB_BLOWER = I.BLOWER_4020_STOCK
 STUB_FRAME_FRONT_Y = FRAME_FRONT_Y
 STUB_GAP_Y = prm(G, "STUB_BLOWER_GAP_Y", 3.0, "STUB",
@@ -68,6 +74,7 @@ class CoolingInterface:
     fans: list = field(default_factory=list)        # dicts: model, solid, mass_g, screw_bosses, notes
     duct_mounts: list = field(default_factory=list)
     duct_parts: list = field(default_factory=list)  # PartSpec
+    duct_air: object = None                         # internal air path of the real duct (checks only)
     status: str = "STUB"
     raw: dict = field(default_factory=dict)
 
@@ -125,7 +132,8 @@ def _convert_ducts_schema(d: dict) -> dict:
     if isinstance(d.get("fans"), list):
         return d
     fans = []
-    model_of = {"4020": "BLOWER_4020_STOCK", "5015": "BLOWER_5015_SUNON", "5015D": "BLOWER_5015_DELTA"}
+    model_of = {"4020": "BLOWER_4020_STOCK", "5015": "BLOWER_5015_SUNON", "5015D": "BLOWER_5015_DELTA",
+                "5015SS": "BLOWER_5015_SAMESKY", "5015SUNON": "BLOWER_5015_SUNON"}
     for fid, f in d["fans"].items():
         e = f["envelope_box"]
         env = [e["xmin"], e["xmax"], e["ymin"], e["ymax"], e["zmin"], e["zmax"]]
@@ -173,6 +181,58 @@ def _from_dict(d: dict, is_stub: bool, source: str) -> CoolingInterface:
     return ci
 
 
+G_REAL = "cooling_real"
+DUCT_TAB_SCREW_LEN = prm(G_REAL, "DUCT_TAB_SCREW_LEN", 6.0, "DESIGN",
+                         "M3x6 ISO 7380: duct tab 2.5 (duct_interface tab_size) + 3.5 into the 4 mm frame insert")
+# interfaces.py values the duct geometry or its position relative to the nozzle depends on (the duct
+# generator reads them, or the frame/PCB chain the duct bolts to does). DERIVED ones are listed for
+# completeness; the ESTIMATED ones drive the release status.
+DUCT_INTERFACE_DEPS = [
+    "SOCK", "HEATER_BODY", "HEATSINK", "HOT_ZONE_CLEARANCE", "DUCT_MIN_Z",            # nozzle end vs hot zone (M1)
+    "PROBE_BODY_Y", "PROBE_ADAPTER_785004",                                          # probe keep-out (M8)
+    "PCB", "PCB_HOLES", "MODULE_MOUNT_BEARING_Y", "PCB_COMPONENT_ZONE",               # frame chain -> fan rear plane / tabs (M10)
+    "STOCK_4020_POS", "FAN3010",                                                     # fan XZ pose, 3010 intake window
+    "LIDAR_RESERVED_OPTICAL", "LIDAR_RESERVED_BODY", "LIDAR_LINE_CENTER_XY_AT_Z3",   # LiDAR keep-outs (M6)
+    "FRONT_LIMIT_Y", "RIGHT_LIMIT_X",
+]
+
+
+def _status_word(text: str, default: str = "ESTIMATED") -> str:
+    w = (text or "").strip().split(" ")[0].upper()
+    return w if w in ("VERIFIED", "DERIVED", "ESTIMATED", "MISSING", "STUB", "DESIGN") else default
+
+
+def _register_duct_deps(d: dict) -> list[str]:
+    """Register the duct body's own dependencies (values from duct_interface.json, statuses from the
+    JSON / research M-items) and return the full dependency list for the release table."""
+    def reg(name, value, status, source):
+        PARAMS[name] = (G_REAL, Dim(value, status, source))
+        return name
+    names = []
+    fans = d.get("fans") if isinstance(d.get("fans"), dict) else {}
+    for fid, f in fans.items():
+        st = _status_word(f.get("status", ""))
+        names.append(reg(f"DUCT_FAN_{fid}_OUTLET_SIZE", tuple(f.get("outlet_size_mm", ())), st,
+                         f"duct_interface.json fans.{fid}: {f.get('spec', f.get('type'))}; {f.get('status', '')} "
+                         f"(missing-information M7); the duct fan socket fits over this outlet"))
+        names.append(reg(f"DUCT_FAN_{fid}_SCREW_HOLES",
+                         tuple(tuple(b["xyz"]) + (b.get("through_length"),) for b in f.get("screw_bosses", [])), st,
+                         f"duct_interface.json fans.{fid}.screw_bosses (x, y, z, through_length): {f.get('status', '')} "
+                         f"(M7); sets the frame fan standoffs and the fan front face"))
+        e = f.get("envelope_box", {})
+        names.append(reg(f"DUCT_FAN_{fid}_ENVELOPE", tuple(e.get(k) for k in ("xmin", "xmax", "ymin", "ymax", "zmin", "zmax")),
+                         "ESTIMATED", f"duct_interface.json fans.{fid}.envelope_box: XZ at the STOCK_4020_POS centre "
+                         f"(DERIVED), rear face 3 mm in front of the frame plate (DESIGN), thickness = screw "
+                         f"through-length (ESTIMATED, M7)"))
+    if d.get("fan_mounting"):
+        names.append(reg("DUCT_FAN_SOCKET_FIT", 1.0, "ESTIMATED", "duct_interface.json fan_mounting: socket 4 mm "
+                         "deep, 1.0 mm clearance per side over the fan outlet nozzle (ESTIMATED; outlet M7)"))
+    names.append(reg("DUCT_HOTEND_VERSION", 2023.0, "ESTIMATED",
+                     "SOCK / HEATER_BODY / NOZZLE_* are the 2023 ceramic hotend; a 'Unicorn' hotend changes the "
+                     "stack by 1.6 mm (missing-information M1) and moves the ports relative to the tip"))
+    return ["DUCT_MOUNT_POINTS_FINAL"] + names + DUCT_INTERFACE_DEPS
+
+
 def real_interface(params: dict | None = None) -> CoolingInterface:
     """Read cad/source/ducts/duct_interface.json and the duct solids (Duct/CFD agent)."""
     if not DUCT_JSON.exists():
@@ -192,6 +252,7 @@ def real_interface(params: dict | None = None) -> CoolingInterface:
                 break
         except ImportError:
             continue
+    deps = _register_duct_deps(d)
     if bd is not None:
         if params is None:
             gp = getattr(mod, "get_params", None) or (lambda n: getattr(mod, "PARAM_SETS")[n]())
@@ -201,14 +262,22 @@ def real_interface(params: dict | None = None) -> CoolingInterface:
         body = out.get("body") if isinstance(out, dict) else None
         if body is None:
             raise KeyError("build_ducts() returned no 'body' part")
-        parts.append(PartSpec("duct_body", body, "printed", mat, (0.95, 0.55, 0.10), deps=[],
-                              notes="owned by the Duct/CFD agent (cad/source/ducts); status " + ci.status))
+        ci.duct_air = out.get("air") if isinstance(out, dict) else None
+        n_tabs = len(ci.duct_mounts)
+        hw = [(f"M3x{DUCT_TAB_SCREW_LEN:.0f} ISO 7380 (duct tab to frame lug insert)", n_tabs,
+               screw_mass_g(3, DUCT_TAB_SCREW_LEN))] if n_tabs else []
+        parts.append(PartSpec("duct_body", body, "printed", mat, (0.95, 0.55, 0.10), deps=deps,
+                              print_rot=(0.0, 0.0, 0.0), hardware=hw,
+                              notes=f"owned by the Duct/CFD agent (cad/source/ducts, param set "
+                                    f"{ci.raw.get('duct_param_set')}); status {ci.status}. "
+                                    f"{ci.raw.get('duct_materials', 'PC')}. Print upright as modelled "
+                                    f"(nozzle-frame +Z = print Z, fan socket up)."))
     else:
         from build123d import import_step
         for b in d.get("duct_bodies", []):
             s = import_step(str(DUCTS_DIR / b["step"]))
             parts.append(PartSpec(f"duct_{b['id']}", s, "printed", b.get("material", "PC"), (0.95, 0.55, 0.10),
-                                  notes="owned by Duct/CFD agent (STEP)"))
+                                  deps=deps, notes="owned by Duct/CFD agent (STEP)"))
     ci.duct_parts = parts
     return ci
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Manufacturing + assembly exports, then re-open and verify every file.
 
-    python cad/source/export.py [--cooling stub|ducts|auto]
+    python cad/source/export.py [--cooling auto-final|ducts|auto|stub]     (default: assembly.COOLING_SOURCE)
 
 Writes (all mm):
+  every printed part (frame, cover, probe mount, coupon and, with the real ducts, duct_body):
   cad/exports/step/<part>.step   print-oriented, on the plate at Z 0, one solid
   cad/exports/3mf/<part>.3mf     same orientation, one object, unit = millimetre
   cad/exports/stl/<part>.stl     same orientation
@@ -13,9 +14,10 @@ Writes (all mm):
   cad/exports/export_manifest.json
 
 Verification tolerances (documented, fail loudly):
-  STEP part     : 1 solid, |dV|/V < 1e-6, bbox corners within 1e-3 mm   (exact B-rep round trip)
+  STEP part     : 1 solid, OCC-valid, closed (watertight tessellation), |dV|/V < 1e-6, bbox corners within
+                  1e-3 mm (exact B-rep round trip)
   3MF / STL     : 1 object, |dV|/V < 5e-3, bbox corners within 0.05 mm (tessellation, 0.01 mm chord)
-                  STL also watertight
+                  STL also watertight with consistent winding and positive volume
   assembly STEP : same leaf names as the in-memory model, per-leaf |dV|/V < 1e-6, every leaf coloured,
                   every group present
 STEP files carry a timestamp in their header, so they are reproducible in content, not byte-for-byte.
@@ -35,6 +37,8 @@ import trimesh  # noqa: E402
 from build123d import Compound, Mesher, Unit, export_step, export_stl, import_step  # noqa: E402
 
 import assembly  # noqa: E402
+import numpy as np  # noqa: E402
+from structure.common import MATERIALS  # noqa: E402
 
 OUT = HERE.parent / "exports"
 LIN_DEF, ANG_DEF = 0.01, 0.1
@@ -82,14 +86,30 @@ def main():
         m.add_shape(solid, linear_deflection=LIN_DEF, angular_deflection=ANG_DEF)
         m.add_meta_data("k1th", "part", p.name, "xs:string", False)
         m.write(str(f_3mf))
+        mat = MATERIALS[p.material]
         rec = {"material": p.material, "category": p.category, "volume_mm3": round(v0, 3),
-               "bbox_print": [round(v, 3) for v in bb0], "files": {}}
+               "mass_g_solid": round(v0 * mat.density.value / 1000, 2),
+               "density_g_cm3": f"{mat.density.value} ({mat.density.status})",
+               "print_rot_deg": list(p.print_rot), "notes": p.notes,
+               "bbox_print": [round(v, 3) for v in bb0],
+               "size_print_mm": [round(bb0[3] - bb0[0], 2), round(bb0[4] - bb0[1], 2), round(bb0[5] - bb0[2], 2)],
+               "files": {}}
         # --- re-open
         r = import_step(str(f_step))
         n = len(r.solids())
         if n != 1:
             FAILS.append(f"{p.name} STEP has {n} solids")
+        rs = r.solids()[0] if n else r
+        sv, sf = rs.tessellate(0.05, 0.3)
+        sm = trimesh.Trimesh(np.array([(q.X, q.Y, q.Z) for q in sv]), np.array(sf), process=True)
+        sm.merge_vertices()
+        step_ok = bool(rs.is_valid) and bool(sm.is_watertight) and r.volume > 0
+        if not step_ok:
+            FAILS.append(f"{p.name} STEP solid invalid/not closed (valid={rs.is_valid}, closed={sm.is_watertight})")
+        print(f"[{'PASS' if step_ok else 'FAIL'}] {p.name} STEP solid: valid={rs.is_valid} closed={sm.is_watertight} "
+              f"V={r.volume:.1f} mm3")
         rec["files"]["step"] = {"path": str(f_step.relative_to(OUT.parent)), "sha256_16": sha(f_step), "solids": n,
+                                "is_valid": bool(rs.is_valid), "closed": bool(sm.is_watertight),
                                 **_cmp(f"{p.name} STEP", v0, bb0, r.volume, _bb(r), TOL["step_dv"], TOL["step_bb"])}
         r3 = Mesher().read(str(f_3mf))
         if len(r3) != 1:
@@ -100,10 +120,12 @@ def main():
         tm = trimesh.load(str(f_stl))
         bbs = list(tm.bounds[0]) + list(tm.bounds[1])
         rec["files"]["stl"] = {"path": str(f_stl.relative_to(OUT.parent)), "sha256_16": sha(f_stl),
-                               "watertight": bool(tm.is_watertight),
+                               "watertight": bool(tm.is_watertight), "winding_consistent": bool(tm.is_winding_consistent),
+                               "triangles": int(len(tm.faces)),
                                **_cmp(f"{p.name} STL", v0, bb0, float(tm.volume), bbs, TOL["mesh_dv"], TOL["mesh_bb"])}
-        if not tm.is_watertight:
-            FAILS.append(f"{p.name} STL not watertight")
+        if not tm.is_watertight or not tm.is_winding_consistent or tm.volume <= 0:
+            FAILS.append(f"{p.name} STL not closed/consistent (watertight={tm.is_watertight}, "
+                         f"winding={tm.is_winding_consistent}, V={tm.volume:.1f})")
         man["parts"][p.name] = rec
 
     # --- assembly

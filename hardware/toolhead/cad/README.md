@@ -5,6 +5,19 @@ MicroProbe mount (DD-03), the fit-check coupon, the assembly, automated validati
 manufacturing exports. The duct air paths and duct bodies belong to the Duct/CFD agent
 (`source/ducts/`); this side reads their `duct_interface.json` and never edits it.
 
+**Current state.** The CFD phase is finished. The baseline is **one stock Creality 4020 blower in
+the front bay plus the S7 multi-port duct** (`ducts/duct_generator.py`, param set S7;
+`duct_interface.json` v3-final, `final_mount_points: true`). `assembly.py` (`COOLING_SOURCE =
+"auto-final"`) therefore builds the real duct body, and the frame and cover are built around it:
+
+- fan envelope X −21.3…18.7, Y −56.5…−36.5, Z 23.4…63.4, held on its two diagonal screws
+  (−18.65, 60.3) and (16.05, 25.6);
+- duct body Z 2.44…27.4, bolted to frame lugs at T_left (−7.5, −37.75, 19.5) and
+  T_right (24.0, −37.75, 22.5), M3 along +Y.
+
+The placeholder stub in `structure/cooling.py` is only a fallback. A Same Sky 5015 (+ 24→12 V buck)
+is a conditional upgrade, not the baseline: no buck mount is modelled.
+
 Frame for every file: origin at the nozzle tip, +X printer right, +Y printer rear, +Z up, mm.
 Every number comes from `source/interfaces.py`, or is a named parameter with a status and a
 source (`structure/common.py::prm`), or is flagged. `validate.py` lists each printed part's
@@ -14,15 +27,35 @@ ESTIMATED / MISSING / STUB dependencies.
 
 | Part | File | Material | Mass (solid) | Release |
 |---|---|---|---|---|
-| Fit-check coupon | `exports/*/fitcheck_coupon.*` | ASA | ~2.9 g | **PRINT FIRST** (≈10 min) |
-| Cooling-module frame | `exports/*/cooling_module_frame.*` | ASA | ~5.3 g | NOT RELEASED (cooling interface is a stub or provisional; PCB pads ESTIMATED, M10) |
-| Cover | `exports/*/cover.*` | ASA | ~7.0 g | NOT RELEASED (follows the fan/duct pose) |
-| MicroProbe mount | `exports/*/probe_mount.*` | PA-CF (PC acceptable) | ~11.4 g | NOT RELEASED (785004 anchor unconfirmed, M8) |
+| Fit-check coupon | `exports/*/fitcheck_coupon.*` | ASA | 2.9 g | **PRINT FIRST** (≈10 min) |
+| Cooling-module frame | `exports/*/cooling_module_frame.*` | ASA | 5.8 g | FIT-CHECK FIRST (PCB pads and component zone ESTIMATED, M10; 4020 hole positions and thickness ESTIMATED, M7; insert hole size) |
+| Cover | `exports/*/cover.*` | ASA | 6.9 g | FIT-CHECK FIRST (follows the 4020 front face, M7; LiDAR boxes, M6) |
+| Duct body (S7) | `exports/*/duct_body.*` | PC (or PA-CF, 8.9 g) | 9.2 g | FIT-CHECK FIRST (4020 outlet size and holes M7, socket fit, hotend version M1, probe keep-out M8, component zone M10, LiDAR boxes M6) |
+| MicroProbe mount | `exports/*/probe_mount.*` | PA-CF (PC acceptable) | 11.5 g | NOT RELEASED (785004 anchor unconfirmed, M8) |
 
 Masses assume 100 % infill (upper bound). Densities ASA 1.07, PC 1.20, PA-CF 1.15 g/cm³ are
-typical TDS values (ESTIMATED); use the datasheet of the spool you buy. Current numbers, checks
-and the full dependency list: `exports/validation_report.md` (stub) and
-`exports/validation_report_ducts.md` (the Duct agent's provisional interface).
+typical TDS values (ESTIMATED); use the datasheet of the spool you buy. The duct body is owned by
+the Duct/CFD agent; it is exported here as printed: upright as modelled (fan socket up, nozzle-frame
++Z = print Z), PC or PA-CF (DD-07: within 15 mm of the heater). Current numbers, checks and the full
+dependency list: `exports/validation_report.md` (default source) and
+`exports/validation_report_ducts.md` (`--cooling ducts`, identical while the JSON is final).
+
+Validation today (`validate.py`, Henlor stock cache present): **0 FAIL, 4 WARN**, all four accepted:
+
+| WARN | Why it is accepted |
+|---|---|
+| duct_body min wall 0.37 mm on 0.27 % of rays | every thin ray sits on an acute convex edge (wedge 66–85°; 42–86° in a denser 8000-ray scan, 0.43 % of rays), none between parallel faces: the 65° ridge where each port floor (25°) steps 0.6–1.1 mm down onto the manifold floor, and the port-side/manifold junctions. Not a thin wall; inside the air path, so only the duct owner can change it (S6's flush roots did, at a CFD cost) |
+| front extent −58.2 (cover) vs `FRONT_LIMIT_Y` −55 | soft limit (DERIVED from the stock cover, M9 unmeasured). The 4020 alone reaches −56.5; the cover adds `COVER_GAP` 0.5 + `COVER_WALL` 1.2 |
+| probe anchor, interfaces.py vs Henlor | M8; the mount copies 785004's anchor-to-probe relation |
+| frame mode without the 4th pad, 147 Hz | M10: only if the PCB "2nd plate" is not a real part |
+
+`LIDAR_RESERVED_BODY` overlapping the stock carriage by 1.2 mm in X is reported as INFO: the box's
+inner face (X −24, stock cover width) lies inside the carriage's left face (X −25.2), which is
+where the LiDAR bracket seats. The box stays as is until M6.
+
+Moving mass vs stock: **−0.1 … +8.8 g** (printed parts at 100 % infill + all screws/inserts, minus
+the stock cover+duct, the 785004 adapter and the stock PCB screws); X shaper 76.9…77.6 Hz at an
+X moving mass of 450 g (77.6 Hz today), Y 51.7…52.0 Hz.
 
 ### Print the coupon first
 `fitcheck_coupon` is printed face down, with no supports. It checks, on the real printer:
@@ -53,7 +86,7 @@ $K1_PY cad/source/validate.py --cooling ducts    # same against the Duct agent's
 $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP, re-opened and verified
 ```
 
-- `validate.py` takes about 3 min. `--samples N` sets the number of wall-thickness rays.
+- `validate.py` takes about 1.5 min. `--samples N` sets the number of wall-thickness rays.
   `--no-stock-cache` forces the box references.
 - **Stock solids (optional, recommended).** Henlor's reverse-engineered K1 assembly (Printables
   742370, CC BY) gives real carriage/heatsink/PCB/3010/extruder solids for the interference
@@ -65,8 +98,8 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 
   | Check | Tolerance |
   |---|---|
-  | STEP round trip | 1 solid, dV/V < 1e-6, bbox 1e-3 mm |
-  | 3MF / STL | 1 object, dV/V < 5e-3, bbox 0.05 mm; STL watertight |
+  | STEP round trip | 1 solid, OCC-valid, closed, dV/V < 1e-6, bbox 1e-3 mm |
+  | 3MF / STL | 1 object, dV/V < 5e-3, bbox 0.05 mm; STL watertight, consistent winding |
   | Assembly STEP | same named, coloured leaves and groups, per-leaf dV/V < 1e-6 |
 
   STEP headers carry a timestamp, so re-exports are identical in content but not byte for byte.
@@ -79,7 +112,7 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | `structure/common.py` | parameter registry (`prm`), materials, inserts/screws, helpers, `PartSpec`, release rule |
 | `structure/reference.py` | non-printed references: nozzle, heater, sock, heatsink, 3010, PCB (+ fan cutout from the K1C gerber, + Henlor "2nd plate"), extruder, belt retainers, rods, probe body/pin, keep-outs (component zone, LiDAR optical/body boxes, laser sheet), replaced stock parts |
 | `structure/stock_cache.py` | Henlor solids → nozzle-frame STEP cache (validation only) |
-| `structure/cooling.py` | cooling interface: STUB + adapter for `ducts/duct_interface.json` + `build_ducts()` |
+| `structure/cooling.py` | cooling interface: adapter for `ducts/duct_interface.json` + `build_ducts()` (duct body, air path, duct dependencies), STUB fallback |
 | `structure/frame.py` | cooling-module frame |
 | `structure/cover.py` | cover |
 | `structure/probe_mount.py` | MicroProbe mount |
@@ -93,10 +126,11 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | Part | Driven by `interfaces.py` | Own parameters (DESIGN unless noted) |
 |---|---|---|
 | frame | `MODULE_MOUNT_HOLES`, `MODULE_MOUNT_BEARING_Y` (−22.3), `MODULE_MOUNT_PAD_D`, `PCB_COMPONENT_ZONE` (plate back at −31.5), `PCB`, `FAN3010_PATTERN_CZ`, `LIDAR_RESERVED_BOXES`, `RIGHT_LIMIT_X` | `FRAME_PLATE_T` 2.0; `FRAME_ZMAX` 71.8 (below the carriage strain relief); `FRAME_XMAX` 20; `FRAME_WINDOW_R` 15 (teardrop, intake ≥ 625 mm²); `FRAME_RIB_DEPTH` 2.0; `FRAME_BOSS_D` 7.5 with a Ø5.8 neck (Henlor 2nd-plate holes Ø6.2, DERIVED); `FRAME_FOURTH_PAD_ON` (ESTIMATED); `FRAME_PCB_SCREW_LEN` 30 (3× M3×30 ISO 7380 replace stock M3×18/18/20); cover screws `COVER_SCREW_X/Y`; tie slots `FRAME_TIE_*` |
-| cover | `PCB`, `XCARRIAGE`, `RIGHT_LIMIT_X`, LiDAR boxes | `COVER_HALF_W` 24.0 (stock width, DERIVED); `COVER_WALL` 1.2; `COVER_GAP` 1.0; `COVER_ZMIN` 24; top wall stops in front of the strain relief (`CARRIAGE_STRAIN_RELIEF_YMIN`, DERIVED 02:N16) |
+| cover | `PCB`, `XCARRIAGE`, `RIGHT_LIMIT_X`, LiDAR boxes, fan envelope | `COVER_HALF_W` 24.0 (stock width, DERIVED); `COVER_WALL` 1.2; `COVER_GAP` 0.5 (front wall to fan face); `COVER_ZMIN` 24; `COVER_YIELD_CLEAR` 0.3 (right wall bottom raised to Z 26.4 over T_right); top wall stops in front of the strain relief (`CARRIAGE_STRAIN_RELIEF_YMIN`, DERIVED 02:N16) |
 | probe mount | `PROBE_*`, `PROBE_BODY_Y`, `PROBE_ADAPTER_785004`, `PROBE_ADAPTER_SCREWS`, `REAR_LIMIT_Y`, `SOCK` | 785004 relations from 01 §H.1 (`PM_SEAT_TO_ANCHOR_Z` 27.05, `PM_SEAT_TO_TOP_Z` 32.5, `PM_MATING_FACE_Y` 16.9, `PM_FRONT_LOW_Y` 13.4, windows, Ø2.4/Ø4.2 anchor holes); carriage tabs from Henlor (`PM_TAB_*`); `PM_PAD_T` 4; `PM_WALL` 2.4; pocket 0.8 deep; M2.5 inserts; `PM_ANCHOR_CONFIRMED_M8` (MISSING) |
 | coupon | same as frame bosses + probe flange | `COUPON_*` |
-| stub cooling | `STOCK_4020_POS` (XZ centre), `BLOWER_4020_STOCK` | `STUB_*` (status STUB) |
+| duct body (Duct/CFD agent) | `SOCK`, `HEATER_BODY`, `HOT_ZONE_CLEARANCE`, `DUCT_MIN_Z`, `PROBE_BODY_Y`, `PROBE_ADAPTER_785004`, `PCB_COMPONENT_ZONE`, `STOCK_4020_POS`, `FAN3010`, LiDAR boxes | from `duct_interface.json`: `DUCT_FAN_F_OUTLET_SIZE`, `DUCT_FAN_F_SCREW_HOLES`, `DUCT_FAN_F_ENVELOPE` (ESTIMATED, M7), `DUCT_FAN_SOCKET_FIT`, `DUCT_HOTEND_VERSION` (M1), `DUCT_MOUNT_POINTS_FINAL`; `DUCT_TAB_SCREW_LEN` 6 |
+| stub cooling (fallback) | `STOCK_4020_POS` (XZ centre), `BLOWER_4020_STOCK` | `STUB_*` (status STUB) |
 
 ## Changing the fan / duct variant
 
@@ -127,14 +161,26 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
   - 2.0 mm ASA plate directly in front of the PCB component zone, with front ribs open at Z 36…56 so the plenum between plate and fan is fed from the sides.
   - Teardrop window (assembly-down point), so it prints upside down without support, in front of the PCB fan cutout. The cutout was found in the K1C gerber: R 13.7 clipped at X ±12, ≈559 mm².
   - Bosses bear on the PCB around the three screws. A compression pad at the fourth corner backs the lower fan screw.
-  - The plate stays out of the LiDAR boxes. Only the unavoidable screw column at PCB hole (−12, 34.3) enters `LIDAR_RESERVED_BODY` (allow-listed; that box overlaps the stock PCB, 3010, heatsink and carriage).
+  - The plate stays out of the LiDAR boxes (2.5 mm from `LIDAR_RESERVED_OPTICAL`, 4.0 mm from
+    `LIDAR_RESERVED_BODY`). `frame.lidar_allow_regions()` would allow-list a PCB screw column if a
+    box ever reached one; with the current boxes none does.
   - Heat-set inserts for every screw the frame takes (fan, duct, cover): service cycles, 45 °C chamber, no thread creep in ASA.
+- **Frame and the S7 duct.** `validate.py` checks that the frame really provides the four
+  interface points (two 4020 screws, T_left, T_right): open Ø4.0 insert hole, solid Ø7.2 boss, solid
+  mating face at Y −36.5. The frame stays 1.2 mm outside the duct air path and 13.7 mm from the sock
+  (≥ `HOT_ZONE_CLEARANCE` 3). Where frame lugs and the duct body meet, the frame yields.
 - **Cover.**
   - 1.2 mm ASA, ±24.0 wide (inside `RIGHT_LIMIT_X` 24.2 in the XY-joint band).
-  - Two M3×6 screws from the top into the frame shelf.
+  - Two M3×6 screws from the top into the frame shelf. The top wall's underside bears on the shelf
+    top: this is the only intended frame contact. Everywhere else the cover clears the frame by ≥ 0.3 mm.
+  - Yields to the duct: the right wall's bottom edge is raised from Z 24.0 to 26.4 over its whole
+    length. This clears the duct's T_right tab (top Z 26.0) and the frame lug (top 26.1) by ≥ 0.3,
+    and the cover still slides off forward.
+  - Front wall 0.5 mm in front of the 4020 intake face, front at Y −58.2.
   - Open at the bottom and rear, so it slides forward without unplugging the LiDAR, probe or fan, and without removing the duct.
   - Front vents over the fan intake; side and top vents over the plenum (3010 intake path).
-  - Left wall cut back out of the LiDAR boxes.
+  - Left wall cut back out of the LiDAR boxes, through its full thickness: a partial cut left a
+    0.7 mm sliver.
   - Reusing the stock carriage cover screws (X ±22.6, Y −2.2, Z 35.35) would need an arm through `LIDAR_RESERVED_BODY` on the left, so they are not used.
 - **Probe mount.**
   - Drop-in replacement for Printables 785004 on the same two carriage tabs.
@@ -152,10 +198,14 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | Item | Qty | Note |
 |---|---|---|
 | M3×30 ISO 7380 | 3 | replace the stock PCB screws (M3×18 ×2 into carriage inserts, M3×20 into the heatsink) |
-| M3 brass heat-set insert, short (hole Ø4.0) | 6 (stub) | 2 fan, 2 duct, 2 cover |
+| M3 brass heat-set insert, short (hole Ø4.0) | 6 | 2 fan, 2 duct (T_left, T_right), 2 cover |
+| M3×24 | 2 | 4020 to frame: fan through-length 20 (ESTIMATED, M7) + 4 (`FRAME_FAN_SCREW_LEN`) |
+| M3×6 ISO 7380 | 2 | duct tabs to frame lugs (tab 2.5 + 3.5 into the insert, `DUCT_TAB_SCREW_LEN`) |
 | M3×6 ISO 7380 | 2 | cover |
-| M3 × (fan thickness + 4) | 2 | fan to frame (length follows the fan) |
 | M2.5 brass heat-set insert (hole Ø3.6) | 2 | probe |
 | M2.5×5 | 2 | probe (BIQU kit) |
 | ~M2 screws | 2 | probe mount to carriage tabs: reuse 785004's |
 | cable ties 2.5 mm | 3 | frame top corners, probe mount roof |
+| stock 4020 blower | 1 | reused |
+
+No 24→12 V buck or Same Sky 5015 hardware in the baseline (conditional upgrade only).

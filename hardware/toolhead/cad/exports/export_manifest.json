@@ -1,6 +1,6 @@
 {
- "cooling_source": "structure/cooling.py stub",
- "is_stub": true,
+ "cooling_source": "/home/user/K1ProMaxUltra/hardware/toolhead/cad/source/ducts/duct_interface.json",
+ "is_stub": false,
  "tolerances": {
   "step_dv": 1e-06,
   "step_bb": 0.001,
@@ -11,37 +11,54 @@
   "cooling_module_frame": {
    "material": "ASA",
    "category": "printed",
-   "volume_mm3": 5009.449,
+   "volume_mm3": 5457.571,
+   "mass_g_solid": 5.84,
+   "density_g_cm3": "1.07 (ESTIMATED)",
+   "print_rot_deg": [
+    180,
+    0,
+    0
+   ],
+   "notes": "ASA; > 15 mm from the heater. PCB screws M3x30 (stock + 11.2 mm).",
    "bbox_print": [
-    -21.125,
+    -24.925,
     -12.65,
     0.0,
-    21.125,
+    24.925,
     12.65,
+    55.9
+   ],
+   "size_print_mm": [
+    49.85,
+    25.3,
     55.9
    ],
    "files": {
     "step": {
      "path": "exports/step/cooling_module_frame.step",
-     "sha256_16": "5a8ec272701b764a",
+     "sha256_16": "492098b736e187c5",
      "solids": 1,
-     "dV_rel": 1.978958625894654e-14,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 3.6162669472560574e-14,
      "dBB_mm": 1.4210854715202004e-14,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/cooling_module_frame.3mf",
-     "sha256_16": "1da5a5174844ced5",
+     "sha256_16": "1a8e249ccad49c47",
      "objects": 1,
-     "dV_rel": 3.9174880341878654e-05,
+     "dV_rel": 1.1031561999498931e-05,
      "dBB_mm": 0.0011199951172002898,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/cooling_module_frame.stl",
-     "sha256_16": "881ce7b09a2ec20e",
+     "sha256_16": "1676c928e156f898",
      "watertight": true,
-     "dV_rel": 3.9155166413386645e-05,
+     "winding_consistent": true,
+     "triangles": 12956,
+     "dV_rel": 1.102327056214895e-05,
      "dBB_mm": 0.0011199951172002898,
      "pass": 1.0
     }
@@ -50,37 +67,54 @@
   "cover": {
    "material": "ASA",
    "category": "printed",
-   "volume_mm3": 6541.778,
+   "volume_mm3": 6416.613,
+   "mass_g_solid": 6.87,
+   "density_g_cm3": "1.07 (ESTIMATED)",
+   "print_rot_deg": [
+    90,
+    0,
+    0
+   ],
+   "notes": "2 screws from the top; slides forward without unplugging LiDAR / probe / fan",
    "bbox_print": [
     -24.0,
     -24.5,
     0.0,
     24.0,
     24.5,
-    29.6
+    29.1
+   ],
+   "size_print_mm": [
+    48.0,
+    49.0,
+    29.1
    ],
    "files": {
     "step": {
      "path": "exports/step/cover.step",
-     "sha256_16": "533192a0b9daf84a",
+     "sha256_16": "12a08aecd648ce92",
      "solids": 1,
-     "dV_rel": 1.2095493615975392e-14,
-     "dBB_mm": 1.0658141036401503e-14,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 5.669624449147465e-15,
+     "dBB_mm": 1.4210854715202004e-14,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/cover.3mf",
-     "sha256_16": "7eaf4e33d9c35f01",
+     "sha256_16": "f50fdf64ff3e5590",
      "objects": 1,
-     "dV_rel": 3.302192554463565e-05,
+     "dV_rel": 3.365527474556776e-05,
      "dBB_mm": 3.8146970737784613e-07,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/cover.stl",
-     "sha256_16": "d8e5843f0fb8c0ae",
+     "sha256_16": "de379cc407812641",
      "watertight": true,
-     "dV_rel": 3.3022474556449336e-05,
+     "winding_consistent": true,
+     "triangles": 1688,
+     "dV_rel": 3.3656597498717276e-05,
      "dBB_mm": 3.8146970737784613e-07,
      "pass": 1.0
     }
@@ -90,6 +124,14 @@
    "material": "PA-CF",
    "category": "printed",
    "volume_mm3": 9955.259,
+   "mass_g_solid": 11.45,
+   "density_g_cm3": "1.15 (ESTIMATED)",
+   "print_rot_deg": [
+    180,
+    0,
+    0
+   ],
+   "notes": "NOT RELEASED until M8 confirms the 785004 anchor (photo + calipers)",
    "bbox_print": [
     -17.0,
     -7.85,
@@ -98,18 +140,25 @@
     7.85,
     33.3
    ],
+   "size_print_mm": [
+    34.0,
+    15.7,
+    33.3
+   ],
    "files": {
     "step": {
      "path": "exports/step/probe_mount.step",
-     "sha256_16": "404860d83a97362a",
+     "sha256_16": "dec29ec67da9a1de",
      "solids": 1,
+     "is_valid": true,
+     "closed": true,
      "dV_rel": 0.0,
      "dBB_mm": 7.105427357601002e-15,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/probe_mount.3mf",
-     "sha256_16": "2f10ac03d7656b50",
+     "sha256_16": "51113e0f4c876a97",
      "objects": 1,
      "dV_rel": 8.522872665498465e-06,
      "dBB_mm": 7.629394573882564e-07,
@@ -119,6 +168,8 @@
      "path": "exports/stl/probe_mount.stl",
      "sha256_16": "3904f00e63eafc96",
      "watertight": true,
+     "winding_consistent": true,
+     "triangles": 3192,
      "dV_rel": 8.522521089670712e-06,
      "dBB_mm": 7.629394573882564e-07,
      "pass": 1.0
@@ -129,6 +180,14 @@
    "material": "ASA",
    "category": "fitcheck",
    "volume_mm3": 2702.113,
+   "mass_g_solid": 2.89,
+   "density_g_cm3": "1.07 (ESTIMATED)",
+   "print_rot_deg": [
+    90,
+    0,
+    0
+   ],
+   "notes": "PRINT FIRST. Same material as the frame so shrinkage matches.",
    "bbox_print": [
     -16.0,
     -25.895,
@@ -137,18 +196,25 @@
     25.895,
     10.8
    ],
+   "size_print_mm": [
+    32.0,
+    51.79,
+    10.8
+   ],
    "files": {
     "step": {
      "path": "exports/step/fitcheck_coupon.step",
-     "sha256_16": "3ff7a12e8de4f714",
+     "sha256_16": "984669bd15b529c6",
      "solids": 1,
+     "is_valid": true,
+     "closed": true,
      "dV_rel": 1.0434182224259155e-14,
      "dBB_mm": 7.105427357601002e-15,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/fitcheck_coupon.3mf",
-     "sha256_16": "d6c0a9b3a1a0d9ba",
+     "sha256_16": "d22373d85076a847",
      "objects": 1,
      "dV_rel": 4.7966791254876244e-05,
      "dBB_mm": 4.5776367230132564e-07,
@@ -158,8 +224,66 @@
      "path": "exports/stl/fitcheck_coupon.stl",
      "sha256_16": "f06518dfac326a09",
      "watertight": true,
+     "winding_consistent": true,
+     "triangles": 8454,
      "dV_rel": 4.795454528512131e-05,
      "dBB_mm": 4.5776367230132564e-07,
+     "pass": 1.0
+    }
+   }
+  },
+  "duct_body": {
+   "material": "PC",
+   "category": "printed",
+   "volume_mm3": 7699.452,
+   "mass_g_solid": 9.24,
+   "density_g_cm3": "1.2 (ESTIMATED)",
+   "print_rot_deg": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "notes": "owned by the Duct/CFD agent (cad/source/ducts, param set S7); status FINAL. nozzle end PC or PA-CF (DD-07); printed upright, fan socket up. Print upright as modelled (nozzle-frame +Z = print Z, fan socket up).",
+   "bbox_print": [
+    -23.389,
+    -42.0,
+    -0.0,
+    23.389,
+    42.0,
+    24.964
+   ],
+   "size_print_mm": [
+    46.78,
+    84.0,
+    24.96
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/duct_body.step",
+     "sha256_16": "05213e38f0d8b41e",
+     "solids": 1,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 1.4608471396936244e-09,
+     "dBB_mm": 2.4584778657299466e-12,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/duct_body.3mf",
+     "sha256_16": "e22a07e8c7697f5f",
+     "objects": 1,
+     "dV_rel": 9.943915824251118e-06,
+     "dBB_mm": 1.143757657473543e-06,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/duct_body.stl",
+     "sha256_16": "65d631e28e293265",
+     "watertight": true,
+     "winding_consistent": true,
+     "triangles": 2642,
+     "dV_rel": 9.873269512830334e-06,
+     "dBB_mm": 7.635909753389569e-07,
      "pass": 1.0
     }
    }
@@ -167,35 +291,30 @@
  },
  "assembly": {
   "path": "exports/step/k1max_toolhead_assembly.step",
-  "sha256_16": "c34df573f904ec48",
+  "sha256_16": "f65155fb60d3d4ee",
   "leaves": 29,
   "groups": [
    "keepout_volumes",
    "printed_parts",
    "reference_stock_parts",
-   "replaced_stock_parts",
-   "stub_cooling_module"
+   "replaced_stock_parts"
   ],
   "parts": {
    "cooling_module_frame": {
     "group": "printed_parts",
-    "volume_mm3": 5009.449
+    "volume_mm3": 5457.571
    },
    "cover": {
     "group": "printed_parts",
-    "volume_mm3": 6541.778
+    "volume_mm3": 6416.613
    },
    "probe_mount": {
     "group": "printed_parts",
     "volume_mm3": 9955.259
    },
-   "stub_duct_placeholder": {
-    "group": "stub_cooling_module",
-    "volume_mm3": 5675.354
-   },
-   "ref_blower_1_BLOWER_4020_STOCK": {
-    "group": "stub_cooling_module",
-    "volume_mm3": 32000.0
+   "duct_body": {
+    "group": "printed_parts",
+    "volume_mm3": 7699.452
    },
    "ref_nozzle": {
     "group": "reference_stock_parts",
@@ -257,6 +376,10 @@
     "group": "reference_stock_parts",
     "volume_mm3": 9.289
    },
+   "ref_blower_1_BLOWER_4020_STOCK": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 32000.0
+   },
    "keepout_pcb_component_zone": {
     "group": "keepout_volumes",
     "volume_mm3": 19028.268
@@ -267,7 +390,7 @@
    },
    "keepout_lidar_reserved_body": {
     "group": "keepout_volumes",
-    "volume_mm3": 73600.0
+    "volume_mm3": 60490.0
    },
    "keepout_lidar_laser_sheet": {
     "group": "keepout_volumes",

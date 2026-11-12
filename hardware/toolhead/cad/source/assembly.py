@@ -3,6 +3,10 @@
 
     python cad/source/assembly.py          # builds and prints a part summary
 
+Current state: ducts/duct_interface.json is v3-final (final_mount_points: true, param set S7), so the
+default "auto-final" builds the real S7 duct body (1 x stock 4020 in the front bay) and the frame/cover
+around it. The stub is a fallback only.
+
 Cooling module source - THE one-line switch for the fan/duct variant:
     "stub"       : structure/cooling.py stub (1 x 4020 at the stock pose + placeholder duct)
     "ducts"      : cad/source/ducts/duct_interface.json + build_ducts() (Duct/CFD agent), even if provisional
@@ -31,7 +35,8 @@ def build_parts(cooling_source: str = COOLING_SOURCE, use_stock_cache: bool = Fa
     """Return (parts: list[PartSpec], cooling interface). use_stock_cache swaps the
     stock reference boxes for Henlor's solids (validation only - never exported)."""
     ci = cooling.get_cooling(cooling_source)
-    parts = [frame.build(ci), cover.build(ci), probe_mount.build(), coupon.build()]
+    fr = frame.build(ci)
+    parts = [fr, cover.build(ci, fr.shape), probe_mount.build(), coupon.build()]
     parts += ci.duct_parts
     parts += reference.build_reference(ci, use_stock_cache)
     names = [p.name for p in parts]

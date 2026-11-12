@@ -4,11 +4,15 @@ It reproduces, with the production parameters, only the interfaces whose
 values are DERIVED/ESTIMATED, so they can be checked on the real printer
 before anything large is printed:
 
-A. PCB interface (same code paths as the frame): the three Ø3.4 PCB holes on
-   the 24 mm pattern, Ø6.5 boss pads (MODULE_MOUNT_PAD_D) 7.6 long (bridging
-   PCB_COMPONENT_ZONE; necked to Ø5.8 through the Ø6.2 holes of the PCB "2nd
-   plate" seen in Henlor's model), the 4th-corner pad, and a 1.6 mm
-   plate at the frame's back-face plane with the fan window.
+A. PCB interface (same code path as the frame, frame.pcb_bosses): the three
+   Ø3.4 PCB clearance holes on the 24 mm pattern; each boss bears on the PCB
+   front face (Y -22.3) with a Ø5.8 neck (MODULE_MOUNT_PAD_D 6.5 capped at the
+   Ø6.2 holes of the PCB "2nd plate" seen in Henlor's model, minus 0.4) and
+   continues as a Ø7.5 boss (FRAME_BOSS_D) to the plate: 9.2 mm from the PCB
+   face to the frame's back face (Y -31.5), bridging PCB_COMPONENT_ZONE; the
+   Ø6.5 compression pad at the 4th pattern corner bears on the 2nd plate; a
+   1.6 mm plate (COUPON_PLATE_T) whose back face is the frame's back-face plane,
+   with a Ø25 window (COUPON_WINDOW_R) over the PCB fan cutout.
    Check: the 3 screws enter the PCB holes square; every pad seats flat on
    bare PCB (no component under a pad, plate clear of all connectors/plugs);
    the window lines up with the PCB fan cutout.
@@ -17,7 +21,8 @@ B. MicroProbe pattern: two M2.5 heat-set insert bosses at 17.0 mm and a fence
    seat. Check: inserts install cleanly, the probe drops into the fence, the
    BIQU M2.5x5 screws reach. The probe's connector side is the fence side
    marked by the notch.
-C. One M3 insert boss (frame insert size).
+C. One M3 insert boss (frame insert size, INSERT_M3_HOLE_D; the frame uses it for
+   the fan screws, the duct-tab lugs and the cover screws).
 Built in the nozzle frame at the frame's plate position (part A), printed
 front face down. It is not part of the assembly.
 """

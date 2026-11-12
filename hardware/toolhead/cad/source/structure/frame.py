@@ -1,15 +1,21 @@
 """Cooling-module frame (DD-01): bolts to the three PCB holes
-(MODULE_MOUNT_HOLES) with longer screws of the stock thread, bosses bear on
-the PCB front face and bridge PCB_COMPONENT_ZONE, carries the part fan(s) and
-the duct body at the mount points published by the cooling interface
-(stub or ducts/duct_interface.json), the cover screws and two cable tie-downs.
+(MODULE_MOUNT_HOLES) with longer screws of the stock thread; bosses bear on
+the PCB front face and bridge PCB_COMPONENT_ZONE. It carries the part fan and
+the duct body at the mount points published by the cooling interface (with
+the default COOLING_SOURCE "auto-final" these are the Duct/CFD agent's FINAL
+points from ducts/duct_interface.json: the 4020's two diagonal screws and the
+duct tabs T_left / T_right), the cover screws and two cable tie-downs.
 
 Layout (nozzle frame, looking from the front):
-  - 2.5 mm plate in the XZ plane directly in front of the component zone;
+  - 2.0 mm plate (FRAME_PLATE_T) in the XZ plane directly in front of the component zone;
   - teardrop window in front of the 3010 / PCB fan cutout (hotend-fan intake);
   - perimeter ribs on the front face, open at Z 36..56 on both sides so the
     plenum between plate and blower is fed from the sides;
-  - the plate stays out of LIDAR_RESERVED (X >= -17.5 below Z 42.5);
+  - the plate stays out of LIDAR_RESERVED_BOXES (+0.5 mm margin);
+  - fan screws: standoffs from the fan's rear face through the plate, M3 inserts;
+  - duct tabs: lugs from the tab mating face (fan rear plane) back to the plate,
+    below the plate's bottom edge, bridged sideways when beside the plate; the
+    frame yields to the duct body wherever they meet (duct geometry has priority);
   - top shelf with 2 M3 inserts for the cover; tie-down blocks left/right.
 Fasteners: brass heat-set inserts everywhere the frame takes a screw (fan,
 duct, cover): repeated service cycles and a 45 C chamber rule out
@@ -68,6 +74,8 @@ SCREW_EXTRA = STOCK_GRIP_ADD + T                                 # ... + plate =
 # Stock: 2 x M3x18 BHCS upper (into carriage inserts), M3x20 BHCS lower (into the heatsink) - 02:N6/N7.
 HEAD_CLEAR_D = BUTTON_HEAD["M3"][0] + 0.6     # ISO 7380 M3 head + driver clearance
 LUG_COVER_GAP = prm(G, "FRAME_LUG_COVER_GAP", 1.0, "DESIGN", "side lugs stay this far below the plate bottom (cover edge)")
+FAN_SCREW_LEN = prm(G, "FRAME_FAN_SCREW_LEN", 24.0, "DESIGN",
+                    "fan screw = fan through-length 20 (ESTIMATED, M7) + insert 4; BOM 'M3 x (fan thickness + 4)'")
 SCREW_LEN = prm(G, "FRAME_PCB_SCREW_LEN", 30.0, "DESIGN",
                 "3 x M3x30 ISO 7380: upper tip 0.8 deeper than stock (stock 18+11.2=29.2; carriage hole depth "
                 "behind the insert checked against the Henlor carriage); lower 7.3 mm in the heatsink (stock 8.5)")
@@ -270,10 +278,17 @@ def build(cooling) -> PartSpec:
            f"{SCREW_EXTRA:.1f} mm)", 3, screw_mass_g(3, SCREW_LEN)),
           ("M3 brass heat-set insert (fan, duct, cover)", n_ins, INSERT_MASS_G["M3"]),
           ("M3x6 ISO 7380 (cover)", 2, screw_mass_g(3, 6))]
+    for f in cooling.fans:     # fan screws: through the fan frame into the frame inserts
+        n_fs = len(f["screw_bosses"])
+        if n_fs:
+            hw.append((f"M3x{FAN_SCREW_LEN:.0f} (fan frame through-length + insert; fan to frame)", n_fs,
+                       screw_mass_g(3, FAN_SCREW_LEN)))
     deps = ["MODULE_MOUNT_HOLES", "MODULE_MOUNT_SCREW", "MODULE_MOUNT_PAD_D", "MODULE_MOUNT_BEARING_Y",
             "PCB_COMPONENT_ZONE", "PCB", "FAN3010_PATTERN_CZ", "UPPER_PATTERN_HOLES_TARGET",
             "HEATSINK_FRONT_HOLE_D", "LIDAR_RESERVED_OPTICAL", "LIDAR_RESERVED_BODY", "INSERT_M3_HOLE_D"] + list(group_params(G))
-    deps += list(group_params(C.G)) if cooling.is_stub else ["DUCT_MOUNT_POINTS_FINAL"]
+    deps += list(group_params(C.G)) if cooling.is_stub else (
+        ["DUCT_MOUNT_POINTS_FINAL"] + [n for n in C.PARAMS if n.startswith("DUCT_FAN_") and
+                                       (n.endswith("_SCREW_HOLES") or n.endswith("_ENVELOPE"))])
     spec = PartSpec("cooling_module_frame", part, "printed", "ASA", (0.25, 0.45, 0.80), deps=deps,
                     print_rot=(180, 0, 0), hardware=hw,
                     notes="ASA; > 15 mm from the heater. PCB screws M3x%.0f (stock + %.1f mm)." % (SCREW_LEN, SCREW_EXTRA))

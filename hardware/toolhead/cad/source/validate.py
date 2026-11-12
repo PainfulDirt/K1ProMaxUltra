@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Automated design checks for the K1 Max toolhead structure.
 
-    python cad/source/validate.py [--cooling stub|ducts|auto] [--samples N]
+    python cad/source/validate.py [--cooling auto-final|ducts|auto|stub] [--samples N] [--no-stock-cache]
 
 Writes cad/exports/validation_report.{json,md}. Exit code 1 if any check FAILs
 (WARN/INFO never fail). Checks:
@@ -10,7 +10,9 @@ Writes cad/exports/validation_report.{json,md}. Exit code 1 if any check FAILs
   2. pairwise interference (printed/stub vs everything, reference vs reference
      skipped) with an allow-list of intended contacts;
   3. clearances: hot zone, LiDAR boxes + laser sheet, DUCT_MIN_Z, rear limit,
-     PCB component zone, 3010 intake area; soft envelope limits (MISSING);
+     PCB component zone, 3010 intake area, the real duct's air path, the
+     cover's clearance to duct/frame, the frame's fan/duct mount points;
+     soft envelope limits;
   4. moving-mass budget vs stock and the X/Y input-shaper shift (f ~ 1/sqrt(m));
   5. stiffness estimates (structure/stiffness.py);
   6. per-part dependency on ESTIMATED/MISSING/STUB values -> release status.
@@ -32,7 +34,7 @@ import trimesh  # noqa: E402
 import assembly  # noqa: E402
 import interfaces as I  # noqa: E402
 from build123d import Pos, Rot  # noqa: E402
-from structure import common, frame, stiffness, reference, probe_mount  # noqa: E402
+from structure import common, frame, stiffness, reference, probe_mount, cover  # noqa: E402
 from structure.common import bx, ibox, cyl_y, MATERIALS  # noqa: E402
 
 EXPORTS = HERE.parent / "exports"
@@ -50,7 +52,8 @@ ALLOW = [
     ("cooling_module_frame", "ref_blower_", "contact", "fan screw standoffs"),
     ("cooling_module_frame", "stub_duct_placeholder", "contact", "duct-to-frame mount lugs"),
     ("cooling_module_frame", "duct_body", "contact", "duct-to-frame mount lugs"),
-    ("cover", "cooling_module_frame", "contact", "cover top wall rests on the frame top / shelf"),
+    ("cover", "cooling_module_frame", "contact", "cover top wall bears on the frame shelf top (Z FRAME_ZMAX), "
+     "clamped by the 2 cover screws; elsewhere >= COVER_YIELD_CLEAR (separate check)"),
     ("probe_mount", "ref_microprobe_body", "contact", "probe flange seat"),
     ("probe_mount", "stock_carriage", "contact", "anchor: roof bears on the carriage tab tops (anchor-shifted carriage)"),
     ("stub_duct_placeholder", "ref_blower_", "contact", "duct inlet on the blower outlet"),
@@ -59,6 +62,16 @@ ALLOW = [
 
 ANCHOR_FAMILY = {"stock_carriage", "stock_bushing_1", "stock_bushing_2", "stock_x_rod_1", "stock_x_rod_2",
                  "stock_belt_retainer_1", "stock_belt_retainer_2", "ref_x_rod_1", "ref_x_rod_2"}
+
+# Keep-out boxes that overlap stock parts by design (interfaces.py consistency check):
+# (box name, stock part, max X penetration from the box's inner face, reason)
+KEEPOUT_STOCK_EXPECTED = [
+    ("LIDAR_RESERVED_BODY", "stock_carriage", I.LIDAR_RESERVED_BODY.xmax - I.XCARRIAGE.xmin,
+     "expected: LIDAR_RESERVED_BODY is module + bracket (interfaces.py) and the stock bracket attaches to the "
+     "toolhead's left side (research/01 sH.2; 02 s7 item 2 lists the LiDAR bracket holes on the carriage). The "
+     "box's inner face X -24.0 (stock cover width) lies 1.2 mm inside the carriage's left face X -25.2 (02:N1): "
+     "that slab is where the bracket seats. Box kept as is until M6 (bracket position)"),
+]
 
 RESULTS = {"checks": [], "parts": {}, "interference": [], "clearance": {}, "mass": {}, "stiffness": {},
            "release": {}, "unconfirmed_global": []}
@@ -111,25 +124,44 @@ def _ray_dist(o, d, v0, e1, e2, eps=0.03):
     v = (qv * d).sum(1) * inv
     t = (e2 * qv).sum(1) * inv
     hit = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > eps)
-    return float(t[hit].min()) if hit.any() else None
+    if not hit.any():
+        return None, None
+    k = np.where(hit)[0][np.argmin(t[hit])]
+    return float(t[k]), int(k)
+
+
+WEDGE_WALL_DEG = 20.0     # thin ray between faces closer than this to parallel = a thin WALL; else an edge tip
 
 
 def wall_thickness(mesh, n=1500, seed=1):
     """Sample n surface points; cast a ray inward along -normal; distance to the
-    next surface = local wall thickness (sample-based, ESTIMATED by nature)."""
+    next surface = local wall thickness (sample-based, ESTIMATED by nature).
+    Each thin ray (< MIN_WALL) is also classified by the angle between the sampled
+    face and the face it hits: (near-)parallel faces = a thin wall; faces meeting at
+    a wedge angle >= WEDGE_WALL_DEG = the tip of an acute convex edge (the ray
+    leaves through the neighbouring face). Classification is diagnostic only:
+    the PASS/WARN/FAIL rule uses all thin rays."""
     pts, fidx = trimesh.sample.sample_surface(mesh, n, seed=seed)
     nrm = mesh.face_normals[fidx]
     tri = mesh.triangles
     v0, e1, e2 = tri[:, 0], tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]
-    out = []
+    out, thin = [], []
     for p, nv in zip(pts, nrm):
-        dd = _ray_dist(p, -nv, v0, e1, e2)
+        dd, k = _ray_dist(p, -nv, v0, e1, e2)
         if dd is not None:
             out.append(dd)
+            if dd < MIN_WALL:
+                wedge = 180.0 - math.degrees(math.acos(max(-1.0, min(1.0, float(nv @ mesh.face_normals[k])))))
+                thin.append((dd, wedge, [round(float(c), 2) for c in p]))
     a = np.array(out)
+    walls = [t for t in thin if t[1] < WEDGE_WALL_DEG]
+    edges = [t for t in thin if t[1] >= WEDGE_WALL_DEG]
     return {"samples": int(a.size), "of": int(n), "min_mm": round(float(a.min()), 3),
             "p1_mm": round(float(np.percentile(a, 1)), 3), "p5_mm": round(float(np.percentile(a, 5)), 3),
-            "share_below_min_wall": round(float((a < MIN_WALL).mean()), 4)}
+            "share_below_min_wall": round(float((a < MIN_WALL).mean()), 4),
+            "thin_rays_parallel_faces": len(walls), "thin_rays_acute_edges": len(edges),
+            "acute_edge_wedge_deg": [round(min(t[1] for t in edges)), round(max(t[1] for t in edges))] if edges else None,
+            "thinnest": [[round(t[0], 3), round(t[1]), t[2]] for t in sorted(thin)[:8]]}
 
 
 def overhang(mesh):
@@ -189,6 +221,13 @@ def main():
                 "bbox_print": [round(v, 2) for v in (pb.size.X, pb.size.Y, pb.size.Z)],
                 "print_rot_deg": p.print_rot, "mesh_volume_mm3": round(float(m.volume), 2)}
         info["wall"] = wall_thickness(m, args.samples)
+        # thinnest-sample locations back to the nozzle frame (the mesh is print-oriented)
+        rs = Rot(*p.print_rot) * s
+        rb = rs.bounding_box()
+        to_nozzle = (Pos(-(rb.min.X + rb.max.X) / 2, -(rb.min.Y + rb.max.Y) / 2, -rb.min.Z) * Rot(*p.print_rot)).inverse()
+        for t in info["wall"]["thinnest"]:
+            q = (to_nozzle * Pos(*t[2])).position
+            t[2] = [round(q.X, 2), round(q.Y, 2), round(q.Z, 2)]
         info["overhang"] = overhang(m)
         info["hardware"] = [{"item": h[0], "qty": h[1], "mass_g_each": round(h[2], 2)} for h in p.hardware]
         RESULTS["parts"][p.name] = info
@@ -198,8 +237,14 @@ def main():
               f"m={info['mass_g']} g ({p.material})")
         w = info["wall"]
         st = "FAIL" if w["share_below_min_wall"] > WALL_FAIL_SHARE else ("WARN" if w["min_mm"] < MIN_WALL else "PASS")
+        thin_txt = ""
+        if w["thin_rays_parallel_faces"] + w["thin_rays_acute_edges"]:
+            thin_txt = (f"; thin rays: {w['thin_rays_parallel_faces']} between parallel faces (thin wall), "
+                        f"{w['thin_rays_acute_edges']} at acute convex edges"
+                        + (f" (wedge {w['acute_edge_wedge_deg'][0]}..{w['acute_edge_wedge_deg'][1]} deg)" if w["acute_edge_wedge_deg"] else "")
+                        + f"; thinnest at {w['thinnest'][0][2]} (nozzle frame)")
         check(f"{p.name}: min wall (sampled, {w['samples']} rays)", st,
-              f"min {w['min_mm']} / p1 {w['p1_mm']} mm; {100 * w['share_below_min_wall']:.2f} % < {MIN_WALL} mm")
+              f"min {w['min_mm']} / p1 {w['p1_mm']} mm; {100 * w['share_below_min_wall']:.2f} % < {MIN_WALL} mm" + thin_txt)
         o = info["overhang"]
         check(f"{p.name}: overhang > {OVERHANG_DEG:.0f} deg (print orientation)", "INFO",
               f"{100 * o['overhang_gt45_share_of_total']:.1f} % of surface, {100 * o['overhang_gt45_share_of_downward']:.0f} % "
@@ -293,10 +338,67 @@ def main():
                 check(f"LiDAR {zn} vs {p.name}", "PASS", f"clear by {dist:.2f} mm")
     # stock parts that the reserved boxes overlap (interfaces.py consistency)
     for zn, z in zones[:2]:
-        hits = [r.name for r in refs if vol(r.shape & z) > VOL_TOL]
-        if hits:
-            C.setdefault("lidar_box_overlaps_stock", {})[zn] = hits
-            check(f"interfaces: {zn} overlaps stock parts", "WARN", ", ".join(hits))
+        box = getattr(I, zn)
+        for r in refs:
+            inter = r.shape & z
+            v = vol(inter)
+            if v <= VOL_TOL:
+                continue
+            ib = inter.bounding_box()
+            depth = box.xmax - ib.min.X                 # penetration from the box's inner (+X) face
+            C.setdefault("lidar_box_overlaps_stock", {}).setdefault(zn, {})[r.name] = {
+                "overlap_mm3": round(v, 2), "x_range": [round(ib.min.X, 2), round(ib.max.X, 2)],
+                "depth_from_inner_face_mm": round(depth, 2)}
+            exp = [e for e in KEEPOUT_STOCK_EXPECTED if e[0] == zn and r.name.startswith(e[1])]
+            if exp and depth <= exp[0][2] + PEN_TOL:
+                check(f"interfaces: {zn} overlaps {r.name}", "INFO",
+                      f"{v:.0f} mm3, X {ib.min.X:.2f}..{ib.max.X:.2f} ({depth:.2f} mm from the box face, "
+                      f"<= {exp[0][2]:.2f}) - {exp[0][3]}")
+            else:
+                check(f"interfaces: {zn} overlaps {r.name}", "WARN",
+                      f"{v:.0f} mm3, X {ib.min.X:.2f}..{ib.max.X:.2f} ({depth:.2f} mm deep) - unexpected, check the box (M6)")
+
+    # real duct air path: nothing else may enter it (the duct owns it)
+    if ci.duct_air is not None:
+        for p in asm_movers:
+            if p.name.startswith("duct_"):
+                continue
+            v = vol(p.shape & ci.duct_air)
+            dist = 0.0 if v > VOL_TOL else p.shape.distance_to(ci.duct_air)
+            C.setdefault("duct_air_path", {})[p.name] = {"overlap_mm3": round(v, 3), "gap_mm": round(dist, 2)}
+            check(f"duct air path vs {p.name}", "FAIL" if v > VOL_TOL else "PASS",
+                  f"overlap {v:.3f} mm3, gap {dist:.2f} mm to the S7 internal air volume")
+
+    # the cover yields to the duct and to the frame's duct lugs (only the shelf contact is intended)
+    cv = by["cover"]
+    cyc = cover.YIELD_CLEAR
+    below_shelf = cv.shape & bx(-300, 300, -300, 300, -100, frame.ZMAX - 0.01)
+    for other in [d.name for d in ci.duct_parts if d.category == "printed"] + ["cooling_module_frame"]:
+        dist = below_shelf.distance_to(by[other].shape)
+        C.setdefault("cover_clearance_mm", {})[other] = round(dist, 3)
+        check(f"cover clearance to {other} (below the shelf contact plane)", "PASS" if dist >= cyc - 1e-6 else "FAIL",
+              f"{dist:.2f} mm (>= COVER_YIELD_CLEAR {cyc}); cover side-wall bottoms Z "
+              f"{ {('left' if k < 0 else 'right'): round(v, 2) for k, v in getattr(cv, 'wall_bottoms', {}).items()} }")
+
+    # the frame really provides the fan screw bosses and the duct-tab lugs at the interface points
+    fr_s = by["cooling_module_frame"].shape
+    ins = common.INSERTS["M3"]
+    mounts = [(f"fan {f['id']} screw", b) for f in ci.fans for b in f["screw_bosses"]] + \
+             [(f"duct tab {m.get('id') or ''}", m) for m in ci.duct_mounts]
+    for tag, m in mounts:
+        x, y, z = m["pos"]
+        depth = ins.length
+        hole = cyl_y(x, z, y + 0.05, y + depth, ins.hole_d - 0.1)
+        ring = cyl_y(x, z, y + 0.05, y + depth, ins.boss_d - 0.4) - cyl_y(x, z, y, y + depth + 1, ins.hole_d + 0.2)
+        face = cyl_y(x, z, y + 0.02, y + 0.3, ins.boss_d - 0.4) - cyl_y(x, z, y, y + 1, ins.hole_d + 0.2)
+        v_hole, v_ring, v_face = vol(fr_s & hole), vol(fr_s & ring), vol(fr_s & face)
+        f_ring, f_face = v_ring / max(vol(ring), 1e-9), v_face / max(vol(face), 1e-9)
+        ok = v_hole <= VOL_TOL and f_ring > 0.95 and f_face > 0.95
+        C.setdefault("frame_mount_points", {})[tag] = {"pos": [round(v, 2) for v in m["pos"]], "hole_free_mm3": round(v_hole, 3),
+                                                      "boss_fill": round(f_ring, 3), "mating_face_fill": round(f_face, 3)}
+        check(f"frame provides {tag} at ({x:.2f}, {y:.2f}, {z:.2f})", "PASS" if ok else "FAIL",
+              f"Ø{ins.hole_d} insert hole open ({v_hole:.3f} mm3 material), boss Ø{ins.boss_d} {100 * f_ring:.0f} % solid, "
+              f"mating face at Y {y:.2f} {100 * f_face:.0f} % solid; screw along {m['axis']}")
 
     zmin_lim = float(I.DUCT_MIN_Z)
     for p in asm_movers:
@@ -374,15 +476,21 @@ def main():
           f"offset 1.0 vs 2.75, flange Z) is uncertain - M8")
     C["probe_anchor_shift_mm"] = sh
 
-    allp = asm_movers + [by["ref_microprobe_body"]]
+    allp = asm_movers + [by["ref_microprobe_body"]] + [p for p in parts if p.name.startswith("ref_blower_")]
     xs = [(p.shape.bounding_box(), p.name) for p in allp]
     ymin = min(xs, key=lambda t: t[0].min.Y)
     xmax = max(xs, key=lambda t: t[0].max.X)
     xmin = min(xs, key=lambda t: t[0].min.X)
     C["extents"] = {"front_min_y": [round(ymin[0].min.Y, 2), ymin[1]], "right_max_x": [round(xmax[0].max.X, 2), xmax[1]],
                     "left_min_x": [round(xmin[0].min.X, 2), xmin[1]]}
-    check("soft: front extent vs FRONT_LIMIT_Y (DERIVED safe bound)", "PASS" if ymin[0].min.Y >= float(I.FRONT_LIMIT_Y) else "WARN",
-          f"{ymin[0].min.Y:.1f} ({ymin[1]}) vs {float(I.FRONT_LIMIT_Y)}")
+    fan_front = min((p.shape.bounding_box().min.Y for p in parts if p.name.startswith("ref_blower_")), default=None)
+    exc = float(I.FRONT_LIMIT_Y) - ymin[0].min.Y
+    C["extents"]["front_excess_mm"] = round(max(exc, 0.0), 2)
+    check("soft: front extent vs FRONT_LIMIT_Y (DERIVED safe bound)", "PASS" if exc <= 0 else "WARN",
+          f"{ymin[0].min.Y:.1f} ({ymin[1]}) vs {float(I.FRONT_LIMIT_Y)}: {max(exc, 0):.1f} mm past"
+          + (f"; fan front face {fan_front:.1f} ({float(I.FRONT_LIMIT_Y) - fan_front:+.1f} by itself), cover = fan front "
+             f"- COVER_GAP {cover.GAP} - COVER_WALL {cover.WALL}. Soft limit (M9: front clearance at Y -2 unmeasured)"
+             if fan_front is not None and ymin[1] == "cover" else ""))
     check("right extent (all Z; the hard limit is the XY-joint band check)", "INFO",
           f"{xmax[0].max.X:.1f} ({xmax[1]}) vs RIGHT_LIMIT_X {float(I.RIGHT_LIMIT_X)}")
     check("soft: left extent of new parts", "INFO", f"{xmin[0].min.X:.1f} ({xmin[1]}); LiDAR side is limited by its own module")
@@ -411,8 +519,11 @@ def main():
     M.update({"added_g": added, "added_total_g": round(a_sum, 1), "removed_g": {k: [round(x, 1) for x in v]
                                                                              for k, v in removed.items()},
               "delta_g_range": [round(dm[0], 1), round(dm[1], 1)],
-              "basis": "solid-volume mass (100 % infill = upper bound); stub duct mass is a placeholder; "
-                       "stock 4020 reused (BLOWER_4020_STOCK.mass_g ESTIMATED, moves, no change)"})
+              "basis": "solid-volume mass (100 % infill = upper bound) of every printed assembly part "
+                       + ("(stub duct mass is a placeholder)" if ci.is_stub else "incl. the real duct body")
+                       + "; hardware = screws + inserts incl. fan and duct-tab screws; stock 4020 reused "
+                         "(BLOWER_4020_STOCK.mass_g ESTIMATED, moves, no change); removed = stock cover+duct, "
+                         "785004 adapter, stock PCB screws"})
     shaper = {}
     for ax, f0, ms in (("X", 77.6, (400, 450, 500)), ("Y", 52.0, (820, 880, 960))):
         shaper[ax] = {f"m={m0} g": [round(f0 * math.sqrt(m0 / (m0 + d)), 2) for d in dm] for m0 in ms}

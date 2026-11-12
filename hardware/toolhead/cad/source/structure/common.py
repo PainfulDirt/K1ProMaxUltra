@@ -48,6 +48,12 @@ def resolve_dep(name: str):
     if obj is None:
         return "UNKNOWN", None, "not found"
     st = getattr(obj, "status", "DERIVED-LIST")   # plain lists (PCB_HOLES...) are DERIVED in interfaces.py
+    if isinstance(obj, (tuple, list)) and any(hasattr(o, "status") for o in obj):
+        rank = ["MISSING", "ESTIMATED", "MEASURED-BY-USER", "DERIVED", "VERIFIED"]   # tuple of Dims: worst one
+        sts = [o.status for o in obj if hasattr(o, "status")]
+        st = min(sts, key=lambda x: rank.index(x) if x in rank else 0)
+        val = tuple(getattr(o, "value", o) for o in obj)
+        return st, val, "; ".join(sorted({getattr(o, "source", "") for o in obj if hasattr(o, "source")}))
     val = getattr(obj, "value", None)
     if val is None and hasattr(obj, "xmin"):
         val = (obj.xmin, obj.xmax, obj.ymin, obj.ymax, obj.zmin, obj.zmax)
@@ -124,7 +130,9 @@ def screw_mass_g(d: float, length: float) -> float:
 
 INSERT_MASS_G = {"M2": 0.12, "M2.5": 0.18, "M3": 0.25}   # ESTIMATED brass short inserts
 
-# Shared between frame.py and the cooling stub (the stub fan sits in front of the plate)
+# Shared between frame.py and the cooling stub. ducts/duct_generator.py repeats the same plate front
+# (FRAME_FRONT_Y = PCB_COMPONENT_ZONE.ymin - 2.0) to put the fan's rear face 3 mm in front of it: keep
+# FRAME_PLATE_T and that line in step (a fan face behind the plate front is a "NOT BUILT" FAIL in validate.py).
 FRAME_PLATE_T = prm("frame", "FRAME_PLATE_T", 2.0, "DESIGN",
                     "5 lines; front bay depth is the binding constraint (component zone -31.5 .. FRONT_LIMIT -55)")
 FRAME_BACK_Y = float(I.PCB_COMPONENT_ZONE.ymin)
