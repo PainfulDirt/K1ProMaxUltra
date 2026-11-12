@@ -39,7 +39,7 @@ them once the first post-install runs are logged.
 | Probe `z_offset` | maybe a little | same probe pose, but a different thermal environment (new duct airflow), and a new mount once one is fitted | **yes**, load-cell method (step F) |
 | `zero_reference_position`, `mesh_min/max`, `screws_tilt_adjust` | no | follow from the probe offset | no |
 | LiDAR pose, offsets, `custom/lidar.py` reach values | **no** | module and bracket untouched (DD-02) | **check only** (step G): no `LIDAR_OFFSET_CALIBRATION` is run to change anything, because the cover swap happens right next to the bracket |
-| Axis twist (probe and LiDAR) | probably small | pitch behaviour depends on toolhead mass and CG; the mass change is **−0.6 … +8.4 g** (validation report) | **yes** (step H) |
+| Axis twist (probe and LiDAR) | probably small | pitch behaviour depends on toolhead mass and CG; the mass change is **−0.7 … +8.3 g** (validation report) | **yes** (step H) |
 | Keep-out zones | no, if nothing reaches behind Y +29.1 | new parts end at Y −22.3 (frame), duct body at Y +27.5; the probe mount rear is 29.10 vs 29.1 for 785004 (validation report) | **verify** (step D), and re-measure if a rear part changed |
 | Front/side clearance | **yes** | new cover front **−58.2** vs stock −55.0 (validation WARN, M9); duct body reaches X +31.0 below Z 23 (outside the XY-joint band) | **yes** (step D) |
 | Input shaper | small | predicted X **76.9 … 77.7 Hz**, Y **51.8 … 52.0 Hz** (validation report, ESTIMATED at an X moving mass of 450 g) | **yes** (step H). Also watch for a frame mode near 150 Hz (validation WARN: 147 Hz without the 4th pad) and any duct flutter |

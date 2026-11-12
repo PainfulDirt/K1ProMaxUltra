@@ -28,13 +28,13 @@ Print settings: `print-settings.md`.
 |---|---|---|---|---|---|---|
 | Fit-check coupon | `fitcheck_coupon` | ASA (same spool as the frame) | 2.89 | 1 | **PRINT FIRST** | — |
 | Cooling-module frame | `cooling_module_frame` | ASA | 5.84 | 1 | **FIT-CHECK FIRST** (8 of 37 dependencies unconfirmed) | coupon result; M10 (PCB pads, component zone, 4th pad); M7 (4020 hole positions and through-length); M6 (LiDAR boxes); insert hole size |
-| Cover | `cover` | ASA | 6.42 | 1 | **FIT-CHECK FIRST** (4 of 18) | M7 (4020 intake face and inlet Ø28); M6 (LiDAR boxes); M9 (front clearance: front −58.2 vs −55.0) |
+| Cover | `cover` | ASA | 6.35 | 1 | **FIT-CHECK FIRST** (4 of 18) | M7 (4020 intake face and inlet Ø28); M6 (LiDAR boxes); M9 (front clearance: front −58.2 vs −55.0) |
 | Duct body (S7) | `duct_body` | **PC** (or PA-CF, 8.9 g) | 9.24 | 1 | **FIT-CHECK FIRST** (12 of 24) | M7 (4020 outlet 17 × 13, hole positions, socket fit); M1 (hotend version); M8 (probe keep-out); M10; M6 |
 | MicroProbe mount | `probe_mount` | **PA-CF** (PC acceptable) | 11.45 | 1 | **NOT RELEASED** (12 of 39; `PM_ANCHOR_CONFIRMED_M8` MISSING) | M8 (785004 anchor, photo + calipers). Until then keep the 785004 |
 
 No PLA or PETG for any of these parts (DD-07).
 
-Moving-mass change vs stock: **−0.6 … +8.4 g** (validation report). That is the printed parts at
+Moving-mass change vs stock: **−0.7 … +8.3 g** (validation report). That is the printed parts at
 100 % infill (46.7 g added, including 13.73 g of screws and inserts) minus the stock cover + duct
 (23.8–32.5 g), the 785004 adapter (10.6–10.9 g) and the stock PCB screws (3.9 g). The range assumes
 the new probe mount replaces the 785004. While the 785004 stays (probe mount not released), the
@@ -61,11 +61,11 @@ insert plus 1.0 mm of melt and screw-tip relief. Any insert up to 4.5 mm long fi
 (the common 5.7 mm M3 type) leaves no relief, and the screws above (F4, F5, F6) were sized for
 **≤ 5.0 mm** of thread below the mating face. Changing insert length means changing screw lengths.
 
-**Known fit issue to check (fan screw heads vs. cover):** the cover's front wall sits 0.5 mm in front
-of the 4020's front face (`COVER_GAP`), and the F6 screw heads sit on that face. An ISO 7380 M3 head
-is 1.65 mm tall (`common.py` `BUTTON_HEAD`), so the heads occupy the cover wall unless the 4020's holes
-are recessed (M7). `validate.py` does not model screw heads, so this is not in its report. Check it at
-the cover fit-check (`assembly.md` step 7).
+**Fan screw heads and the cover:** the F6 heads (ISO 7380, Ø5.7 × 1.65) stand proud of the 4020's
+front face. The cover therefore has Ø6.3 through-holes over both, with 0.3 mm clearance, and a 2.0 mm
+hex key reaches the screws through them with the cover on. `validate.py` models every added screw
+head and its driver path (PASS). Still check at the cover fit-check (`assembly.md` step 7): the hole
+positions follow the ESTIMATED 4020 hole positions (M7).
 
 **Stock parts removed and kept for rollback** (`assembly.md` §3):
 - front cover + duct;

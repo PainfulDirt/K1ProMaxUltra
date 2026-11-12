@@ -172,7 +172,7 @@ Checks after step 7 **[M7] [M6] [M9]**:
 
 | Check | Pass | Basis |
 |---|---|---|
-| **Fan screw heads vs. the cover's front wall** | the cover seats flat on the shelf and its front wall does not bulge at the two fan-screw positions (X −18.65, Z 60.3 and X 16.05, Z 25.6) | **known open point**: the front wall is only 0.5 mm in front of the fan face (`COVER_GAP`), and an ISO 7380 M3 head is 1.65 mm tall. `validate.py` does not model screw heads. If the heads collide, stop: do not force the cover. Report it; it needs a CAD change (head pockets in the cover or a larger gap) unless the 4020's holes are counterbored deep enough (M7) |
+| **Fan screw heads vs. the cover's front wall** | the cover seats flat on the shelf; both fan-screw heads (X −18.65, Z 60.3 and X 16.05, Z 25.6) sit inside the cover's Ø6.3 holes without touching | the holes follow the ESTIMATED 4020 hole positions (M7). If a head touches, stop and don't force the cover: open the hole with a Ø6.5 drill by hand and report the offset |
 | 4020 intake | the Ø30 aperture is centred on the fan's intake and fully open; nothing touches the impeller | validation: 100 % of the Ø28 inlet disc open (inlet Ø ESTIMATED, M7) |
 | Left wall vs LiDAR module and bracket | visible gap, no contact | CAD 0.50 mm to the ESTIMATED body box (M6): the tightest LiDAR clearance in the design |
 | Right wall bottom vs T_right tab and lug | no contact | CAD ≥ 0.3 mm (wall bottom raised to Z 26.4) |

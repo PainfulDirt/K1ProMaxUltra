@@ -63,12 +63,12 @@ CFD values are given at both 4020 bounds, **lower / upper** (191 / 390 Pa shut-o
 
 | Quantity | Stock | New | Tag | Measured after fitting | Source |
 |---|---|---|---|---|---|
-| Cover + duct (without fan) | 23.8 g (K1, community measured) … 32.5 g (K1 / K1 Max reports) | frame 5.84 + cover 6.42 + duct 9.24 = 21.5 g at 100 % infill | stock: community values (not this printer); new: ESTIMATED (CAD volume × typical density) | — (M12) | research/02 C1; validation report |
+| Cover + duct (without fan) | 23.8 g (K1, community measured) … 32.5 g (K1 / K1 Max reports) | frame 5.84 + cover 6.35 + duct 9.24 = 21.4 g at 100 % infill | stock: community values (not this printer); new: ESTIMATED (CAD volume × typical density) | — (M12) | research/02 C1; validation report |
 | Stock duct part alone | 3.2 g (Henlor model, PC density) | duct body 9.24 g PC (8.2 g if it were ASA) | ESTIMATED | — | `cfd-report.md` §12.3 |
 | Probe adapter | 785004: 10.6–10.9 g (PLA/PETG) | probe mount 11.45 g PA-CF (**not released**; 785004 stays until M8) | ESTIMATED | — | validation report |
 | Screws and inserts (new build) | stock PCB screws 3.9 g (removed) | 13.73 g (3 × M3×30, 2 × M3×24, 4 × M3×6, 6 M3 + 2 M2.5 inserts, probe screws) | ESTIMATED | — | validation report |
 | 4020 blower | 22–31 g (retailer range; 24 g used in CAD) | the same fan | ESTIMATED | — (M7/M12) | research/02 C9 |
-| **Moving-mass change** | 0 | **−0.6 … +8.4 g** (with the probe mount; about 0.6–0.9 g less while the 785004 stays) | ESTIMATED | — (kitchen scale, M12/M13) | validation report |
+| **Moving-mass change** | 0 | **−0.7 … +8.3 g** (with the probe mount; about 0.6–0.9 g less while the 785004 stays) | ESTIMATED | — (kitchen scale, M12/M13) | validation report |
 | X moving mass | about 450 g (400–500) | +the change above | ESTIMATED | — (M13 mass test) | design-decisions, Phase 1 finding 5 |
 | **X input shaper** | **77.6 Hz** (3hump_ei) | **76.9 … 77.7 Hz** | stock MEASURED; new ESTIMATED | — (`calibration.md` H, pass ≥ 76.0) | `printer.cfg.save_config`; validation report |
 | **Y input shaper** | **52.0 Hz** (ei) | **51.8 … 52.0 Hz** | stock MEASURED; new ESTIMATED | — (`calibration.md` H) | same |

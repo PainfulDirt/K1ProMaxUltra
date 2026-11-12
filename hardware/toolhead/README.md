@@ -29,7 +29,7 @@ or estimated.
 |---|---|---|---|---|
 | Fit-check coupon | `fitcheck_coupon` | ASA | 2.89 g | **PRINT FIRST** |
 | Cooling-module frame | `cooling_module_frame` | ASA | 5.84 g | FIT-CHECK FIRST |
-| Cover | `cover` | ASA | 6.42 g | FIT-CHECK FIRST |
+| Cover | `cover` | ASA | 6.35 g | FIT-CHECK FIRST |
 | Duct body (S7) | `duct_body` | PC (or PA-CF) | 9.24 g | FIT-CHECK FIRST |
 | MicroProbe mount | `probe_mount` | PA-CF | 11.45 g | NOT RELEASED (M8) |
 | Stock 4020 blower | — (reused) | — | — | unchanged |
@@ -54,7 +54,7 @@ or estimated.
 | Part-top heat-transfer coefficient (thermal proxy) | 147 vs 42 W/m²K (×3.5), lower bound | SIMULATED | §11 |
 | Price: extra nozzle + sock heat loss at 100 % fan | +6.2 … +6.8 W (about 10 % of the 60 W heater) | SIMULATED (proxy, indicative) | §11 |
 | LiDAR window region air speed | 0.17 vs 0.087 m/s (moving downward, away from the windows) | SIMULATED | §13.1 |
-| Moving-mass change | −0.6 … +8.4 g | ESTIMATED | `cad/exports/validation_report.md` |
+| Moving-mass change | −0.7 … +8.3 g | ESTIMATED | `cad/exports/validation_report.md` |
 | X / Y input shaper | 76.9 … 77.7 Hz (77.6 today) / 51.8 … 52.0 Hz (52.0 today) | ESTIMATED (today's values MEASURED) | validation report |
 | Front extent | −58.2 vs −55.0 for the stock cover (3.2 mm further forward) | DESIGN | validation report |
 | CAD checks | 0 FAIL / 4 WARN | GEOMETRIC | validation report |
@@ -136,7 +136,5 @@ $K1_PY run_cases.py S7:part:proxy --level 3              # the L3 mesh check (ab
 ## Open points
 
 - Priority-1 measurements (M2, M6, M8, M9, M10) and the 4020's dimensions (M7).
-- The cover's front wall sits 0.5 mm in front of the fan face where the fan screw heads are;
-  screw heads are not modelled in `validate.py` (`documentation/assembly.md` step 7).
 - The duct's own stiffness is not estimated (`documentation/validation.md` §2.4).
 - No print or physical test yet (`documentation/validation.md` §4).

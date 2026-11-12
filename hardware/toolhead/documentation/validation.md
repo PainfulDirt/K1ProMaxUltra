@@ -92,7 +92,7 @@ real S7 duct from `duct_interface.json` v3-final): **0 FAIL, 4 WARN**.
 
 | Check group | What it tests | Current result |
 |---|---|---|
-| Solids | each printed part is one valid, watertight solid; volume and mass | PASS ×5 (frame 5.84 g, cover 6.42 g, probe mount 11.45 g, coupon 2.89 g, duct 9.24 g) |
+| Solids | each printed part is one valid, watertight solid; volume and mass | PASS ×5 (frame 5.84 g, cover 6.35 g, probe mount 11.45 g, coupon 2.89 g, duct 9.24 g) |
 | Minimum wall (1500 sampled rays) | share of the surface under 0.8 mm (limit 0.5 %) and the thin rays' geometry | PASS ×4; **WARN** duct (below) |
 | Interference | all 27 solids pairwise; only listed contacts allowed (cover on the frame shelf, duct tabs on the lugs, frame pads on the PCB within 0.1 mm model tolerance, duct socket over the fan outlet, probe mount on the carriage tabs) | PASS, no unintended overlaps |
 | Hot zone | distance from each part to the sock/heater ≥ 3.0 (`HOT_ZONE_CLEARANCE`) | duct 3.35, probe mount 5.10, frame 13.74, cover 23.26 mm: PASS |
@@ -107,6 +107,8 @@ real S7 duct from `duct_interface.json` v3-final): **0 FAIL, 4 WARN**.
 | 3010 intake | open area through the frame ≥ 625 mm² | 693 mm²: PASS |
 | XY-joint band | X ≤ 24.2 inside Z 44.3…91.8 | PASS for all parts (the duct is not in the band) |
 | PCB screws | last 3 mm of each M3×30 vs the stock carriage and heatsink solids; driver access through the frame | PASS ×3 / PASS ×3 (the fan comes off first) |
+| Screw heads | every added screw's ISO 7380 head (Ø5.7 × 1.65) vs all printed and stock solids: overlap = FAIL, gap < 0.3 mm to an unclamped part = WARN | PASS for PCB ×3, fan ×2 (0.300 / 0.299 mm, the lower one to the duct socket), duct tabs ×2, cover ×2 |
+| Driver access | a straight Ø6.3 × 25 mm driver path (fallback Ø3.0 hex key) against the parts fitted at that screw's step (frame → fan → duct → cover); service access with everything fitted as INFO | PASS at every step. Service: the PCB screws need the fan and cover off; T_right needs a 2.0 mm hex key with the cover on (driver blocked) |
 | Frame modes | hand estimates, want > 2 × 77.6 Hz | 4440 / 1168 Hz rocking, 1416 Hz fan plate with the 4th pad: PASS; **WARN** without the 4th pad |
 | Release status | per part: unconfirmed dependencies | frame 8 of 37, cover 4 of 18, duct 12 of 24, coupon 5 of 18, probe mount 12 of 39 |
 
@@ -137,8 +139,6 @@ Every part is exported to STEP, 3MF and STL, re-opened and compared with the CAD
 
 | Gap | Why it matters | Where it gets checked |
 |---|---|---|
-| **Screw heads are not modelled.** The cover's front wall is 0.5 mm in front of the fan face, where the two fan screw heads sit (ISO 7380 M3: 1.65 mm tall). A test of the assembly STEP puts both head positions inside the cover's front wall | the cover may not seat over the fan screws | `assembly.md` step 7; needs a CAD change if confirmed |
-| Driver access to the duct tab screws (T_left, T_right) | only the PCB screws' access is checked | `assembly.md` step 6 |
 | Duct cantilever mode | the duct hangs on two tabs and the socket, with a 45 mm lever; no estimate exists (`stiffness.py` covers the frame and probe mount only; it asks for > 150 Hz) | shaper graph (`calibration.md` H), rattle check (`assembly.md` step 6) |
 | Stock geometry | the stock solids are Henlor's reverse-engineered **K1**, not a K1 Max; carriage, LiDAR module and cover fixing are partly MISSING (M2, M6) | coupon, M#, fit-checks |
 | Travel limits | only the modelled limits (`RIGHT_LIMIT_X`, soft `FRONT_LIMIT_Y`, `REAR_LIMIT_Y`) | `calibration.md` D |
@@ -148,7 +148,7 @@ Every part is exported to STEP, 3MF and STL, re-opened and compared with the CAD
 
 | Quantity | Value | Basis | Source |
 |---|---|---|---|
-| Moving mass vs stock | **−0.6 … +8.4 g** | printed parts at 100 % infill (densities ESTIMATED) + 13.73 g of screws and inserts (masses ESTIMATED) − stock cover + duct 23.8–32.5 g (community values) − 785004 10.6–10.9 g − stock PCB screws 3.9 g. Assumes the new probe mount replaces the 785004 | validation report |
+| Moving mass vs stock | **−0.7 … +8.3 g** | printed parts at 100 % infill (densities ESTIMATED) + 13.73 g of screws and inserts (masses ESTIMATED) − stock cover + duct 23.8–32.5 g (community values) − 785004 10.6–10.9 g − stock PCB screws 3.9 g. Assumes the new probe mount replaces the 785004 | validation report |
 | X shaper | **76.9 … 77.7 Hz** (77.6 today) | 77.6 Hz scaled by √(m / (m + Δm)) at an ESTIMATED X moving mass of 450 g (400 g: 76.8…77.7; 500 g: 77.0…77.7) | validation report |
 | Y shaper | **51.8 … 52.0 Hz** (52.0 today) | same at 820–960 g | validation report |
 | Frame modes | rocking 4440 Hz (preloaded) / 1168 Hz (boss in compression only); fan plate 1416 Hz with the 4th pad, 147 Hz without | beam and joint hand estimates; the upper PCB screws' target (carriage inserts) is DERIVED; if it were plastic, the joint could be softer than the pessimistic case | `structure/stiffness.py`, validation report |
@@ -192,7 +192,7 @@ From `assembly.md` §2; each one confirms an ESTIMATED value.
 | Duct lowest point | ≥ 2.0 mm above the tip all round | `DUCT_MIN_Z` |
 | Duct vs probe and LiDAR | visible gaps; nothing in the laser sheet | M8, M6 |
 | Duct rattle | none when tapped | duct cantilever (no estimate) |
-| Cover over the fan screw heads | seats flat, front wall not bulged | not modelled (§2.4) |
+| Cover over the fan screw heads | seats flat, front wall not bulged | modelled: heads sit in Ø6.3 cover holes, 0.30 mm clear (PASS); positions follow the ESTIMATED 4020 holes (M7) |
 | Cover vs LiDAR module | visible gap | M6 (CAD 0.50 mm) |
 | Cover removal | slides off without unplugging anything or removing the duct | design intent |
 | Travel limits | front gap ≥ 2 mm at Y −2; side gaps ≥ 1 mm at X −2 / 306.5 (ESTIMATED limits) | M9 (`calibration.md` D) |
