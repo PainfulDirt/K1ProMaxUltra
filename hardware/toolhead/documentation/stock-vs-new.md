@@ -25,7 +25,7 @@ CFD values are given at both 4020 bounds, **lower / upper** (191 / 390 Pa shut-o
 |---|---|---|---|---|---|
 | Fan flow Q [L/s] | 0.804 / 1.199 | 0.801 / 1.211 | SIMULATED | — (V1, V2) | `cfd-report.md` §10 |
 | Layer annulus speed, r 1–6 mm, Z +0.3 [m/s] | 1.83 / 3.47 | **8.84 / 13.34** (×4.8 / ×3.8) | SIMULATED | — (V3) | §10 |
-| Weakest of 8 sectors [m/s] | 0.35 / 0.68 | **6.28 / 9.16** (×18 / ×13) | SIMULATED | — (V3) | §10 |
+| Weakest of 8 sectors [m/s] | 0.35 / 0.68 | **6.28 / 9.16** (×18 / ×13 on L2; L3 gives 4.93 at the lower bound, ×14) | SIMULATED | — (V3) | §10 |
 | Symmetry min/mean | 0.19 / 0.20 | 0.71 / 0.69 | SIMULATED | — (V3: pass ≥ 0.5) | §10 |
 | Part top r ≤ 5, near-wall U0.3 [m/s] | 1.38 / 2.74 | **7.81 / 12.28** (×5.7 / ×4.5) | SIMULATED | — | §10 |
 | Part side faces, top 3 mm, U0.3 [m/s] | 0.62 / 1.04 | 2.63 / 4.07 | SIMULATED | — | §10 |

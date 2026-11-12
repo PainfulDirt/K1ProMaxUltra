@@ -36,7 +36,7 @@ S7 duct with one stock 4020, against the STOCK duct at the same fan curve
 | Metric | STOCK, lower / upper 4020 bound | S7, lower / upper | Ratio (lower bound) |
 |---|---|---|---|
 | Layer annulus speed, Z +0.3 [m/s] | 1.83 / 3.47 | 8.84 / 13.34 | ×4.8 |
-| Weakest of 8 sectors [m/s] (min/mean) | 0.35 (0.19) / 0.68 (0.20) | 6.28 (0.71) / 9.16 (0.69) | ×18 |
+| Weakest of 8 sectors [m/s] (min/mean) | 0.35 (0.19) / 0.68 (0.20) | 6.28 (0.71) / 9.16 (0.69); L3: 4.93 (0.56) | ×14–18 (not mesh-converged) |
 | Part top r ≤ 5, near-wall U0.3 [m/s] | 1.38 / 2.74 | 7.81 / 12.28 | ×5.7 |
 | Part top r ≤ 5, h (thermal proxy) [W/m²K] | 42 / 54 | 147 / 216 | ×3.5 |
 | Heat removed from the part, top + sides [W] | 10.2 / 14.8 | 20.3 / 26.7 | ×2.0 |
@@ -57,9 +57,9 @@ speed and −44 % weakest sector. These are what DD-01 decided on.
 | Fan boundary condition | the `fanPressure` inlet sits on the fan curve to 1e-7; operating point agrees with an independent system-curve intersection to 0.5 % | research/04 §8 |
 | Early stopping | an L1 run continued to 1500 iterations changed the annulus mean by 1e-4 m/s | research/04 §8 |
 | S7 mesh, L1 (0.51 M) vs L2 (0.96 M) | annulus +0.3 %; weakest sector −8 %; part top +5 %; cone wall shear −14 %; fan Q +2 % | `cfd-report.md` §13.2 |
-| S7 mesh, L3 | **pending**: no `simulations/cfd/results/S7_part_proxy_L3/results.json` exists at the time of writing (the run `run_cases.py S7:part:proxy --level 3` was still going). The comparison will appear in `cfd-report.md` §13.2 | — |
+| S7 mesh, L2 (0.96 M) vs L3 (1.70 M) | means converged: annulus −0.7 %, part top −0.3 %, cone −2.8 %, fan Q −0.3 %; side faces −7 %; **weakest sector −21.5 % (6.28 → 4.93; GCI-type ±27 %), not converged** | `cfd-report.md` §13.2 |
 | Domain size (S7 in an enlarged box, 1.17 M cells) | near-nozzle metrics −1 … +6 %; LiDAR-region speeds +13 % / +29 % in relative terms but ≤ 0.2 m/s absolute | `cfd-report.md` §13.3 |
-| Repeatability for a sub-millimetre geometry change (S4 vs S7) | ±3 % on means, ±5 % on the weakest sector. Smaller differences are ties | `cfd-report.md` §9 It.6, §13.4 |
+| Repeatability for a sub-millimetre geometry change (S4 vs S7) | ±3 % on means, ±5 % on the weakest sector. Smaller differences are ties; for the weakest sector, differences under about 25 % are ties (L3 check) | `cfd-report.md` §9 It.6, §13.4 |
 | Convergence | 9 cases met the watchdog (fan Q and p within 0.4 % over 100 iterations), the rest reached the 750-iteration cap with fan Q swinging 0.5–1.4 % (S1 2.5 %); mass imbalance ≤ 0.2 % in every case; checkMesh passes except single skewed faces (≤ 5.3) away from the measurement regions | `cfd-report.md` §13.4 |
 | Thermal proxy, local | wall flux matches the near-wall temperature gradient (STOCK part top: h ≈ 40 against 46 W/m²K face mean) | `cfd-report.md` §7 |
 | Thermal proxy, global | enthalpy balance closes within 2–3 % for STOCK but not for S7 (+47 … +56 %). S7's h values are more likely under-estimated; the ranking does not depend on it | `cfd-report.md` §7, §11 |

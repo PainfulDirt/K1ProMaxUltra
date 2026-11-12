@@ -39,7 +39,7 @@ or estimated.
 |---|---|
 | Research (repo, sensors, mechanics, fans, CFD method) | done: `documentation/research/01..04` |
 | Architecture and decisions | done: `documentation/design-decisions.md` |
-| CFD comparison and duct optimisation | done on the L2 mesh: `documentation/cfd-report.md`. The L3 mesh check of S7 is pending |
+| CFD comparison and duct optimisation | done on the L2 mesh, with the L1/L3 mesh check on S7: `documentation/cfd-report.md` (§13.2) |
 | CAD, validation, exports | done: `cad/`; `validate.py` gives **0 FAIL / 4 WARN** (all four accepted, `cad/README.md`) |
 | User documentation | done: this page and `documentation/` |
 | Measurements from the user | open: `documentation/missing-information.md` (priority 1: M2, M6, M8, M9, M10) |
@@ -50,7 +50,7 @@ or estimated.
 | Result | Value | Tag | Source |
 |---|---|---|---|
 | Layer air speed around the nozzle, S7 vs stock duct, same 4020 | 8.84 vs 1.83 m/s (×4.8) at the lower 4020 bound; 13.34 vs 3.47 (×3.8) at the upper | SIMULATED | `cfd-report.md` §10 |
-| Weakest of 8 directions | 6.28 vs 0.35 m/s (×18), lower bound | SIMULATED | §10 |
+| Weakest of 8 directions | 6.28 (L2) / 4.93 (L3) vs 0.35 m/s (×14–18), lower bound; not mesh-converged | SIMULATED | §10, §13.2 |
 | Part-top heat-transfer coefficient (thermal proxy) | 147 vs 42 W/m²K (×3.5), lower bound | SIMULATED | §11 |
 | Price: extra nozzle + sock heat loss at 100 % fan | +6.2 … +6.8 W (about 10 % of the 60 W heater) | SIMULATED (proxy, indicative) | §11 |
 | LiDAR window region air speed | 0.17 vs 0.087 m/s (moving downward, away from the windows) | SIMULATED | §13.1 |
@@ -122,7 +122,7 @@ bash hardware/toolhead/tools/setup_env.sh --check       # verify the toolchain
 source /opt/k1th/env.sh                                  # sets $K1_PY and FOAM_BASHRC
 cd hardware/toolhead/simulations/cfd/cases
 $K1_PY run_cases.py S7:part:proxy                        # one CFD case, L2 mesh, 4 ranks (about 16–34 min)
-$K1_PY run_cases.py S7:part:proxy --level 3              # the pending L3 mesh check
+$K1_PY run_cases.py S7:part:proxy --level 3              # the L3 mesh check (about 50 min)
 ```
 
 - `validate.py --cooling ducts` checks against the duct interface explicitly (identical while the
@@ -139,5 +139,4 @@ $K1_PY run_cases.py S7:part:proxy --level 3              # the pending L3 mesh c
 - The cover's front wall sits 0.5 mm in front of the fan face where the fan screw heads are;
   screw heads are not modelled in `validate.py` (`documentation/assembly.md` step 7).
 - The duct's own stiffness is not estimated (`documentation/validation.md` §2.4).
-- The S7 L3 mesh result (`cfd-report.md` §13.2).
 - No print or physical test yet (`documentation/validation.md` §4).

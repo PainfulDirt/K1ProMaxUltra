@@ -18,7 +18,7 @@ Owner: Duct-Design & CFD agent. Status: **complete** (mesh and domain checks in 
     (§12).
 - **S7 against the stock duct at the same fan curve (4020 lower bound / upper bound):**
   - layer air speed (r 1–6 mm, 0.5 mm above the part): ×4.8 / ×3.8;
-  - weakest of 8 sectors: ×18 / ×13;
+  - weakest of 8 sectors: ×14–18 / ×13 (not mesh-converged: L3 is 21 % below L2, §13.2);
   - part-top heat-transfer coefficient: ×3.5 / ×4.0 (147 / 216 against 42 / 54 W/m²K);
   - heat removed from the part: ×2.0 / ×1.8;
   - price: nozzle and sock convective loss +6.2 / +6.8 W at 100 % fan (60 W heater). Re-run MPC
@@ -495,7 +495,7 @@ surfaces that matter. It is not a print-quality prediction.
 | second blower (D) | 0 | fails the DD-01 rule (more nozzle impingement, worse symmetry, +27 g, packaging beside the nozzle); no 5015 fits |
 
 Numbers behind it (S7, stock 4020 at the lower bound, against the STOCK duct at the same curve):
-- layer annulus **8.84 against 1.83 m/s (×4.8)**; weakest sector **6.28 against 0.35 (×18)**;
+- layer annulus **8.84 against 1.83 m/s (×4.8)**; weakest sector **6.28 against 0.35 (×18 on L2; ×14 with the L3 value 4.93, §13.2)**;
   min/mean 0.71 against 0.19;
 - part top r ≤ 5 near-wall **7.81 against 1.38 m/s (×5.7)**; part-top wall shear 1.43 against 0.11 Pa;
   side faces' top 3 mm 2.63 against 0.62 m/s;
@@ -569,10 +569,40 @@ Judgement per DD-02:
 
 L1 (0.51 M cells) vs L2 (0.96 M) [RAN]: annulus Z+0.3 8.86 vs 8.84 (+0.3 %); weakest sector 5.77 vs 6.28
 (−8 %); part top r≤5 8.19 vs 7.81 (+5 %); cone τw 1.53 vs 1.78 Pa (−14 %); fan Q 0.816 vs 0.801 (+2 %).
-Means are mesh-converged at L2 to within the ±3 % repeatability band. Wall shear and the weakest sector are
-more mesh-sensitive, so they are compared only between cases on the same mesh. L3 [RUNNING at hand-off,
-not a result yet]: `run_cases.py S7:part:proxy --level 3`, then `report_tables.py mesh S7_part_proxy_L`
-to fill this table.
+L3 (1.70 M cells) [RAN, `results/S7_part_proxy_L3/`; table from `report_tables.py mesh S7_part_proxy_L`]:
+
+| metric | L1 (0.51 M) | L2 (0.96 M) | L3 (1.70 M) | L2→L3 | GCI-type 1.25·\|Δ\| |
+|---|---|---|---|---|---|
+| Layer annulus Z +0.3, mean [m/s] | 8.860 | 8.835 | 8.772 | −0.7 % | 0.9 % |
+| Layer annulus Z +0.3, **weakest sector** [m/s] | 5.768 | 6.280 | **4.930** | **−21.5 %** | **26.9 %** |
+| Layer annulus Z +0.3, min/mean | 0.651 | 0.711 | 0.562 | −21.0 % | 26.2 % |
+| Ring Z +1, mean | 7.671 | 7.796 | 7.874 | +1.0 % | 1.3 % |
+| Part top r ≤ 5, near-wall | 8.185 | 7.808 | 7.786 | −0.3 % | 0.4 % |
+| Part top r ≤ 10, near-wall | 7.663 | 7.907 | 7.797 | −1.4 % | 1.7 % |
+| Side faces top 3 mm, near-wall | 2.928 | 2.635 | 2.451 | −7.0 % | 8.7 % |
+| Cone near-wall | 7.279 | 7.174 | 6.970 | −2.8 % | 3.6 % |
+| Sock bottom near-wall | 6.094 | 5.813 | 5.774 | −0.7 % | 0.8 % |
+| Part top r ≤ 5, wall shear [Pa] | 1.411 | 1.427 | 1.395 | −2.2 % | 2.8 % |
+| Cone wall shear [Pa] | 1.527 | 1.784 | 1.756 | −1.6 % | 2.0 % |
+| Fan Q [L/s] | 0.816 | 0.801 | 0.798 | −0.3 % | 0.4 % |
+
+Reading (added by the technical lead after the run):
+- **The averaged metrics are mesh-converged at L2.** Layer mean, part top, cone, sock and fan Q all
+  change by under 3 % from L2 to L3. The side faces change by 7 %.
+- **The weakest sector is not mesh-converged.** It goes 5.77 → 6.28 → 4.93 (non-monotonic), with a
+  GCI-type band of about ±27 %. The weakest sector is 315–360°. On L3 it and its neighbour at 270° get
+  weaker while the 90–135° sectors get stronger: the same flow, redistributed between the jets. This
+  happens where jets interact, and the resolution and the pseudo-time averaging of a weakly unsteady
+  steady-state solution both affect it.
+- **Consequence for the claims.**
+  - The ×4.8 layer-mean gain stands.
+  - The weakest-sector gain over STOCK (0.35 at L2) is **×14–18**, not ×18. STOCK was not run on L3.
+  - The S7 min/mean is 0.56–0.71.
+  - V3 must measure the sectors directly.
+- **Consequence for the decision: none.**
+  - D2's weakest sector is −44 % against S7 on the same L2 mesh, which is outside a ±27 % band.
+  - The Delta and Same Sky rejections rest on the layer mean, which is converged.
+  - Weakest-sector differences between cases under about 25 % are treated as ties.
 
 ### 13.3 Domain size [RAN]
 
