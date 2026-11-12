@@ -47,6 +47,7 @@ helper/
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
 orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59 processes: Balanced everywhere, Precision (10 mm3/s quality cap) and Fast where they make a difference, plus Speed Benchy profiles (0.4: 12:28, 0.8: 9:14, 1.0: 8:45), 12 filaments)
+hardware/toolhead/       custom toolhead (cooling module, S7 duct, cover, probe mount): CAD, CFD, docs. Work in progress, not installed
 ```
 
 ## Switches and buttons
@@ -122,6 +123,9 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 3. Change the hardware-specific values above, restart, then run `CONFIG_OVERRIDES` so updates keep your changes.
 
 ## Roadmap
+
+**Toolhead** ([hardware/toolhead/](hardware/toolhead/README.md))
+- **New part cooling.** The design keeps the stock 4020 fan and replaces the stock duct with a CFD-designed multi-port duct, a new cooling-module frame and a new cover. The LiDAR and Microprobe positions are unchanged. In simulation the airflow in the layer around the nozzle is about 4.8× the stock duct's with the same fan; nothing has been printed or measured yet. Next: print the fit-check coupon and take the measurements in [missing-information.md](hardware/toolhead/documentation/missing-information.md).
 
 **LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check)
 - **True first-layer thickness.** Scan the bare plate, print the first layer, scan again: the difference is the real thickness across the part. Checks True Zero Touch and the mesh with numbers.
