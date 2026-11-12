@@ -1,7 +1,6 @@
 # Information needed from you
 
-These items can't be found in the repo, in reachable CAD, or from manufacturer sites. Manufacturer
-sites are blocked in this session; see M16. The IDs (M#) are referenced from
+These items can't be found in the repo, in reachable CAD, or from manufacturer sites. The IDs (M#) are referenced from
 `cad/source/interfaces.py` and the validation report. Every printed part lists the M# it waits
 for.
 
@@ -27,11 +26,11 @@ measure up from the block.
 |---|---|---|
 | M1 | Hotend version: 2023 ceramic or "Unicorn" (photo of the heater and nozzle). Do you plan a hotend change? | The stack height differs by 1.6 mm. |
 | M5 | Stock cover:<br>• mass with and without the 4020;<br>• the two cover-screw positions;<br>• duct outlet: lowest edge Z above the tip, outlet position and cross-section. | A real stock baseline for CFD. |
-| M7 | The 4020's **outlet opening** (inside W × H), and the 4020 and 3010 masses. | Fan inlet patch and mass budget. |
+| M7 | The 4020's **outlet opening** (inside W × H; ESTIMATED 17 × 13), the **through-length of its two diagonal screw holes** (ESTIMATED 20.0), and the 4020 and 3010 masses. | The duct socket fits over the outlet; the fan screw length (BOM F6); the mass budget. |
 | M12 | Kitchen-scale weights (±1 g): cover, 4020, 3010, probe + mount, LiDAR + bracket. | Mass budget. |
 | M13 | **Moving-mass test, no disassembly:**<br>• run `SHAPER_CALIBRATE`;<br>• tape a known ~50 g mass rigidly to the toolhead and run it again;<br>• keep both CSV sets.<br>Effective mass = Δm / ((f0/f1)² − 1). | Replaces the 400–500 g estimate. |
-| M15 | Toolhead board, part-fan channel:<br>• does PB6 switch +24 V or GND?<br>• MOSFET part numbers.<br>(Multimeter on the 4-pin fan plug: measure each pin against the 24 V and GND inputs with the fan at 0 % and 100 %.) | Decides whether two blowers can share the channel (DD-05). |
-| M16 | Fan datasheets. Either:<br>• allow these domains in the environment's network settings: `sunon.com`, `sunonusa.com`, `delta-fan.com`, `mouser.com`, `digikey.com`, `printables.com`, `api.printables.com`; or<br>• put the PDFs for the Sunon MF40202VX / MF50152VX and the Delta BFB0524HH in the session. | Real P–Q curves instead of fitted ones. |
+| M15 | Toolhead board, part-fan channel:<br>• does PB6 switch +24 V or GND?<br>• MOSFET part numbers.<br>(Procedure: `electrical.md` §4.) | **Only needed for the conditional Same Sky upgrade.** CFD chose one stock 4020 on the stock channel (DD-01), so the baseline doesn't need it. |
+| M16 | **Closed for the datasheet fans:** the Delta, Same Sky and Sunon curves are digitized (research/03 §10). **Still open for the stock 4020**, which has no published curve. If you have a manometer, run bench test V1 (`cfd-report.md` §15) on a spare 4020. | The 4020's two bounds (191 / 390 Pa) change the absolute cooling by about ±20 %. They don't change the design choice. |
 | M14 | Chamber air temperature during an ABS print, and the cover surface near the outlet if you have a thermocouple. | ASA vs PC for the frame. |
 
 ## Priority 3: nice to have
@@ -47,7 +46,8 @@ measure up from the block.
 
 ## Purchase list
 
-Nothing has to be bought before the CFD comparison finishes. Conditional candidates (research/03):
-- a second Creality 4020 blower (4-pin, 24 V), if dual feed wins;
-- one spare 4020 to measure the real fan curve;
-- a small 24 V logic-level MOSFET module, if the channel can't carry two blowers.
+CFD has decided (DD-01): **one stock 4020, the one already fitted.** Nothing has to be bought for
+the baseline except hardware (`bill-of-materials.md` §2).
+- Optional: **one spare Creality 4020** (4004110132), as a spare and to measure its P–Q curve (V1).
+- Conditional upgrade, only if V1 and the test prints call for it: Same Sky CBM-5015BF-175-459-22
+  plus a 24→12 V buck (`bill-of-materials.md` §3).
