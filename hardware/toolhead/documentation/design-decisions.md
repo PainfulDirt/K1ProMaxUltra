@@ -262,3 +262,72 @@ Fallbacks if V8 fails:
 - the duct revision's larger manifold-to-sock clearance;
 - aluminium tape on the manifold's inner face, as a radiation shield;
 - annealed PA-CF.
+
+### DD-07a: Duct body from a print service (HT resin or MJF PA12)
+
+The user asked (2026-11-12) to have the duct printed in a high-temperature resin. **This is
+accepted for the duct body only**, under the same rule as above: HDT ≥ 130 °C at 0.45 MPa **in the
+post-cure state the service actually delivers**, checked against the TDS. The geometry does not
+change, and V8 applies unchanged with the resin's HDT.
+
+Datasheet values below are vendor TDS figures as quoted by search results on 2026-11-12. The vendor
+PDFs could not be opened from this environment, so treat them as ESTIMATED and re-check the
+TDS of the exact material the service names before ordering.
+
+| Option | HDT at 0.45 MPa | Elongation at break | Fits DD-07? | Main risk for this part |
+|---|---|---|---|---|
+| Formlabs High Temp Resin, full post-cure (UV + thermal) | 238 °C | about 2 % (2.3 %), notched Izod about 17–18 J/m | yes, with a large margin | brittle |
+| Weerg "High Temp Pro" resin (Italian service, its own TDS) | 238 °C | 2.4 % | yes | brittle |
+| Arkema N3D-HT511 | 130 °C at 0.455 MPa | 7 % | borderline, no V8 margin | marginal HDT |
+| JLC3DP "JLC Temp Resin" | 101 °C (test load not stated) | — | **no** | fails the HDT rule |
+| Generic "high temp" / "HT" hobby resins | varies widely | — | only with a TDS showing ≥ 130 °C at 0.45 MPa | the name alone means nothing |
+| **MJF PA12** (HP 3D HR PA 12; JLC3DP, Weerg, Protolabs, Craftcloud …) | 175 °C (ASTM D648) | 15 % Z / 20 % XY | yes | smaller HDT margin than HT resin; porous, rough surface |
+
+Thermal margin: the review's inner-wall estimate goes up to about 157 °C at a 200 °C sock
+(REVIEWER-ESTIMATE; sock temperature M20 MISSING). V8 passes when the wall stays at least 15 K below
+HDT. That leaves 66 K of margin for a 238 °C resin, 3 K for PA12, and none for a 130 °C resin. So
+**HT resin has the best thermal margin of any option in this project**, PC included (HDT about 135–140 °C).
+
+What the resin choice changes. These are conditions, not optional advice:
+
+1. **Brittleness.** At about 2 % elongation the part cracks rather than bends.
+   - The three M3 tabs (T_left, T_right, T_3) clamp resin directly. Put an M3 washer under each
+     head, and tighten only until the tab seats: a brittle tab cracks from over-torque, it does
+     not creep.
+   - The outlet lips sit 2.44 mm above the nozzle tip (S7; S8 per `duct_interface.json` v4). A
+     curled-up print, or a nozzle crash, chips a resin lip; PC or PA12 would bend. Keep a
+     **spare duct**: order two.
+   - The fan socket is a 0.25 mm clearance fit, not a press fit, so it does not load the resin.
+     Do not glue or force the fan into it.
+2. **Internal channels.** The plenum, manifold and ports are enclosed. They are open at both ends
+   (fan socket and port outlets), so resin can drain and they can be washed.
+   - Ask the service to flush every port with solvent until clean. Uncured resin left in a channel
+     stays soft, lowers the HDT locally and can drip onto the nozzle.
+   - Ask for the **full thermal post-cure** listed in the TDS. UV does not reach the inside of the
+     channels, and the HDT above is only valid after the full cure.
+3. **Supports.** Orientation is the service's choice. State in the order: **no support contact points
+   on the outlet lips, inside the ports or on the socket faces.** The outlets set the CFD result;
+   support stubs left inside a port change it.
+4. **Inspect on delivery.** Check every outlet is fully open, as `print-settings.md` "Duct supports
+   and checks" describes. Check the tabs for cracks. Check the lip height with the duct sitting on a
+   flat surface.
+5. **Mass.** It is close to the PC part, but take the density from the TDS and re-run `export.py`
+   for the exact value.
+
+**Not** covered by this: the frame, cover and probe mount. They take heat-set inserts, and a
+thermoset resin does not soften for inserts. They stay as in the table above.
+
+**Lead's recommendation.**
+- HT resin (238 °C class, full post-cure) is acceptable and gives the most heat margin. It is the
+  better choice if V8 or M20 shows a hot sock.
+- MJF PA12 is the more robust choice against crashes and over-torque, but its heat margin over the
+  157 °C estimate is small.
+- Either way, the user's V8 soak decides.
+
+Sources:
+- [Formlabs High Temp Resin](https://formlabs.com/store/materials/high-temp-resin/)
+- [Weerg High Temp Pro TDS](https://weerg.com/hubfs/Datasheets/Datasheets%202024/ENG/EN_ResinaAltetemperaturepro.pdf)
+- [Arkema N3D-HT511 TDS](https://sartomer.arkema.com/files/live/sites/shared_arkema/files/downloads/sartomer/N3XTDIMENSION%20TECH%20DATA%20SHEETS/TDS_N3D-HT511.pdf)
+- [JLC Temp Resin](https://jlc3dp.com/help/article/jlc-temp-resin)
+- [HP PA 12 data sheet (Sculpteo copy)](https://www.sculpteo.com/media/imagecontent/HP%20Strong%20and%20Flexible%20Data%20Sheet.pdf)
+- [Weerg PA12 TDS](https://weerg.com/hubfs/Datasheets/Datasheets%202024/ENG/EN_NylonPA12.pdf)

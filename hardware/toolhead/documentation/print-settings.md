@@ -9,6 +9,16 @@ the probe mount is NOT RELEASED.
 Materials (DD-07): **PC or PA-CF** within 15 mm of the heater (the whole duct body, the probe
 mount); **ASA** (or ABS) elsewhere; **no PLA or PETG** anywhere.
 
+**Duct from a print service (DD-07a).** The duct body may instead be ordered in HT resin (HDT ≥ 130 °C
+at 0.45 MPa after the full post-cure, per the TDS; 238 °C-class preferred) or MJF PA12. The FDM row
+below then does not apply. Send the duct STEP or STL, and put the following in the order:
+- full thermal post-cure;
+- every port flushed clean;
+- no support contact on the outlet lips, inside the ports or on the socket faces.
+
+Fitting a resin duct: washers under the three tab screws; tighten only until the tab seats. Order
+two (a resin lip chips rather than bends).
+
 ## 1. Per part
 
 | Part (file in `cad/exports/{3mf,stl,step}/`) | Material | Orientation (as exported to 3MF) | Layer | Walls | Top / bottom | Infill | Supports | Brim | Notes |
