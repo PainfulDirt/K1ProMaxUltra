@@ -136,9 +136,10 @@ class TwistTouch:
         lxs = []
         if lidar is not None:
             lxs = [x for x in xs if lidar.twist_reach(x, y)]
-            hi = self.printer.lookup_object("toolhead").get_status(
-                reactor.monotonic())["axis_maximum"][0]
-            end = round(hi + lidar._xo(lidar.scan_z) - 0.5, 1)
+            # the end of its reach, skew correction included (it shifts X
+            # along Y; without it the end spot fell out and the table
+            # stopped at X243)
+            end = round(lidar._reach_x(y - 1.0, y + 1.0, lidar.scan_z)[1], 1)
             if (not lxs or end > lxs[-1] + 10.0) and lidar.twist_reach(end, y):
                 lxs.append(end)
             if len(lxs) < 3:

@@ -16,10 +16,23 @@
 # Creality's algorithms (flow / first floor / offset detection) and the
 # dangerous commands (sticker calibration, IR image) answer code 103.
 #
-#   lidar-direct.py [--socket PATH] [--port DEV]
+# Stream mode 1 (--stream-mode 1, or {"control": "set_stream_mode", "mode":
+# 1}): the module captures continuously, ~10.7 instead of ~5 frames/s, each
+# frame ~1 frame older (LIDAR_TIMING per mode). Applied after every init.
+#
+# IR camera (--camera-port N): http://printer:N/ shows it, /snapshot returns
+# one JPEG (?res=0..3, default 0 = 512x288 16:9 on firmware >= 1.0.17;
+# light=0 without the fill light). Only while the LiDAR_Camera switch (Fluidd)
+# is on. A picture is only taken when no client has used the LiDAR for 10 s;
+# otherwise the last one comes back (header X-LiDAR-Camera says which). The
+# fill light stays on while the camera is watched, off for LiDAR requests.
+#
+#   lidar-direct.py [--socket PATH] [--port DEV] [--stream-mode 0|1]
+#                   [--camera-port N]
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import array
+import base64
 import collections
 import errno
 import json
@@ -29,6 +42,8 @@ import socket
 import sys
 import threading
 import time
+import urllib.request
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import lidar_serial as ls  # noqa: E402
@@ -132,12 +147,32 @@ class Stream:
 
 
 class Server:
-    def __init__(self, sock_path, port):
+    def __init__(self, sock_path, port, stream_mode=0, camera_port=None):
         self.sock_path = sock_path
+        # IR camera over HTTP (camera_port): a picture is only taken while the
+        # LiDAR is idle (no client request for CAMERA_IDLE s, no stream);
+        # otherwise the last one is served
+        self.camera_port = camera_port
+        self.cam_jpeg, self.cam_time, self.last_use = None, 0.0, 0.0
+        # fill light: on while somebody watches the camera (no flashing per
+        # picture), off for every LiDAR request and after CAMERA_LIGHT_IDLE s
+        self.led, self.cam_seen = False, 0.0
+        self.cam_switch, self.cam_switch_time = False, -1e9
+        # the Fluidd webcam entry follows the switch (None: not synced yet)
+        self.cam_published = None
+        try:
+            with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                   "lidar-camera-off.jpg"), "rb") as f:
+                self.off_jpeg = f.read()
+        except OSError:
+            self.off_jpeg = None
         self.dev = ls.LidarSerial(port=port, timeout=2.0)
         self.next_init = 0.0
         self.flow = False
         self.laser = False
+        # module stream mode (lidar_serial.set_stream_mode); RAM only in the
+        # module, so it's set again after every init
+        self.stream_mode = stream_mode
         self.stream = Stream(self)
 
     # -- module ------------------------------------------------------------
@@ -152,13 +187,37 @@ class Server:
             self.dev.close()
             self.dev.open()
             info = self.dev.init()
-            self.flow = self.laser = False
-            log("module ready: %s" % (info,))
+            self.flow = self.laser = self.led = False
+            self.apply_stream_mode()
+            extra = ""
+            try:
+                cal = self.dev.request(ls.GET_CAL_PARAM)[:100]
+                extra = ", %.1f C, calibration %08x" % (
+                    self.dev.get_sensor_temp(), zlib.crc32(cal))
+            except ls.LidarError as e:
+                extra = ", no temperature/calibration (%s)" % (e,)
+            log("module ready: %s, stream mode %d%s" % (
+                info, self.stream_mode, extra))
             return True
         except (OSError, ls.LidarError) as e:
             log("init failed: %s" % (e,))
             self.dev.close()
             return False
+
+    def stream_off(self):
+        """Stream off, also when it already is (the module answers that with
+        a status)."""
+        try:
+            self.dev.close_flow()
+        except ls.LidarError as e:
+            if e.code == ls.FAILED:
+                raise
+        self.flow = False
+
+    def apply_stream_mode(self):
+        """The module only takes a new stream mode with its stream off."""
+        self.stream_off()
+        self.dev.set_stream_mode(self.stream_mode)
 
     def call(self, fn, *args):
         """Run a driver call; after a port error or timeout re-initialise the
@@ -238,6 +297,54 @@ class Server:
             return {}
         if c == "get_point_cloud_level":
             return {"level": self.call(d.get_point_cloud_level)}
+        if c == "set_stream_mode":
+            mode = req.get("mode")
+            if mode not in (0, 1):
+                return BAD_PARAM
+            flow, self.stream_mode = self.flow, mode
+            self.call(self.apply_stream_mode)
+            if flow:
+                self.call(d.open_flow)
+                self.flow = True
+            log("stream mode %d" % (mode,))
+            return {}
+        if c == "get_stream_mode":
+            return {"mode": self.call(d.get_stream_mode)}
+        if c == "get_sensor_temp":
+            return {"temp": round(self.call(d.get_sensor_temp), 2)}
+        if c == "get_timings":     # firmware >= 1.0.16, else code 103
+            t = self.call(d.get_timings)
+            return t if t else BAD_PARAM
+        if c == "get_module_info":
+            cal = self.call(d.get_cal_param)
+            return dict(d.info, temp=round(self.call(d.get_sensor_temp), 2),
+                        timings=self.call(d.get_timings),
+                        stream_mode=self.stream_mode,
+                        level=self.call(d.get_point_cloud_level),
+                        cal={k: [round(v, 6) for v in vs]
+                             for k, vs in cal.items()})
+        if c == "self_test":
+            # needs the stream off; leaves laser and fill light off
+            self.call(self.stream_off)
+            self.laser = False
+            code = self.call(d.self_test)
+            return {"self_test": code, "laser_ok": not code & 1,
+                    "light_ok": not code & 2}
+        if c == "ambient_points":
+            # points found with the laser off = room light read as a line
+            flow, laser = self.flow, self.laser
+            if not flow:
+                self.call(d.open_flow)      # (switches the laser on)
+            self.call(d.set_laser, False)
+            time.sleep(0.3)
+            counts = [len(self.call(d.request, ls.GET_POINT_CLOUD, b"", 2.0))
+                      // 6 for _ in range(3)]
+            if laser:
+                self.call(d.set_laser, True)
+            if not flow:
+                self.call(self.stream_off)
+            self.flow, self.laser = flow, laser
+            return {"points": counts}
         if c in ("get_laser_exposure", "get_laser_gain"):
             k = c[10:]
             fn = d.get_exposure if k == "exposure" else d.get_gain
@@ -249,6 +356,8 @@ class Server:
                 return BAD_PARAM
             self.call(d.set_exposure if k == "exposure" else d.set_gain, v)
             return {}
+        if c == "ir_photo":
+            return self.ir_photo(req)
         if c == "set_laser_roi_area":
             try:
                 self.call(d.set_roi, int(req["x_min"]), int(req["x_max"]))
@@ -263,7 +372,189 @@ class Server:
         log("unsupported request: %s" % (c,))
         return BAD_PARAM
 
+    # -- IR camera (HTTP) ----------------------------------------------------
+    CAMERA_IDLE = 10.0       # s without a LiDAR request before the camera may
+    CAMERA_MIN_AGE = 0.3     # take a picture; pictures younger than this are reused
+    CAMERA_LIGHT_IDLE = 30.0  # s without a picture request: fill light off
+    SWITCH_URL = ("http://127.0.0.1:7125/printer/objects/query?"
+                  "output_pin%20LiDAR_Camera")
+    WEBCAM_URL = "http://127.0.0.1:7125/server/webcams/item"
+    WEBCAM_NAME = "LiDAR"
+
+    def camera_enabled(self):
+        """The LiDAR_Camera switch in Fluidd (Klipper output_pin), read from
+        Moonraker at most every 3 s; off when it can't be read."""
+        now = time.monotonic()
+        if now - self.cam_switch_time > 3.0:
+            self.cam_switch_time = now
+            try:
+                with urllib.request.urlopen(self.SWITCH_URL, timeout=1.0) as r:
+                    st = json.loads(r.read().decode())["result"]["status"]
+                self.cam_switch = st["output_pin LiDAR_Camera"]["value"] > 0
+            except Exception:
+                self.cam_switch = False
+        return self.cam_switch
+
+    def ir_photo(self, req):
+        """One 1600x1200 JPEG for the calibrations (Pi service): fill light
+        and/or laser as asked, at the given exposure. Afterwards the light
+        is off and exposure, laser and stream are as before, also when the
+        capture fails. Only type 2 (JPEG) is ever sent."""
+        res, exp = req.get("res", 3), req.get("exposure", 1000)
+        if res not in (0, 1, 2, 3) or not isinstance(exp, int) \
+                or not 0 < exp < 1 << 24:
+            return BAD_PARAM
+        d = self.dev
+        self.stream.stop()
+        if getattr(self, "intr", None) is None:
+            self.intr = [round(v, 3) for v in
+                         self.call(d.get_cal_param)["intrinsics"][:4]]
+        flow, laser = self.flow, self.laser
+        prev = self.call(d.get_exposure)
+        t0 = time.monotonic()
+        try:
+            self.call(d.set_exposure, exp)
+            self.light(bool(req.get("light", 1)))
+            jpg = self.call(d.capture_jpeg, res, bool(req.get("laser", 0)))
+        finally:
+            # the capture switched the stream (and the laser) off
+            self.flow = self.laser = False
+            self.light(False)
+            for fn, args in ((d.set_laser, (False,)), (d.set_exposure, (prev,))):
+                try:
+                    self.call(fn, *args)
+                except ls.LidarError as e:
+                    log("ir_photo: restoring failed: %s" % (e,))
+            try:
+                if laser:
+                    self.call(d.set_laser, True)
+                    self.laser = True
+                if flow:
+                    self.call(d.open_flow)
+                    self.flow = True
+            except ls.LidarError as e:
+                log("ir_photo: restoring the stream failed: %s" % (e,))
+        w, h = {0: (512, 288), 1: (800, 600), 2: (1600, 600),
+                3: (1600, 1200)}[res]
+        return {"jpeg": base64.b64encode(jpg).decode(), "w": w, "h": h,
+                "exposure": exp, "intr": self.intr,
+                "secs": round(time.monotonic() - t0, 2)}
+
+    def light(self, on):
+        if self.led == on:
+            return
+        try:
+            self.dev.set_fill_light(on)
+            self.led = on
+        except (ls.LidarError, OSError) as e:
+            log("fill light %s: %s" % ("on" if on else "off", e))
+
+    def camera_tick(self):
+        """Fill light off once nobody watches or the switch went off; the
+        Fluidd webcam entry is enabled/disabled with the switch."""
+        enabled = self.camera_enabled()
+        if self.led and (time.monotonic() - self.cam_seen > self.CAMERA_LIGHT_IDLE
+                         or not enabled):
+            self.light(False)
+        if enabled != self.cam_published:
+            self.cam_published = enabled
+            body = json.dumps({"name": self.WEBCAM_NAME, "enabled": enabled}).encode()
+            try:
+                req = urllib.request.Request(self.WEBCAM_URL, data=body, headers={
+                    "Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=2.0).read()
+                log("camera %s (Fluidd webcam %s)" % (
+                    "on" if enabled else "off", self.WEBCAM_NAME))
+            except Exception as e:
+                log("camera: updating the Fluidd webcam failed: %s" % (e,))
+
+    def camera_jpeg(self, res, light):
+        """(jpeg or None, 'live' / 'cached' / reason)."""
+        now = time.monotonic()
+        if not self.camera_enabled():
+            self.light(False)
+            return self.off_jpeg, "off (LiDAR_Camera switch in Fluidd)"
+        self.cam_seen = now
+        if self.cam_jpeg and now - self.cam_time < self.CAMERA_MIN_AGE:
+            return self.cam_jpeg, "cached"
+        if now - self.last_use < self.CAMERA_IDLE or self.stream.running:
+            return self.cam_jpeg, "cached (LiDAR busy)"
+        if not self.ensure_ready():
+            return self.cam_jpeg, "cached (module not ready)"
+        d = self.dev
+        flow, laser = self.flow, self.laser
+        state = "live"
+        try:
+            self.light(light)
+            self.cam_jpeg, self.cam_time = d.capture_jpeg(res), time.monotonic()
+        except ls.LidarError as e:
+            state = "cached (%s)" % (e,)
+            log("camera: %s" % (e,))
+        except OSError as e:
+            log("camera: port error %s" % (e,))
+            self.dev.close()
+            return self.cam_jpeg, "cached (port error)"
+        # the capture switched the stream (and with it the laser) off
+        self.flow = self.laser = False
+        try:
+            if laser:
+                d.set_laser(True)
+                self.laser = True
+            if flow:
+                d.open_flow()
+                self.flow = True
+        except (ls.LidarError, OSError) as e:
+            log("camera: restoring the stream failed: %s" % (e,))
+            self.dev.close()
+        return self.cam_jpeg, state
+
+    PAGE = (b"<!doctype html><title>LiDAR camera</title><body style='margin:0;"
+            b"background:#000'><img id=i style='width:100%'><script>"
+            b"function n(){var i=document.getElementById('i');"
+            b"i.onload=i.onerror=function(){setTimeout(n,200)};"
+            b"i.src='snapshot?'+Date.now()}n()</script>")
+
+    def camera_http(self, conn):
+        try:
+            conn.settimeout(2.0)
+            req = b""
+            while b"\r\n\r\n" not in req and len(req) < 4096:
+                chunk = conn.recv(1024)
+                if not chunk:
+                    break
+                req += chunk
+            line = req.split(b"\r\n", 1)[0].decode(errors="replace").split()
+            path, _, query = (line[1] if len(line) > 1 else "/").partition("?")
+            args = dict(kv.partition("=")[::2] for kv in query.split("&") if kv)
+            if path.rstrip("/") in ("", "/index.html"):
+                body, ctype, status, extra = self.PAGE, "text/html", "200 OK", ""
+            elif path in ("/snapshot", "/stream"):
+                try:
+                    res = int(args.get("res", 0))
+                except ValueError:
+                    res = 0
+                jpg, state = self.camera_jpeg(
+                    res if res in (0, 1, 2, 3) else 0, args.get("light", "1") != "0")
+                extra = "X-LiDAR-Camera: %s\r\n" % (state,)
+                if jpg:
+                    body, ctype, status = jpg, "image/jpeg", "200 OK"
+                else:
+                    body, ctype, status = (state.encode(), "text/plain",
+                                           "503 Service Unavailable")
+            else:
+                body, ctype, status, extra = b"not found", "text/plain", "404 Not Found", ""
+            conn.sendall(("HTTP/1.0 %s\r\nContent-Type: %s\r\nContent-Length: %d\r\n"
+                          "Cache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\n"
+                          "%s\r\n" % (status, ctype, len(body), extra)).encode() + body)
+        except OSError:
+            pass
+        finally:
+            conn.close()
+
     def reply(self, req):
+        self.last_use = time.monotonic()
+        if self.led and self.dev.ready:
+            self.light(False)          # never measure with the fill light on
         c = req.get("control") if isinstance(req, dict) else None
         try:
             r = self.handle(req) if c else BAD_PARAM
@@ -294,15 +585,29 @@ class Server:
         os.rename(tmp, self.sock_path)
         clients = {}   # socket -> receive buffer
         log("listening on %s" % (self.sock_path,))
+        cam = []
+        if self.camera_port:
+            web = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            web.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            web.bind(("", self.camera_port))
+            web.listen(4)
+            cam = [web]
+            log("IR camera on http port %d" % (self.camera_port,))
         self.ensure_ready()
         while True:
-            r, _, _ = select.select([srv] + list(clients), [], [], 5.0)
+            r, _, _ = select.select([srv] + cam + list(clients), [], [], 5.0)
             if not r and not self.dev.ready:
                 self.ensure_ready()   # keep retrying while idle
+            if cam:
+                self.camera_tick()
             for s in r:
                 if s is srv:
                     c, _ = srv.accept()
                     clients[c] = b""
+                    continue
+                if cam and s is cam[0]:
+                    c, _ = s.accept()
+                    self.camera_http(c)
                     continue
                 try:
                     data = s.recv(65536)
@@ -332,14 +637,18 @@ class Server:
 
 def main():
     args = sys.argv[1:]
-    sock_path, port = "/tmp/ai_server_uds", ls.PORT
+    sock_path, port, mode, cam = "/tmp/ai_server_uds", ls.PORT, 0, None
     while args:
         a = args.pop(0)
         if a == "--socket":
             sock_path = args.pop(0)
         elif a == "--port":
             port = args.pop(0)
-    Server(sock_path, port).serve()
+        elif a == "--stream-mode":
+            mode = 1 if args.pop(0) == "1" else 0
+        elif a == "--camera-port":
+            cam = int(args.pop(0))
+    Server(sock_path, port, mode, cam).serve()
 
 
 if __name__ == "__main__":
