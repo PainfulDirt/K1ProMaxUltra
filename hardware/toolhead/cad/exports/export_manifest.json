@@ -10,9 +10,10 @@
  "parts": {
   "cooling_module_frame": {
    "material": "ASA",
+   "material_note": "lead-specified; typical ASA TDS 1.05-1.10",
    "category": "printed",
-   "volume_mm3": 5860.046,
-   "mass_g_solid": 6.27,
+   "volume_mm3": 6209.855,
+   "mass_g_solid": 6.64,
    "density_g_cm3": "1.07 (ESTIMATED)",
    "print_rot_deg": [
     180,
@@ -26,46 +27,47 @@
     0.0,
     25.375,
     12.975,
-    56.55
+    67.05
    ],
    "size_print_mm": [
     50.75,
     25.95,
-    56.55
+    67.05
    ],
    "files": {
     "step": {
      "path": "exports/step/cooling_module_frame.step",
-     "sha256_16": "bccb80318775975c",
+     "sha256_16": "ff060a8419a1ef20",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 2.9488502811069006e-14,
+     "dV_rel": 4.1301688120983915e-14,
      "dBB_mm": 1.4210854715202004e-14,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/cooling_module_frame.3mf",
-     "sha256_16": "47ff34394b7be78e",
+     "sha256_16": "4b754604f02ed406",
      "objects": 1,
-     "dV_rel": 3.0125549189014327e-05,
-     "dBB_mm": 0.0013206481933707437,
+     "dV_rel": 3.2424092308408394e-05,
+     "dBB_mm": 0.0006351470947265625,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/cooling_module_frame.stl",
-     "sha256_16": "76baf8bdc257fe46",
+     "sha256_16": "0cc41dc4140644f6",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 13048,
-     "dV_rel": 3.012563312865839e-05,
-     "dBB_mm": 0.0013206481933707437,
+     "triangles": 13772,
+     "dV_rel": 3.242317886152704e-05,
+     "dBB_mm": 0.0006351470947265625,
      "pass": 1.0
     }
    }
   },
   "cover": {
    "material": "ASA",
+   "material_note": "lead-specified; typical ASA TDS 1.05-1.10",
    "category": "printed",
    "volume_mm3": 5922.454,
    "mass_g_solid": 6.34,
@@ -92,7 +94,7 @@
    "files": {
     "step": {
      "path": "exports/step/cover.step",
-     "sha256_16": "df9a9fd6012aa964",
+     "sha256_16": "65357cf2b35f69e7",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -102,7 +104,7 @@
     },
     "3mf": {
      "path": "exports/3mf/cover.3mf",
-     "sha256_16": "066d997d0024498d",
+     "sha256_16": "0639361eb71f3018",
      "objects": 1,
      "dV_rel": 6.57644822855127e-05,
      "dBB_mm": 3.8146970737784613e-07,
@@ -122,6 +124,7 @@
   },
   "probe_mount": {
    "material": "PA-CF",
+   "material_note": "lead-specified ~1.15; PA12-CF TDS 1.06-1.20",
    "category": "printed",
    "volume_mm3": 9955.259,
    "mass_g_solid": 11.45,
@@ -148,7 +151,7 @@
    "files": {
     "step": {
      "path": "exports/step/probe_mount.step",
-     "sha256_16": "38a981b0dbf2e7c9",
+     "sha256_16": "d4452b62ecca28c3",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -158,7 +161,7 @@
     },
     "3mf": {
      "path": "exports/3mf/probe_mount.3mf",
-     "sha256_16": "83af50d5b2969169",
+     "sha256_16": "77b5d28650d13837",
      "objects": 1,
      "dV_rel": 8.522872665498465e-06,
      "dBB_mm": 7.629394573882564e-07,
@@ -178,6 +181,7 @@
   },
   "fitcheck_coupon": {
    "material": "ASA",
+   "material_note": "lead-specified; typical ASA TDS 1.05-1.10",
    "category": "fitcheck",
    "volume_mm3": 2791.502,
    "mass_g_solid": 2.99,
@@ -204,7 +208,7 @@
    "files": {
     "step": {
      "path": "exports/step/fitcheck_coupon.step",
-     "sha256_16": "7b37431cb2f0cd7a",
+     "sha256_16": "0014c462617bf56e",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -214,7 +218,7 @@
     },
     "3mf": {
      "path": "exports/3mf/fitcheck_coupon.3mf",
-     "sha256_16": "5433e46aee88a26b",
+     "sha256_16": "3c6f1f3aa7def926",
      "objects": 1,
      "dV_rel": 3.380347872802776e-05,
      "dBB_mm": 4.5776367230132564e-07,
@@ -233,57 +237,58 @@
    }
   },
   "duct_body": {
-   "material": "PC",
+   "material": "HT-resin",
+   "material_note": "PLACEHOLDER = PC 1.20 g/cm3; take the real value from the HT resin TDS (DD-07a)",
    "category": "printed",
-   "volume_mm3": 7699.452,
-   "mass_g_solid": 9.24,
+   "volume_mm3": 7836.4,
+   "mass_g_solid": 9.4,
    "density_g_cm3": "1.2 (ESTIMATED)",
    "print_rot_deg": [
     0.0,
     0.0,
     0.0
    ],
-   "notes": "owned by the Duct/CFD agent (cad/source/ducts, param set S7); status FINAL. nozzle end PC or PA-CF (DD-07); printed upright, fan socket up. Print upright as modelled (nozzle-frame +Z = print Z, fan socket up).",
+   "notes": "owned by the Duct/CFD agent (cad/source/ducts, param set S8); status FINAL. Material (DD-07a, user decision): HT resin, 238 C class (HDT at 0.45 MPa after the FULL thermal post-cure per the TDS), from a print service, order two; fallbacks PC or MJF PA12. Ask for: channels flushed and drained, no support contact on the outlet lips, inside the ports or on the socket faces. Mass uses the PC density as a placeholder: the real value comes from the resin TDS. Brittle: M3 washer under each tab head, tighten only until the tab seats. Exported upright on its flat base (nozzle-frame +Z = print Z); the orientation is the service's choice.",
    "bbox_print": [
-    -23.389,
-    -42.0,
+    -23.797,
+    -33.124,
     -0.0,
-    23.389,
-    42.0,
-    24.964
+    23.797,
+    33.124,
+    24.15
    ],
    "size_print_mm": [
-    46.78,
-    84.0,
-    24.96
+    47.59,
+    66.25,
+    24.15
    ],
    "files": {
     "step": {
      "path": "exports/step/duct_body.step",
-     "sha256_16": "66faddbb4399d34a",
+     "sha256_16": "c822125ac62a476f",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 1.4608471396936244e-09,
-     "dBB_mm": 2.4584778657299466e-12,
+     "dV_rel": 4.757310237078155e-13,
+     "dBB_mm": 3.9257486150745535e-12,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/duct_body.3mf",
-     "sha256_16": "6ea697860b31337f",
+     "sha256_16": "ba952bdf06a2266d",
      "objects": 1,
-     "dV_rel": 9.943915824251118e-06,
-     "dBB_mm": 1.143757657473543e-06,
+     "dV_rel": 4.271816107638017e-06,
+     "dBB_mm": 4.814697867061568e-07,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/duct_body.stl",
-     "sha256_16": "65d631e28e293265",
+     "sha256_16": "c2aabb7edc298b80",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 2642,
-     "dV_rel": 9.873269512830334e-06,
-     "dBB_mm": 7.635909753389569e-07,
+     "triangles": 3340,
+     "dV_rel": 4.297773882565042e-06,
+     "dBB_mm": 4.814697867061568e-07,
      "pass": 1.0
     }
    }
@@ -291,7 +296,7 @@
  },
  "assembly": {
   "path": "exports/step/k1max_toolhead_assembly.step",
-  "sha256_16": "05b555b685a9eb94",
+  "sha256_16": "bcca1b35a3ee11e5",
   "leaves": 29,
   "groups": [
    "keepout_volumes",
@@ -302,7 +307,7 @@
   "parts": {
    "cooling_module_frame": {
     "group": "printed_parts",
-    "volume_mm3": 5860.046
+    "volume_mm3": 6209.855
    },
    "cover": {
     "group": "printed_parts",
@@ -314,7 +319,7 @@
    },
    "duct_body": {
     "group": "printed_parts",
-    "volume_mm3": 7699.452
+    "volume_mm3": 7836.4
    },
    "ref_nozzle": {
     "group": "reference_stock_parts",

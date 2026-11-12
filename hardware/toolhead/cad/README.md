@@ -5,15 +5,26 @@ MicroProbe mount (DD-03), the fit-check coupon, the assembly, automated validati
 manufacturing exports. The duct air paths and duct bodies belong to the Duct/CFD agent
 (`source/ducts/`); this side reads their `duct_interface.json` and never edits it.
 
-**Current state.** The CFD phase is finished. The baseline is **one stock Creality 4020 blower in
-the front bay plus the S7 multi-port duct** (`ducts/duct_generator.py`, param set S7;
-`duct_interface.json` v3-final, `final_mount_points: true`). `assembly.py` (`COOLING_SOURCE =
-"auto-final"`) therefore builds the real duct body, and the frame and cover are built around it:
+**Current state.** The baseline is **one stock Creality 4020 blower in the front bay plus the S8
+multi-port duct** (`ducts/duct_generator.py`, param set S8; `duct_interface.json` v4-final,
+`final_mount_points: true`). S8 is the phase 6 review round of S7. `assembly.py` (`COOLING_SOURCE =
+"auto-final"`) builds the real duct body, and the frame and cover are built around it:
 
 - fan envelope X −21.3…18.7, Y −56.5…−36.5, Z 23.4…63.4, held on its two diagonal screws
   (−18.65, 60.3) and (16.05, 25.6);
-- duct body Z 2.44…27.4, bolted to frame lugs at T_left (−7.5, −37.75, 19.5) and
-  T_right (24.0, −37.75, 22.5), M3 along +Y.
+- duct body X −16.6…31.0, Y −56.45…9.8, Z 3.0…27.15 (flat base at Z 3.0, nothing behind Y +10,
+  4.54 mm from the sock), with a four-sided fan socket at 0.25 mm clearance;
+- three tabs bolted to frame lugs, M3 along +Y with an ISO 7089 washer under each head:
+  T_left (−2.0, −37.75, 19.5), T_right (24.0, −37.75, 22.5) and T_3 (−3.0, −37.75, 9.0).
+  T_3's lug is a straight drop from the plate, X −6.6…0.6.
+- **Duct material (DD-07a, user decision):** HT resin, 238 °C class (HDT at 0.45 MPa after the
+  full thermal post-cure per the TDS), from a print service, order two. PC or MJF PA12 are the
+  fallbacks.
+  - Ask the service for: channels flushed and drained, and no support contact on the outlet lips,
+    inside the ports or on the socket faces.
+  - The resin is brittle: tighten the tab screws only until the tabs seat.
+  - The mass uses the PC density (1.20) as a placeholder; take the real value from the resin TDS
+    and re-run `export.py`. The duct pitch estimate also uses PC's modulus.
 
 The placeholder stub in `structure/cooling.py` is only a fallback. A Same Sky 5015 (+ 24→12 V buck)
 is a conditional upgrade, not the baseline: no buck mount is modelled.
@@ -28,55 +39,65 @@ ESTIMATED / MISSING / STUB dependencies.
 | Part | File | Material | Mass (solid) | Release |
 |---|---|---|---|---|
 | Fit-check coupon | `exports/*/fitcheck_coupon.*` | ASA | 3.0 g | **PRINT FIRST** (≈10 min) |
-| Cooling-module frame | `exports/*/cooling_module_frame.*` | ASA | 6.3 g | FIT-CHECK FIRST (PCB pads and component zone ESTIMATED, M10; 4020 holes, thickness and hole type ESTIMATED, M7; insert size; sleeve tube ESTIMATED until bought) |
+| Cooling-module frame | `exports/*/cooling_module_frame.*` | ASA | 6.64 g | FIT-CHECK FIRST (PCB pads and component zone ESTIMATED, M10; 4020 holes, thickness and hole type ESTIMATED, M7; insert size; sleeve tube ESTIMATED until bought) |
 | Cover | `exports/*/cover.*` | ASA | 6.34 g | FIT-CHECK FIRST (follows the 4020 front face and inlet diameter, M7; LiDAR boxes, M6) |
-| Duct body (S7) | `exports/*/duct_body.*` | PC (or PA-CF, 8.9 g) | 9.2 g | **does not pass validation** (4 FAILs below, review R-01/R-02/R-05). The release table still says FIT-CHECK FIRST, from its dependencies alone. S8 is in progress |
+| Duct body (S8) | `exports/*/duct_body.*` | HT resin (DD-07a); fallbacks PC, MJF PA12 | 9.40 g (PC density as placeholder) | FIT-CHECK FIRST (4020 outlet/holes/nozzle M7, socket fit, hotend version M1, probe keep-out M8, component zone M10, LiDAR boxes M6) |
 | MicroProbe mount | `exports/*/probe_mount.*` | PA-CF (PC acceptable) | 11.5 g | NOT RELEASED (785004 anchor unconfirmed, M8) |
 
 Masses assume 100 % infill (upper bound). Densities ASA 1.07, PC 1.20, PA-CF 1.15 g/cm³ are
 typical TDS values (ESTIMATED); use the datasheet of the spool you buy. The duct body is owned by
-the Duct/CFD agent; it is exported here as printed: upright as modelled (fan socket up, nozzle-frame
-+Z = print Z), PC or PA-CF (DD-07: within 15 mm of the heater). Current numbers, checks and the full
+the Duct/CFD agent. It is exported upright on its flat base (nozzle-frame +Z = print Z, 1378 mm² of bed
+contact); the print orientation is the service's choice. Current numbers, checks and the full
 dependency list: `exports/validation_report.md` (default source) and
 `exports/validation_report_ducts.md` (`--cooling ducts`, identical while the JSON is final).
 
-Validation today (`validate.py` with the S7 duct, Henlor stock cache present): **4 FAIL, 9 WARN**.
-The phase 6 review (`documentation/review/phase6-review.md`) added several checks. All four FAILs
-and three of the WARNs are on the S7 duct or the fan/duct interface, and they are the targets for S8:
+Validation today (`validate.py` with the S8 duct, Henlor stock cache present): **0 FAIL, 7 WARN**.
 
-| Status | Check | S7 result | Target |
-|---|---|---|---|
-| FAIL | rear footprint (R-01) | 191 mm² / 758 mm³ of the duct lies outside the MicroProbe body + 785004 footprint behind Y +10, below Z 30 (excess X 13.7…31.0, Y 10.0…27.3, Z 2.4…18.1) | nothing outside that footprint, or re-measure keep-out zones 1/3/4 with the duct fitted |
-| FAIL | duct bed contact (R-05) | 0 mm² flat on the plate, upright | ≥ 100 mm² (WARN below, FAIL at 0) |
-| FAIL | duct × 4020 solid (R-02) | 1.23 mm³: the T_right arm enters the modelled outlet nozzle at X 17.25…18.7, Y −39…−38, Z 24.4…25.5 | ≤ 0.5 mm³, and only inside the socket band |
-| FAIL | lower fan screw shank (R-02) | the Ø3 shank at (16.05, 25.6) cuts the duct's T_right arm: 2.43 mm³ at X 16.5…17.5, Y −39…−36.5, Z 24.2…25.5 | clear |
-| WARN | lower fan screw head | 0.299 mm from the duct socket | ≥ 0.5 mm (`HEAD_MIN_GAP`, R-15) |
-| WARN | fan hole vs outlet (R-02) | 154 mm³ of the lower Ø3.4 fan bore lies inside the ESTIMATED outlet column | M7: the hole positions and the outlet contradict each other |
-| WARN | duct cantilever (R-22) | pitch mode 113…598 Hz. The weak link is the tab arms in torsion. Lever 64.0 mm from the tab face (the review's ~64 is confirmed) | > 155 Hz: a third tab, or arms of real section |
-| WARN | duct min wall 0.37 mm | acute-edge ridges at the port roots, not a thin wall (see below) | — |
-| WARN | fan screw tips (×2) | M3×24 ends 0.20 mm from the new 0.8 mm insert floor; the safe length is 22.5…23.7 mm, and no standard ISO 7380 length fits | decided by M7 (fan through-length and hole type, R-03) |
-| WARN | front extent −58.2 vs `FRONT_LIMIT_Y` −55 | soft limit (M9); the 4020 alone reaches −56.5 | — |
-| WARN | probe anchor | M8 | — |
-| WARN | frame fan-plate mode without the 4th pad, 147 Hz | M10 | — |
+S8 now passes every check the phase 6 review added:
 
-Duct min wall: every thin ray sits on an acute convex edge (66–85°; 42–86° in a denser 8000-ray
-scan, 0.43 % of rays), and none lies between parallel faces. They are the 65° ridges where each 25°
-port floor steps 0.6–1.1 mm down onto the manifold floor, plus the port-side/manifold junctions.
-These are inside the air path.
+| Check | S8 result | S7 result |
+|---|---|---|
+| rear footprint (R-01) | nothing behind Y +10 below Z 30 (max Y 9.8) | 191 mm² outside |
+| bed contact (R-05) | 1378 mm² | 0 |
+| duct × 4020 solid (R-02) | 0 mm³, min gap 0.25 mm | 1.23 mm³ |
+| lower fan screw shank / head vs the duct | shank clear; head 0.5 mm, from the cover | shank 2.43 mm³; head 0.30 mm |
+| sock / flat base design targets | 4.54 mm (≥ 4.5); Z 3.00 (≥ 3.0) | 3.35; 2.44 |
+| duct pitch mode (R-22) | 1530…2741 Hz on 3 tabs | 113…598 Hz on 2 tabs |
+| cover × duct | 0.55 mm | 0.40 mm |
+| tolerance stack-up (R-16), worst case | 0.62 mm against margins of 1.54 (hot zone) and 1.0 (`DUCT_MIN_Z`) | 0.35 / 0.44 margins |
 
-The tolerance stack-up (R-16, INFO) assumes ±0.2 mm per screw-in-clearance joint and ±0.2 mm per
-printed part.
-- Duct position: worst case 0.62 mm, RSS 0.35 mm. This exceeds the S7 margins of 0.35 mm (hot zone)
-  and 0.44 mm (`DUCT_MIN_Z`), so S8 needs more margin.
-- Fan screw head vs its cover hole: worst case 0.8 mm, RSS 0.4 mm, against 0.5 mm radial clearance.
+The S8 design targets (sock clearance 4.5, base Z 3.0) are checked as parameters in `validate.py`.
+`interfaces.py` keeps `HOT_ZONE_CLEARANCE` 3.0 and `DUCT_MIN_Z` 2.0. Reason:
+`ducts/duct_generator.py` builds the S8 manifold path and ports from those two values. Setting them
+to 4.5 / 3.0 regenerates a different duct: body 7836 → 8472 mm³, X max 31.0 → 32.5, air volume
++10 %. That would not be the CFD-validated S8.
+
+The duct pitch estimate assumes a rigid duct. With three tabs spread in Z (T_3 10.5 mm below
+T_left), pitch becomes push-pull on the tab joints. The duct's own bending is now the unestimated
+part, so a tap test stays useful.
+
+Remaining WARNs, all accepted:
+
+| WARN | Why it is accepted |
+|---|---|
+| duct min wall 0.32 mm on 0.33 % of rays (FAIL threshold 0.5 %) | 2 rays are acute-edge port-root ridges, as in S7. 3 lie between near-parallel faces at the fan socket's front right: (15.4, −56.3, 22.2) and (20.2, −55.6…−55.3, 24.9…26.5), at the edge of the socket notch around the lower-right fan screw (16.05, 25.6). That is a real sliver, reported to the duct owner; 0.33 % is under the 0.5 % FAIL threshold |
+| fan screw tips ×2 | M3×24 ends 0.20 mm from the 0.8 mm insert floor; the safe length is 22.5…23.7 mm and no standard ISO 7380 length fits. Decided by M7 (fan through-length, hole type; R-03) |
+| fan hole vs outlet (R-02) | 154 mm³ of the lower Ø3.4 fan bore lies inside the ESTIMATED outlet column; M7 resolves the contradiction |
+| front extent −58.2 vs `FRONT_LIMIT_Y` −55 | soft limit (M9); the 4020 alone reaches −56.5 |
+| probe anchor | M8 |
+| frame fan-plate mode without the 4th pad, 147 Hz | M10 |
+
+The tolerance stack-up for the fan screw heads in their cover holes: worst case 0.8 mm, RSS 0.4 mm,
+against 0.5 mm radial clearance (INFO).
 
 `LIDAR_RESERVED_BODY` overlapping the stock carriage by 1.2 mm in X is reported as INFO: the box's
 inner face (X −24, stock cover width) lies inside the carriage's left face (X −25.2), which is
 where the LiDAR bracket seats. The box stays as is until M6.
 
-Moving mass vs stock: **+1.2 … +10.1 g**. This counts printed parts at 100 % infill, all
-screws/inserts and the 3 brass sleeves, minus the stock cover+duct, the 785004 adapter and the stock
-PCB screws. X shaper 76.7…77.5 Hz at an X moving mass of 450 g (77.6 Hz today); Y 51.7…52.0 Hz.
+Moving mass vs stock: **+3.1 … +12.0 g**. This counts printed parts at 100 % infill (the duct at
+the PC placeholder density), all screws, inserts and washers, and the 3 brass sleeves. It subtracts
+the stock cover+duct, the 785004 adapter and the stock PCB screws. X shaper 76.6…77.3 Hz at an X
+moving mass of 450 g (77.6 Hz today); Y 51.6…51.9 Hz.
 
 ### Print the coupon first
 `fitcheck_coupon` is printed face down, with no supports. It checks, on the real printer:
@@ -171,7 +192,7 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | Part | Driven by `interfaces.py` | Own parameters (DESIGN unless noted) |
 |---|---|---|
 | frame | `MODULE_MOUNT_HOLES`, `MODULE_MOUNT_BEARING_Y` (−22.3), `MODULE_MOUNT_PAD_D`, `PCB_COMPONENT_ZONE` (plate back at −31.5), `PCB`, `FAN3010_PATTERN_CZ`, `LIDAR_RESERVED_BOXES`, `RIGHT_LIMIT_X` | `FRAME_PLATE_T` 2.0; `FRAME_ZMAX` 71.8 (below the carriage strain relief); `FRAME_XMAX` 20; `FRAME_WINDOW_R` 15 (teardrop, intake ≥ 625 mm²); `FRAME_RIB_DEPTH` 2.0; `FRAME_BOSS_D` 7.5 with a Ø5.8 neck (Henlor 2nd-plate holes Ø6.2, DERIVED); `FRAME_FOURTH_PAD_ON` (ESTIMATED); `FRAME_PCB_SCREW_LEN` 30 (3× M3×30 ISO 7380 replace stock M3×18/18/20); cover screws `COVER_SCREW_X/Y`; tie slots `FRAME_TIE_*` |
-| cover | `PCB`, `XCARRIAGE`, `RIGHT_LIMIT_X`, LiDAR boxes, fan envelope | `COVER_HALF_W` 24.0 (stock width, DERIVED); `COVER_WALL` 1.2; `COVER_GAP` 0.5 (front wall to fan face); `COVER_INTAKE_MARGIN` 1.0 (intake aperture = `FAN_INLET_D` 28, ESTIMATED M7, + 2 = Ø30, fully open); `COVER_ZMIN` 24; `COVER_YIELD_CLEAR` 0.3 (right wall bottom raised to Z 26.4 over T_right); top wall stops in front of the strain relief (`CARRIAGE_STRAIN_RELIEF_YMIN`, DERIVED 02:N16) |
+| cover | `PCB`, `XCARRIAGE`, `RIGHT_LIMIT_X`, LiDAR boxes, fan envelope | `COVER_HALF_W` 24.0 (stock width, DERIVED); `COVER_WALL` 1.2; `COVER_GAP` 0.5 (front wall to fan face); `COVER_INTAKE_MARGIN` 1.0 (intake aperture = `FAN_INLET_D` 28, ESTIMATED M7, + 2 = Ø30, fully open); `COVER_ZMIN` 24; `COVER_YIELD_CLEAR` 0.3 (right wall bottom raised to Z 27.05 over the T_right lug); top wall stops in front of the strain relief (`CARRIAGE_STRAIN_RELIEF_YMIN`, DERIVED 02:N16) |
 | probe mount | `PROBE_*`, `PROBE_BODY_Y`, `PROBE_ADAPTER_785004`, `PROBE_ADAPTER_SCREWS`, `REAR_LIMIT_Y`, `SOCK` | 785004 relations from 01 §H.1 (`PM_SEAT_TO_ANCHOR_Z` 27.05, `PM_SEAT_TO_TOP_Z` 32.5, `PM_MATING_FACE_Y` 16.9, `PM_FRONT_LOW_Y` 13.4, windows, Ø2.4/Ø4.2 anchor holes); carriage tabs from Henlor (`PM_TAB_*`); `PM_PAD_T` 4; `PM_WALL` 2.4; pocket 0.8 deep; M2.5 inserts; `PM_ANCHOR_CONFIRMED_M8` (MISSING) |
 | coupon | same as frame bosses + probe flange | `COUPON_*` |
 | duct body (Duct/CFD agent) | `SOCK`, `HEATER_BODY`, `HOT_ZONE_CLEARANCE`, `DUCT_MIN_Z`, `PROBE_BODY_Y`, `PROBE_ADAPTER_785004`, `PCB_COMPONENT_ZONE`, `STOCK_4020_POS`, `FAN3010`, LiDAR boxes | from `duct_interface.json`: `DUCT_FAN_F_OUTLET_SIZE`, `DUCT_FAN_F_SCREW_HOLES`, `DUCT_FAN_F_ENVELOPE` (ESTIMATED, M7), `DUCT_FAN_SOCKET_FIT`, `DUCT_HOTEND_VERSION` (M1), `DUCT_MOUNT_POINTS_FINAL`; `DUCT_TAB_SCREW_LEN` 6 |
@@ -239,9 +260,10 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
     `LIDAR_RESERVED_BODY`). `frame.lidar_allow_regions()` would allow-list a PCB screw column if a
     box ever reached one; with the current boxes none does.
   - Heat-set inserts for every screw the frame takes (fan, duct, cover): service cycles, 45 °C chamber, no thread creep in ASA.
-- **Frame and the S7 duct.** `validate.py` checks that the frame really provides the four
-  interface points (two 4020 screws, T_left, T_right): open Ø4.0 insert hole, solid boss (Ø8.5,
-  R-20), solid mating face at Y −36.5.
+- **Frame and the S8 duct.** `validate.py` checks that the frame really provides the five
+  interface points (two 4020 screws, T_left, T_right, T_3): open Ø4.0 insert hole, solid boss (Ø8.5,
+  R-20), solid mating face at Y −36.5. The lugs below the plate rise to it as ±3.6 mm strips;
+  T_3's strip runs X −6.6…0.6 from Z 4.75.
   - Plastic round a Ø5.0 knurl is 1.80 mm on every insert boss.
   - Exception: the upper-left fan boss, trimmed by a PCB driver path and the cover clearance, has
     1.35 mm on 18 % of its ring (INFO, justified). The frame stays 1.2 mm outside the duct air path and 13.7 mm from the sock
@@ -290,10 +312,12 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
   - Printed upside down, no supports.
 - **Stiffness** (hand estimates, `structure/stiffness.py`; numbers in the report):
   - Frame rocking on the 3 screws is ≥ 1.27 kHz. The clamped stack is brass sleeve + PCB + 3010.
-  - Duct cantilever (R-22): rigid-body pitch about the tab line, 113…598 Hz.
-    - The upper bound counts the pads only; the lower bound adds the tab arms in torsion.
-    - J = 8880 g·mm²; lever 64 mm.
-    - It needs a third tab or stiffer arms (WARN).
+  - Duct cantilever (R-22): rigid duct on 3 tabs, 1530…2741 Hz.
+    - The lower bound puts the short tab arms in series with each pad: torsion, plus bending and
+      shear along Y.
+    - The three tabs spread in Z turn pitch into push-pull on the tab joints; k_θ 0.44…1.40 N·m/rad.
+    - J = 4787 g·mm²; lever 46.3 mm.
+    - S7 had 113…598 Hz on two tabs.
   - The lower fan screw is the weak spot. With the fourth pad its local mode is in the kHz range. Without it (if M10 shows the pad cannot bear), the estimate falls to about 150 Hz, near 2 × the X shaper frequency.
   - Probe mount: sub-µm deflection. Thermal growth of the 27 mm printed path is about 11 µm per 10 K (PA-CF), against about 19 µm for a PLA/PETG 785004.
 
@@ -302,11 +326,12 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | Item | Qty | Note |
 |---|---|---|
 | M3×30 ISO 7380 | 3 | replace the stock PCB screws (M3×18 ×2 into carriage inserts, M3×20 into the heatsink) |
-| M3 brass heat-set insert, short (hole Ø4.0, OD ≤ 5.0) | 6 | 2 fan, 2 duct (T_left, T_right), 2 cover; all in Ø8.5 bosses, blind holes with a 0.8 mm floor |
+| M3 brass heat-set insert, short (hole Ø4.0, OD ≤ 5.0) | 7 | 2 fan, 3 duct (T_left, T_right, T_3), 2 cover; all in Ø8.5 bosses, blind holes with a 0.8 mm floor |
 | Brass tube Albion Alloys BT4M, 4.0 × 0.45 (ID 3.1), 305 mm | 1 length | cut 3 × 11.10 mm compression sleeves for the PCB bosses (R-04); ESTIMATED until bought |
 | M3×24 ISO 7380 | 2 | 4020 to frame: fan through-length 20 (ESTIMATED, M7) + 4 (`FRAME_FAN_SCREW_LEN`); heads in the cover's Ø6.7 holes. The tip ends 0.2 mm from the insert-hole floor; the safe length is 22.5…23.7. Decide after M7 (R-03) |
 | M3 washer ISO 7089 | 3 | coupon only (restores the frame's 2.0 mm plate depth on the 1.6 mm coupon) |
-| M3×6 ISO 7380 | 2 | duct tabs to frame lugs (tab 2.5 + 3.5 into the insert, `DUCT_TAB_SCREW_LEN`) |
+| M3×6 ISO 7380 | 3 | duct tabs to frame lugs: washer 0.5 + tab 2.5 + 3.0 into the insert (`DUCT_TAB_SCREW_LEN`); tip 1.2 mm above the floor |
+| M3 washer ISO 7089 (3.2 × 7 × 0.5) | 3 | under the duct-tab heads (DD-07a: brittle resin tab; tighten only until seated) |
 | M3×6 ISO 7380 | 2 | cover |
 | M2.5 brass heat-set insert (hole Ø3.6) | 2 | probe |
 | M2.5×5 | 2 | probe (BIQU kit) |

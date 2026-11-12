@@ -13,7 +13,7 @@
   {
    "check": "cooling_module_frame: solid",
    "status": "PASS",
-   "detail": "valid=True solids=1 watertight=True V=5860 mm3 m=6.27 g (ASA)"
+   "detail": "valid=True solids=1 watertight=True V=6210 mm3 m=6.64 g (ASA)"
   },
   {
    "check": "cooling_module_frame: min wall (sampled, 1500 rays)",
@@ -23,7 +23,7 @@
   {
    "check": "cooling_module_frame: overhang > 45 deg (print orientation)",
    "status": "INFO",
-   "detail": "8.2 % of surface, 56 % of downward faces; flat ceilings (bridges) 202.5 mm2"
+   "detail": "8.0 % of surface, 53 % of downward faces; flat ceilings (bridges) 204.7 mm2"
   },
   {
    "check": "cooling_module_frame: bed contact (own print frame, rot (180, 0, 0))",
@@ -93,22 +93,22 @@
   {
    "check": "duct_body: solid",
    "status": "PASS",
-   "detail": "valid=True solids=1 watertight=True V=7699 mm3 m=9.24 g (PC)"
+   "detail": "valid=True solids=1 watertight=True V=7836 mm3 m=9.4 g (HT-resin)"
   },
   {
    "check": "duct_body: min wall (sampled, 1500 rays)",
    "status": "WARN",
-   "detail": "min 0.367 / p1 1.174 mm; 0.27 % < 0.8 mm; thin rays: 0 between parallel faces (thin wall), 4 at acute convex edges (wedge 66..85 deg); thinnest at [20.8, -1.98, 4.97] (nozzle frame)"
+   "detail": "min 0.316 / p1 1.15 mm; 0.33 % < 0.8 mm; thin rays: 3 between parallel faces (thin wall), 2 at acute convex edges (wedge 65..66 deg); thinnest at [15.42, -56.28, 22.21] (nozzle frame)"
   },
   {
    "check": "duct_body: overhang > 45 deg (print orientation)",
    "status": "INFO",
-   "detail": "16.1 % of surface, 58 % of downward faces; flat ceilings (bridges) 1642.4 mm2"
+   "detail": "3.9 % of surface, 27 % of downward faces; flat ceilings (bridges) 83.1 mm2"
   },
   {
    "check": "duct_body: bed contact (own print frame, rot (0.0, 0.0, 0.0))",
-   "status": "FAIL",
-   "detail": "0.0 mm2 of flat down-facing faces on the plate (WARN < 100, FAIL at 0; review R-05)"
+   "status": "PASS",
+   "detail": "1378.2 mm2 of flat down-facing faces on the plate (WARN < 100, FAIL at 0; review R-05)"
   },
   {
    "check": "interference cooling_module_frame x cover",
@@ -141,9 +141,14 @@
    "detail": "overlap 0.000 mm3, gap 0.000 mm - allowed: probe flange seat"
   },
   {
-   "check": "interference duct_body x ref_blower_1_BLOWER_4020_STOCK",
-   "status": "FAIL",
-   "detail": "overlap 1.230 mm3, gap 0.000 mm - allowed: duct fan socket around the modelled outlet nozzle: only the socket band (FAN_NOZZLE_DEPTH above the outlet plane) and at most SOCKET_OVERLAP_CAP mm3 (numerical) may overlap the fan solid [overlap at X 17.25..18.70, Y -39.00..-38.00, Z 24.40..25.50; cap 0.5 mm3, outside the socket band 0.000 mm3]"
+   "check": "socket: duct_body x ref_blower_1_BLOWER_4020_STOCK",
+   "status": "PASS",
+   "detail": "overlap 0.000 mm3 (cap 0.5), min gap 0.250 mm to the modelled fan body + outlet nozzle (FAN_NOZZLE_DEPTH 4.0, ESTIMATED M7)"
+  },
+  {
+   "check": "interference: no unintended overlaps",
+   "status": "PASS",
+   "detail": "27 solids checked pairwise"
   },
   {
    "check": "hot zone cooling_module_frame",
@@ -163,7 +168,7 @@
   {
    "check": "hot zone duct_body",
    "status": "PASS",
-   "detail": "3.35 mm to sock/heater (>= 3.0)"
+   "detail": "4.54 mm to sock/heater (>= 3.0)"
   },
   {
    "check": "hot zone ref_blower_1_BLOWER_4020_STOCK",
@@ -183,7 +188,7 @@
   {
    "check": "LiDAR LIDAR_LASER_SHEET vs cooling_module_frame",
    "status": "PASS",
-   "detail": "clear by 22.45 mm"
+   "detail": "clear by 19.20 mm"
   },
   {
    "check": "LiDAR LIDAR_RESERVED_OPTICAL vs cover",
@@ -218,17 +223,17 @@
   {
    "check": "LiDAR LIDAR_RESERVED_OPTICAL vs duct_body",
    "status": "PASS",
-   "detail": "clear by 2.22 mm"
+   "detail": "clear by 1.41 mm"
   },
   {
    "check": "LiDAR LIDAR_RESERVED_BODY vs duct_body",
    "status": "PASS",
-   "detail": "clear by 8.80 mm"
+   "detail": "clear by 8.84 mm"
   },
   {
    "check": "LiDAR LIDAR_LASER_SHEET vs duct_body",
    "status": "PASS",
-   "detail": "clear by 5.19 mm"
+   "detail": "clear by 4.75 mm"
   },
   {
    "check": "LiDAR LIDAR_RESERVED_OPTICAL vs ref_blower_1_BLOWER_4020_STOCK",
@@ -253,22 +258,22 @@
   {
    "check": "duct air path vs cooling_module_frame",
    "status": "PASS",
-   "detail": "overlap 0.000 mm3, gap 1.20 mm to the S7 internal air volume"
+   "detail": "overlap 0.000 mm3, gap 1.20 mm to the S8 internal air volume"
   },
   {
    "check": "duct air path vs cover",
    "status": "PASS",
-   "detail": "overlap 0.000 mm3, gap 2.00 mm to the S7 internal air volume"
+   "detail": "overlap 0.000 mm3, gap 2.00 mm to the S8 internal air volume"
   },
   {
    "check": "duct air path vs probe_mount",
    "status": "PASS",
-   "detail": "overlap 0.000 mm3, gap 9.59 mm to the S7 internal air volume"
+   "detail": "overlap 0.000 mm3, gap 13.78 mm to the S8 internal air volume"
   },
   {
    "check": "cover clearance to duct_body (below the shelf contact plane)",
    "status": "PASS",
-   "detail": "0.50 mm (>= COVER_YIELD_CLEAR 0.3); cover side-wall bottoms Z {'left': 24.0, 'right': 27.05}"
+   "detail": "0.55 mm (>= COVER_YIELD_CLEAR 0.3); cover side-wall bottoms Z {'left': 24.0, 'right': 27.05}"
   },
   {
    "check": "cover clearance to cooling_module_frame (below the shelf contact plane)",
@@ -296,7 +301,7 @@
    "detail": "\u00d84.0 insert hole open (0.000 mm3 material), boss \u00d88.5 100 % solid, mating face at Y -36.50 100 % solid; screw along [0, 1, 0]"
   },
   {
-   "check": "frame provides duct tab T_left at (-7.50, -36.50, 19.50)",
+   "check": "frame provides duct tab T_left at (-2.00, -36.50, 19.50)",
    "status": "PASS",
    "detail": "\u00d84.0 insert hole open (0.000 mm3 material), boss \u00d88.5 100 % solid, mating face at Y -36.50 100 % solid; screw along [0, 1, 0]"
   },
@@ -306,9 +311,19 @@
    "detail": "\u00d84.0 insert hole open (0.000 mm3 material), boss \u00d88.5 100 % solid, mating face at Y -36.50 100 % solid; screw along [0, 1, 0]"
   },
   {
+   "check": "frame provides duct tab T_3 at (-3.00, -36.50, 9.00)",
+   "status": "PASS",
+   "detail": "\u00d84.0 insert hole open (0.000 mm3 material), boss \u00d88.5 100 % solid, mating face at Y -36.50 100 % solid; screw along [0, 1, 0]"
+  },
+  {
+   "check": "duct design targets (S8: sock clearance, flat base)",
+   "status": "PASS",
+   "detail": "4.543 mm to the SOCK box (>= 4.5), lowest Z 3.00 (>= 3.0); the interfaces.py limits stay HOT_ZONE_CLEARANCE 3.0 / DUCT_MIN_Z 2.0 because duct_generator.py builds the S8 geometry from them"
+  },
+  {
    "check": "DUCT_MIN_Z cooling_module_frame",
    "status": "PASS",
-   "detail": "lowest Z 15.25 (>= 2.0)"
+   "detail": "lowest Z 4.75 (>= 2.0)"
   },
   {
    "check": "DUCT_MIN_Z cover",
@@ -323,7 +338,7 @@
   {
    "check": "DUCT_MIN_Z duct_body",
    "status": "PASS",
-   "detail": "lowest Z 2.44 (>= 2.0)"
+   "detail": "lowest Z 3.00 (>= 2.0)"
   },
   {
    "check": "DUCT_MIN_Z ref_blower_1_BLOWER_4020_STOCK",
@@ -336,14 +351,29 @@
    "detail": "stowed tip Z 1.45 < DUCT_MIN_Z 2.0 - unchanged by this design"
   },
   {
+   "check": "rear footprint cooling_module_frame (behind Y +10, below Z 30)",
+   "status": "PASS",
+   "detail": "nothing there (part max Y -22.30)"
+  },
+  {
+   "check": "rear footprint cover (behind Y +10, below Z 30)",
+   "status": "PASS",
+   "detail": "nothing there (part max Y -29.10)"
+  },
+  {
    "check": "rear footprint probe_mount (behind Y +10, below Z 30)",
    "status": "PASS",
    "detail": "inside the probe body + 785004 footprint (part X -17.0..17.0, Y ..29.1)"
   },
   {
    "check": "rear footprint duct_body (behind Y +10, below Z 30)",
-   "status": "FAIL",
-   "detail": "191 mm2 (758 mm3) outside the footprint the rear keep-out zones were measured with (MicroProbe body X +-10.96, Y 12.5..28.1; 785004 X -17.0..17.1, Y ..29.1): excess X 13.7..31.0, Y 10.0..27.3, Z 2.4..18.1 - re-measure zones 1/3/4 with it fitted, or trim (review R-01)"
+   "status": "PASS",
+   "detail": "nothing there (part max Y 9.80)"
+  },
+  {
+   "check": "rear footprint ref_blower_1_BLOWER_4020_STOCK (behind Y +10, below Z 30)",
+   "status": "PASS",
+   "detail": "nothing there (part max Y -36.50)"
   },
   {
    "check": "rear footprint ref_microprobe_body (behind Y +10, below Z 30)",
@@ -507,13 +537,13 @@
   },
   {
    "check": "screw head fan M3x24 (16.05, 25.6)",
-   "status": "WARN",
-   "detail": "ISO 7380 \u00d85.7 x 1.65 on ref_blower at [16.05, -56.5, 25.6]: no interference; nearest other part duct_body 0.299 mm; closer than 0.5 to duct_body 0.30 mm"
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on ref_blower at [16.05, -56.5, 25.6]: no interference; nearest other part cover 0.500 mm"
   },
   {
    "check": "screw shank fan M3x24 (16.05, 25.6)",
-   "status": "FAIL",
-   "detail": "\u00d83.0 over 24.0 mm from the seat: duct_body 2.43 mm3 at X 16.5..17.5, Y -39.0..-36.5, Z 24.2..25.5"
+   "status": "PASS",
+   "detail": "\u00d83.0 over 24.0 mm from the seat: clear of every solid"
   },
   {
    "check": "screw tip fan M3x24 (16.05, 25.6)",
@@ -531,54 +561,79 @@
    "detail": "straight 25 mm \u00d86.3 driver path clear"
   },
   {
-   "check": "screw head duct tab T_left M3x6 (-7.5, 19.5)",
+   "check": "screw head duct tab T_left M3x6 + washer (-2.0, 19.5)",
    "status": "PASS",
-   "detail": "ISO 7380 \u00d85.7 x 1.65 on duct at [-7.5, -39.0, 19.5]: no interference; nearest other part cooling_module_frame 2.500 mm"
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on an ISO 7089 \u00d87.0 x 0.5 washer on duct at [-2.0, -39.5, 19.5]: no interference; nearest other part cooling_module_frame 2.500 mm"
   },
   {
-   "check": "screw shank duct tab T_left M3x6 (-7.5, 19.5)",
+   "check": "screw shank duct tab T_left M3x6 + washer (-2.0, 19.5)",
    "status": "PASS",
    "detail": "\u00d83.0 over 6.0 mm from the seat: clear of every solid"
   },
   {
-   "check": "screw tip duct tab T_left M3x6 (-7.5, 19.5)",
+   "check": "screw tip duct tab T_left M3x6 + washer (-2.0, 19.5)",
    "status": "PASS",
-   "detail": "tip at Y -33.00: 3.50 mm in the 4.0 mm insert (>= 2.5), 0.70 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 5.0..6.2 mm"
+   "detail": "tip at Y -33.50: 3.00 mm in the 4.0 mm insert (>= 2.5), 1.20 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 5.5..6.7 mm"
   },
   {
-   "check": "screw access duct tab T_left M3x6 (-7.5, 19.5) (at its assembly step: cooling_module_frame, fan, duct fitted)",
+   "check": "screw access duct tab T_left M3x6 + washer (-2.0, 19.5) (at its assembly step: cooling_module_frame, fan, duct fitted)",
    "status": "PASS",
    "detail": "straight 25 mm \u00d86.3 driver path clear"
   },
   {
-   "check": "screw access duct tab T_left M3x6 (-7.5, 19.5) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "check": "screw access duct tab T_left M3x6 + washer (-2.0, 19.5) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
    "status": "INFO",
    "detail": "straight 25 mm \u00d86.3 driver path clear"
   },
   {
-   "check": "screw head duct tab T_right M3x6 (24.0, 22.5)",
+   "check": "screw head duct tab T_right M3x6 + washer (24.0, 22.5)",
    "status": "PASS",
-   "detail": "ISO 7380 \u00d85.7 x 1.65 on duct at [24.0, -39.0, 22.5]: no interference; nearest other part cover 1.700 mm"
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on an ISO 7089 \u00d87.0 x 0.5 washer on duct at [24.0, -39.5, 22.5]: no interference; nearest other part cover 1.050 mm"
   },
   {
-   "check": "screw shank duct tab T_right M3x6 (24.0, 22.5)",
+   "check": "screw shank duct tab T_right M3x6 + washer (24.0, 22.5)",
    "status": "PASS",
    "detail": "\u00d83.0 over 6.0 mm from the seat: clear of every solid"
   },
   {
-   "check": "screw tip duct tab T_right M3x6 (24.0, 22.5)",
+   "check": "screw tip duct tab T_right M3x6 + washer (24.0, 22.5)",
    "status": "PASS",
-   "detail": "tip at Y -33.00: 3.50 mm in the 4.0 mm insert (>= 2.5), 0.70 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 5.0..6.2 mm"
+   "detail": "tip at Y -33.50: 3.00 mm in the 4.0 mm insert (>= 2.5), 1.20 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 5.5..6.7 mm"
   },
   {
-   "check": "screw access duct tab T_right M3x6 (24.0, 22.5) (at its assembly step: cooling_module_frame, fan, duct fitted)",
+   "check": "screw access duct tab T_right M3x6 + washer (24.0, 22.5) (at its assembly step: cooling_module_frame, fan, duct fitted)",
    "status": "PASS",
    "detail": "straight 25 mm \u00d86.3 driver path clear"
   },
   {
-   "check": "screw access duct tab T_right M3x6 (24.0, 22.5) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "check": "screw access duct tab T_right M3x6 + washer (24.0, 22.5) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
    "status": "INFO",
    "detail": "\u00d86.3 driver blocked by {'cover': 3.885}; \u00d83.0 hex-key path clear"
+  },
+  {
+   "check": "screw head duct tab T_3 M3x6 + washer (-3.0, 9.0)",
+   "status": "PASS",
+   "detail": "ISO 7380 \u00d85.7 x 1.65 on an ISO 7089 \u00d87.0 x 0.5 washer on duct at [-3.0, -39.5, 9.0]: no interference; nearest other part cooling_module_frame 2.500 mm"
+  },
+  {
+   "check": "screw shank duct tab T_3 M3x6 + washer (-3.0, 9.0)",
+   "status": "PASS",
+   "detail": "\u00d83.0 over 6.0 mm from the seat: clear of every solid"
+  },
+  {
+   "check": "screw tip duct tab T_3 M3x6 + washer (-3.0, 9.0)",
+   "status": "PASS",
+   "detail": "tip at Y -33.50: 3.00 mm in the 4.0 mm insert (>= 2.5), 1.20 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 5.5..6.7 mm"
+  },
+  {
+   "check": "screw access duct tab T_3 M3x6 + washer (-3.0, 9.0) (at its assembly step: cooling_module_frame, fan, duct fitted)",
+   "status": "PASS",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
+  },
+  {
+   "check": "screw access duct tab T_3 M3x6 + washer (-3.0, 9.0) (service, everything fitted: cooling_module_frame, fan, duct, cover fitted)",
+   "status": "INFO",
+   "detail": "straight 25 mm \u00d86.3 driver path clear"
   },
   {
    "check": "screw head cover M3x6 (-9.0, -44.0)",
@@ -661,6 +716,11 @@
    "detail": "\u00d88.5 boss: min 1.80 mm of plastic around a \u00d85.0 knurl (target 1.6), 0 % of the ring below 1.6; blind hole 4.20 deep, floor 0.80"
   },
   {
+   "check": "insert boss T_3",
+   "status": "PASS",
+   "detail": "\u00d88.5 boss: min 1.80 mm of plastic around a \u00d85.0 knurl (target 1.6), 0 % of the ring below 1.6; blind hole 4.20 deep, floor 0.80"
+  },
+  {
    "check": "fan F hole (16.05, 25.6) vs outlet nozzle",
    "status": "WARN",
    "detail": "154 mm3 of the \u00d83.4 x 20.0 bore lies in the modelled outlet column ([13.0, 17.0] at [12.2, -46.5, 23.4]): hole positions (DERIVED, generic Henlor fan) and outlet (ESTIMATED) contradict each other - measure the 4020 (M7)"
@@ -688,17 +748,17 @@
   {
    "check": "moving mass vs stock",
    "status": "INFO",
-   "detail": "added 48.5 g, removed 38.3..47.3 g -> delta +1.2..+10.1 g; X shaper 76.7..77.5 Hz (77.6 now), Y 51.7..52.0 Hz (52.0 now)"
+   "detail": "added 50.3 g, removed 38.3..47.3 g -> delta +3.1..+12.0 g; X shaper 76.6..77.3 Hz (77.6 now), Y 51.6..51.9 Hz (52.0 now)"
   },
   {
    "check": "frame mode estimate: rocking on the 3-screw pattern, optimistic (preloaded bolt + clamped stack)",
    "status": "PASS",
-   "detail": "4462 Hz (want > 2 x 77.6 Hz)"
+   "detail": "4436 Hz (want > 2 x 77.6 Hz)"
   },
   {
    "check": "frame mode estimate: rocking on the 3-screw pattern, pessimistic (clamped stack in compression only)",
    "status": "PASS",
-   "detail": "1267 Hz (want > 2 x 77.6 Hz)"
+   "detail": "1259 Hz (want > 2 x 77.6 Hz)"
   },
   {
    "check": "frame mode estimate: fan out-of-plane (Y) on plate, with 4th pad",
@@ -713,7 +773,7 @@
   {
    "check": "tolerance stack-up (R-16; +-0.2 per joint, +-0.2 per print)",
    "status": "INFO",
-   "detail": "duct position worst case 0.62 / RSS 0.35 mm vs margins 0.35 (hot zone) and 0.44 (DUCT_MIN_Z): the worst case exceeds both - duct target for S8; fan head vs cover hole worst case 0.8 / RSS 0.4 mm vs 0.5 radial"
+   "detail": "duct position worst case 0.62 / RSS 0.35 mm vs margins 1.54 (hot zone) and 1.0 (DUCT_MIN_Z); fan head vs cover hole worst case 0.8 / RSS 0.4 mm vs 0.5 radial"
   },
   {
    "check": "frame 4th anchor to the right cover-screw insert (R-04)",
@@ -722,8 +782,8 @@
   },
   {
    "check": "duct cantilever pitch mode estimate (R-22)",
-   "status": "WARN",
-   "detail": "113..598 Hz (want > 2 x 77.6 Hz); lever 64.0 mm from the tab face, J 8880 g.mm2 about the tab line; weak link: the tab arms in torsion [1762, 2847] N.mm/rad"
+   "status": "PASS",
+   "detail": "1530..2741 Hz (want > 2 x 77.6 Hz) on 3 tabs ['T_left', 'T_right', 'T_3']; lever 46.3 mm from the tab face; k_theta 442198..1396435 N.mm/rad, J 4787 g.mm2; duct E 2200 MPa (PLACEHOLDER = PC modulus; HT resin TDS needed)"
   },
   {
    "check": "release cooling_module_frame",
@@ -758,28 +818,28 @@
    "is_valid": true,
    "n_solids": 1,
    "watertight": true,
-   "volume_mm3": 5860.05,
-   "mass_g": 6.27,
+   "volume_mm3": 6209.86,
+   "mass_g": 6.64,
    "density": "1.07 g/cm3 (ESTIMATED: lead-specified; typical ASA TDS 1.05-1.10)",
    "bbox_nozzle_frame": [
     -22.5,
     28.25,
     -48.25,
     -22.3,
-    15.25,
+    4.75,
     71.8
    ],
    "bbox_print": [
     50.75,
     25.95,
-    56.55
+    67.05
    ],
    "print_rot_deg": [
     180,
     0,
     0
    ],
-   "mesh_volume_mm3": 5859.27,
+   "mesh_volume_mm3": 6208.97,
    "wall": {
     "samples": 1500,
     "of": 1500,
@@ -793,13 +853,13 @@
     "thinnest": []
    },
    "overhang": {
-    "total_area_mm2": 6476.8,
+    "total_area_mm2": 6798.7,
     "bed_contact_mm2": 491.9,
-    "downward_area_mm2": 954.5,
-    "overhang_gt45_mm2": 529.9,
-    "overhang_gt45_share_of_total": 0.0818,
-    "overhang_gt45_share_of_downward": 0.5551,
-    "horizontal_ceilings_mm2 (bridges)": 202.5
+    "downward_area_mm2": 1018.0,
+    "overhang_gt45_mm2": 543.0,
+    "overhang_gt45_share_of_total": 0.0799,
+    "overhang_gt45_share_of_downward": 0.5334,
+    "horizontal_ceilings_mm2 (bridges)": 204.7
    },
    "hardware": [
     {
@@ -809,7 +869,7 @@
     },
     {
      "item": "M3 brass heat-set insert (fan, duct, cover)",
-     "qty": 6,
+     "qty": 7,
      "mass_g_each": 0.25
     },
     {
@@ -999,99 +1059,113 @@
    "hardware": []
   },
   "duct_body": {
-   "material": "PC",
+   "material": "HT-resin",
    "category": "printed",
    "is_valid": true,
    "n_solids": 1,
    "watertight": true,
-   "volume_mm3": 7699.45,
-   "mass_g": 9.24,
-   "density": "1.2 g/cm3 (ESTIMATED: lead-specified; typical PC TDS 1.19-1.20)",
+   "volume_mm3": 7836.4,
+   "mass_g": 9.4,
+   "density": "1.2 g/cm3 (ESTIMATED: PLACEHOLDER = PC 1.20 g/cm3; take the real value from the HT resin TDS (DD-07a))",
    "bbox_nozzle_frame": [
-    -15.78,
+    -16.59,
     31.0,
-    -56.5,
-    27.5,
-    2.44,
-    27.4
+    -56.45,
+    9.8,
+    3.0,
+    27.15
    ],
    "bbox_print": [
-    46.78,
-    84.0,
-    24.96
+    47.59,
+    66.25,
+    24.15
    ],
    "print_rot_deg": [
     0.0,
     0.0,
     0.0
    ],
-   "mesh_volume_mm3": 7699.44,
+   "mesh_volume_mm3": 7836.56,
    "wall": {
     "samples": 1500,
     "of": 1500,
-    "min_mm": 0.367,
-    "p1_mm": 1.174,
-    "p5_mm": 1.194,
-    "share_below_min_wall": 0.0027,
-    "thin_rays_parallel_faces": 0,
-    "thin_rays_acute_edges": 4,
+    "min_mm": 0.316,
+    "p1_mm": 1.15,
+    "p5_mm": 1.174,
+    "share_below_min_wall": 0.0033,
+    "thin_rays_parallel_faces": 3,
+    "thin_rays_acute_edges": 2,
     "acute_edge_wedge_deg": [
-     66,
-     85
+     65,
+     66
     ],
     "thinnest": [
      [
-      0.367,
+      0.316,
+      11,
+      [
+       15.42,
+       -56.28,
+       22.21
+      ]
+     ],
+     [
+      0.44,
       66,
+      [
+       12.89,
+       -56.24,
+       26.97
+      ]
+     ],
+     [
+      0.534,
+      65,
       [
        20.8,
-       -1.98,
-       4.97
+       -4.31,
+       5.31
       ]
      ],
      [
-      0.394,
-      66,
+      0.715,
+      10,
       [
-       18.82,
-       -15.83,
-       5.42
+       20.15,
+       -55.62,
+       24.94
       ]
      ],
      [
-      0.486,
-      85,
+      0.774,
+      13,
       [
-       -1.41,
-       -17.56,
-       8.71
-      ]
-     ],
-     [
-      0.777,
-      66,
-      [
-       20.48,
-       3.41,
-       5.51
+       20.15,
+       -55.33,
+       26.51
       ]
      ]
     ]
    },
    "overhang": {
-    "total_area_mm2": 13048.0,
-    "bed_contact_mm2": 0.0,
-    "downward_area_mm2": 3621.0,
-    "overhang_gt45_mm2": 2094.3,
-    "overhang_gt45_share_of_total": 0.1605,
-    "overhang_gt45_share_of_downward": 0.5784,
-    "horizontal_ceilings_mm2 (bridges)": 1642.4
+    "total_area_mm2": 10927.3,
+    "bed_contact_mm2": 1378.2,
+    "downward_area_mm2": 1554.5,
+    "overhang_gt45_mm2": 425.4,
+    "overhang_gt45_share_of_total": 0.0389,
+    "overhang_gt45_share_of_downward": 0.2737,
+    "horizontal_ceilings_mm2 (bridges)": 83.1
    },
    "hardware": [
     {
      "item": "M3x6 ISO 7380 (duct tab to frame lug insert)",
-     "qty": 2,
+     "qty": 3,
      "mass_g_each": 0.74
+    },
+    {
+     "item": "M3 washer ISO 7089 (7 x 0.5) under each duct-tab head (DD-07a: brittle resin tab)",
+     "qty": 3,
+     "mass_g_each": 0.12
     }
    ]
   }
@@ -1156,16 +1230,6 @@
    "reason": "probe flange seat",
    "note": "",
    "status": "PASS"
-  },
-  {
-   "a": "duct_body",
-   "b": "ref_blower_1_BLOWER_4020_STOCK",
-   "overlap_mm3": 1.23,
-   "distance_mm": 0.0,
-   "allowed": "capped",
-   "reason": "duct fan socket around the modelled outlet nozzle: only the socket band (FAN_NOZZLE_DEPTH above the outlet plane) and at most SOCKET_OVERLAP_CAP mm3 (numerical) may overlap the fan solid",
-   "note": " [overlap at X 17.25..18.70, Y -39.00..-38.00, Z 24.40..25.50; cap 0.5 mm3, outside the socket band 0.000 mm3]",
-   "status": "FAIL"
   }
  ],
  "clearance": {
@@ -1173,7 +1237,7 @@
    "cooling_module_frame": 13.74,
    "cover": 23.26,
    "probe_mount": 5.1,
-   "duct_body": 3.35,
+   "duct_body": 4.54,
    "ref_blower_1_BLOWER_4020_STOCK": 27.9
   },
   "lidar": {
@@ -1190,7 +1254,7 @@
    "cooling_module_frame x LIDAR_LASER_SHEET": {
     "intrusion_mm3": 0,
     "allow_listed_mm3": 0.0,
-    "gap_mm": 22.45
+    "gap_mm": 19.2
    },
    "cover x LIDAR_RESERVED_OPTICAL": {
     "intrusion_mm3": 0,
@@ -1225,17 +1289,17 @@
    "duct_body x LIDAR_RESERVED_OPTICAL": {
     "intrusion_mm3": 0.0,
     "allow_listed_mm3": 0.0,
-    "gap_mm": 2.22
+    "gap_mm": 1.41
    },
    "duct_body x LIDAR_RESERVED_BODY": {
     "intrusion_mm3": 0.0,
     "allow_listed_mm3": 0.0,
-    "gap_mm": 8.8
+    "gap_mm": 8.84
    },
    "duct_body x LIDAR_LASER_SHEET": {
     "intrusion_mm3": 0.0,
     "allow_listed_mm3": 0.0,
-    "gap_mm": 5.19
+    "gap_mm": 4.75
    },
    "ref_blower_1_BLOWER_4020_STOCK x LIDAR_RESERVED_OPTICAL": {
     "intrusion_mm3": 0,
@@ -1276,11 +1340,11 @@
    },
    "probe_mount": {
     "overlap_mm3": 0,
-    "gap_mm": 9.59
+    "gap_mm": 13.78
    }
   },
   "cover_clearance_mm": {
-   "duct_body": 0.5,
+   "duct_body": 0.55,
    "cooling_module_frame": 0.3
   },
   "cover_fan_intake": [
@@ -1320,7 +1384,7 @@
    },
    "duct tab T_left": {
     "pos": [
-     -7.5,
+     -2.0,
      -36.5,
      19.5
     ],
@@ -1337,7 +1401,23 @@
     "hole_free_mm3": 0,
     "boss_fill": 1.0,
     "mating_face_fill": 1.0
+   },
+   "duct tab T_3": {
+    "pos": [
+     -3.0,
+     -36.5,
+     9.0
+    ],
+    "hole_free_mm3": 0,
+    "boss_fill": 1.0,
+    "mating_face_fill": 1.0
    }
+  },
+  "duct_design_targets": {
+   "sock_clearance_mm": 4.543,
+   "target": 4.5,
+   "lowest_z": 3.0,
+   "target_z": 3.0
   },
   "rear_footprint": {
    "reference": {
@@ -1371,34 +1451,6 @@
       30.0
      ],
      "excess_mm3": 0
-    },
-    "duct_body": {
-     "x": [
-      12.32,
-      31.0
-     ],
-     "y": [
-      10.0,
-      27.5
-     ],
-     "z": [
-      2.44,
-      18.06
-     ],
-     "excess_mm3": 757.85,
-     "excess_x": [
-      13.67,
-      31.0
-     ],
-     "excess_y": [
-      10.0,
-      27.27
-     ],
-     "excess_z": [
-      2.44,
-      18.06
-     ],
-     "excess_area_mm2": 190.8
     },
     "ref_microprobe_body": {
      "x": [
@@ -1582,12 +1634,10 @@
     "length": 24.0,
     "step": "fan",
     "head_interference": [],
-    "head_near": [
-     "duct_body 0.30 mm"
-    ],
+    "head_near": [],
     "head_gaps_mm": {
      "cover": 0.5,
-     "duct_body": 0.299
+     "duct_body": 0.6
     },
     "access": {
      "at its assembly step": {
@@ -1599,9 +1649,7 @@
       "hex key \u00d83.0": {}
      }
     },
-    "shank_interference": [
-     "duct_body 2.43 mm3 at X 16.5..17.5, Y -39.0..-36.5, Z 24.2..25.5"
-    ],
+    "shank_interference": [],
     "tip": {
      "tip": -32.5,
      "engagement_mm": 4.0,
@@ -1614,11 +1662,97 @@
      ]
     }
    },
-   "duct tab T_left M3x6 (-7.5, 19.5)": {
+   "duct tab T_left M3x6 + washer (-2.0, 19.5)": {
     "seat": [
-     -7.5,
-     -39.0,
+     -2.0,
+     -39.5,
      19.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "length": 6.0,
+    "step": "duct",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cooling_module_frame": 2.5,
+     "ref_blower_1_BLOWER_4020_STOCK": 4.4
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     }
+    },
+    "shank_interference": [],
+    "tip": {
+     "tip": -33.5,
+     "engagement_mm": 3.0,
+     "margin_to_floor_mm": 1.2,
+     "hole_depth": 4.2,
+     "floor": 0.8,
+     "safe_length_range_mm": [
+      5.5,
+      6.7
+     ]
+    }
+   },
+   "duct tab T_right M3x6 + washer (24.0, 22.5)": {
+    "seat": [
+     24.0,
+     -39.5,
+     22.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "length": 6.0,
+    "step": "duct",
+    "head_interference": [],
+    "head_near": [],
+    "head_gaps_mm": {
+     "cooling_module_frame": 2.5,
+     "cover": 1.05
+    },
+    "access": {
+     "at its assembly step": {
+      "driver \u00d86.3": {},
+      "hex key \u00d83.0": {}
+     },
+     "service, everything fitted": {
+      "driver \u00d86.3": {
+       "cover": 3.885
+      },
+      "hex key \u00d83.0": {}
+     }
+    },
+    "shank_interference": [],
+    "tip": {
+     "tip": -33.5,
+     "engagement_mm": 3.0,
+     "margin_to_floor_mm": 1.2,
+     "hole_depth": 4.2,
+     "floor": 0.8,
+     "safe_length_range_mm": [
+      5.5,
+      6.7
+     ]
+    }
+   },
+   "duct tab T_3 M3x6 + washer (-3.0, 9.0)": {
+    "seat": [
+     -3.0,
+     -39.5,
+     9.0
     ],
     "axis": [
      0,
@@ -1644,58 +1778,14 @@
     },
     "shank_interference": [],
     "tip": {
-     "tip": -33.0,
-     "engagement_mm": 3.5,
-     "margin_to_floor_mm": 0.7,
+     "tip": -33.5,
+     "engagement_mm": 3.0,
+     "margin_to_floor_mm": 1.2,
      "hole_depth": 4.2,
      "floor": 0.8,
      "safe_length_range_mm": [
-      5.0,
-      6.2
-     ]
-    }
-   },
-   "duct tab T_right M3x6 (24.0, 22.5)": {
-    "seat": [
-     24.0,
-     -39.0,
-     22.5
-    ],
-    "axis": [
-     0,
-     1,
-     0
-    ],
-    "length": 6.0,
-    "step": "duct",
-    "head_interference": [],
-    "head_near": [],
-    "head_gaps_mm": {
-     "cooling_module_frame": 2.5,
-     "cover": 1.7
-    },
-    "access": {
-     "at its assembly step": {
-      "driver \u00d86.3": {},
-      "hex key \u00d83.0": {}
-     },
-     "service, everything fitted": {
-      "driver \u00d86.3": {
-       "cover": 3.885
-      },
-      "hex key \u00d83.0": {}
-     }
-    },
-    "shank_interference": [],
-    "tip": {
-     "tip": -33.0,
-     "engagement_mm": 3.5,
-     "margin_to_floor_mm": 0.7,
-     "hole_depth": 4.2,
-     "floor": 0.8,
-     "safe_length_range_mm": [
-      5.0,
-      6.2
+      5.5,
+      6.7
      ]
     }
    },
@@ -1858,7 +1948,7 @@
    {
     "id": "T_left",
     "pos": [
-     -7.5,
+     -2.0,
      -36.5,
      19.5
     ],
@@ -1880,6 +1970,25 @@
      24.0,
      -36.5,
      22.5
+    ],
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "insert_len": 4.0,
+    "depth": 4.2,
+    "floor": 0.7999999999999998,
+    "boss_d": 8.5,
+    "wall_min_mm": 1.8,
+    "share_below_1.6": 0.0
+   },
+   {
+    "id": "T_3",
+    "pos": [
+     -3.0,
+     -36.5,
+     9.0
     ],
     "axis": [
      0,
@@ -1936,21 +2045,21 @@
     "rss_mm": 0.4
    },
    "nominal_margins_mm": {
-    "HOT_ZONE_CLEARANCE (duct)": 0.35,
-    "DUCT_MIN_Z (duct)": 0.44,
+    "HOT_ZONE_CLEARANCE (duct)": 1.54,
+    "DUCT_MIN_Z (duct)": 1.0,
     "fan head hole radial clearance": 0.5
    }
   }
  },
  "mass": {
   "added_g": {
-   "cooling_module_frame": 6.27,
+   "cooling_module_frame": 6.64,
    "cover": 6.34,
    "probe_mount": 11.45,
-   "duct_body": 9.24,
-   "hardware (screws, inserts)": 15.15
+   "duct_body": 9.4,
+   "hardware (screws, inserts)": 16.5
   },
-  "added_total_g": 48.5,
+  "added_total_g": 50.3,
   "removed_g": {
    "stock cover (+duct, without fan; 23.8 g measured K1, 32-32.5 K1 Max reports)": [
     23.8,
@@ -1966,47 +2075,47 @@
    ]
   },
   "delta_g_range": [
-   1.2,
-   10.1
+   3.1,
+   12.0
   ],
   "basis": "solid-volume mass (100 % infill = upper bound) of every printed assembly part incl. the real duct body; hardware = screws + inserts incl. fan and duct-tab screws; stock 4020 reused (BLOWER_4020_STOCK.mass_g ESTIMATED, moves, no change); removed = stock cover+duct, 785004 adapter, stock PCB screws",
   "shaper_Hz_for_delta_range": {
    "X": {
     "m=400 g": [
-     77.49,
-     76.63
+     77.3,
+     76.46
     ],
     "m=450 g": [
-     77.5,
-     76.74
+     77.34,
+     76.58
     ],
     "m=500 g": [
-     77.51,
-     76.82
+     77.36,
+     76.68
     ]
    },
    "Y": {
     "m=820 g": [
-     51.96,
-     51.68
+     51.9,
+     51.62
     ],
     "m=880 g": [
-     51.96,
-     51.7
+     51.91,
+     51.65
     ],
     "m=960 g": [
-     51.97,
-     51.73
+     51.92,
+     51.68
     ]
    }
   }
  },
  "stiffness": {
   "frame": {
-   "carried_mass_g": 45.8,
-   "com_y": -40.0,
-   "lever_from_pcb_mm": 17.7,
-   "load_N (2 x m x 20 m/s2)": 1.83,
+   "carried_mass_g": 46.4,
+   "com_y": -41.2,
+   "lever_from_pcb_mm": 18.9,
+   "load_N (2 x m x 20 m/s2)": 1.86,
    "clamp stack per PCB screw (N/mm, series)": {
     "brass sleeve": 45213,
     "PCB (FR-4 z)": 50658,
@@ -2018,14 +2127,14 @@
    "rocking on the 3-screw pattern, optimistic (preloaded bolt + clamped stack)": {
     "k_joint_N_per_mm": 47990,
     "k_theta_Nmm_per_rad": 18428197,
-    "deflection_at_com_um": 0.03,
-    "first_mode_Hz": 4462
+    "deflection_at_com_um": 0.04,
+    "first_mode_Hz": 4436
    },
    "rocking on the 3-screw pattern, pessimistic (clamped stack in compression only)": {
     "k_joint_N_per_mm": 3867,
     "k_theta_Nmm_per_rad": 1485039,
-    "deflection_at_com_um": 0.39,
-    "first_mode_Hz": 1267
+    "deflection_at_com_um": 0.45,
+    "first_mode_Hz": 1259
    },
    "fan out-of-plane (Y) on plate, with 4th pad": {
     "I_strip_mm4": 29.2,
@@ -2112,32 +2221,65 @@
    "verdict": "Stiffness is not the limit for any option (sub-um deflection, kHz modes); the anchor joint (2 x ~M2 into unknown toolhead tabs) and thermal growth of the printed path are. The 785004 anchor is the default because it is proven in service at today's pin position; PA-CF + closed section cut thermal drift ~40 % vs a PLA/PETG 785004. The heatsink option halves the path but is blocked by the LiDAR body box until M6."
   },
   "duct": {
-   "lever_mm (tab mating face -> rear end)": 64.0,
-   "lever_mm (tab hole line -> rear end)": 65.3,
-   "mass_g": 9.24,
+   "lever_mm (tab mating face -> rear end)": 46.3,
+   "lever_mm (tab hole line -> rear end)": 47.5,
+   "mass_g": 9.4,
    "com": [
-    12.9,
-    -20.6,
-    10.9
+    11.9,
+    -27.4,
+    10.1
    ],
-   "J_about_tab_line_gmm2": 8880,
+   "E_duct_MPa": 2200,
    "tabs": [
     {
      "id": "T_left",
-     "pad_k_Nmm_per_rad": 62698,
-     "arm_len_mm": 10.5,
-     "arm_torsion_k_Nmm_per_rad": 1762
+     "z": 19.5,
+     "arm_free_mm": 2.0,
+     "rot_k_Nmm_per_rad (pad / with arm)": [
+      60683,
+      8028
+     ],
+     "axial_k_N_per_mm (pad / with arm)": [
+      12083,
+      2475
+     ]
     },
     {
      "id": "T_right",
-     "pad_k_Nmm_per_rad": 62698,
-     "arm_len_mm": 6.5,
-     "arm_torsion_k_Nmm_per_rad": 2847
+     "z": 22.5,
+     "arm_free_mm": 1.0,
+     "rot_k_Nmm_per_rad (pad / with arm)": [
+      60683,
+      14181
+     ],
+     "axial_k_N_per_mm (pad / with arm)": [
+      12083,
+      5400
+     ]
+    },
+    {
+     "id": "T_3",
+     "z": 9.0,
+     "arm_free_mm": 1.5,
+     "rot_k_Nmm_per_rad (pad / with arm)": [
+      60683,
+      10252
+     ],
+     "axial_k_N_per_mm (pad / with arm)": [
+      12083,
+      3666
+     ]
     }
    ],
-   "pitch_mode_Hz_upper (pads only)": 598,
-   "pitch_mode_Hz_lower (pads + arm torsion)": 113,
-   "note": "rigid-body pitch about the tab line; posts and duct bending ignored (both lower it further). Target > 2 x 77.6 Hz. A third tab near the rear (review R-22) or arms of real section raise it."
+   "pitch_mode_Hz_upper (pads + lugs only)": 2741,
+   "k_theta_Nmm_per_rad_upper (pads + lugs only)": 1396435,
+   "J_gmm2_upper (pads + lugs only)": 4710,
+   "rotation_centre_z_upper (pads + lugs only)": 17.0,
+   "pitch_mode_Hz_lower (with tab arms)": 1530,
+   "k_theta_Nmm_per_rad_lower (with tab arms)": 442198,
+   "J_gmm2_lower (with tab arms)": 4787,
+   "rotation_centre_z_lower (with tab arms)": 17.57,
+   "note": "rigid duct; posts and duct bending ignored (both lower it). Target > 2 x 77.6 Hz. Tabs spread in Z (T_3) turn pitch into push-pull on the tab joints, which is far stiffer than arm torsion."
   }
  },
  "release": {

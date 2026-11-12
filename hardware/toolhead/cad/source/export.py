@@ -4,7 +4,9 @@
     python cad/source/export.py [--cooling auto-final|ducts|auto|stub]     (default: assembly.COOLING_SOURCE)
 
 Writes (all mm):
-  every printed part (frame, cover, probe mount, coupon and, with the real ducts, duct_body):
+  every printed part (frame, cover, probe mount, coupon and, with the real ducts, duct_body; the duct is HT resin
+  per DD-07a, 238 C class, full post-cure, from a print service - PC / MJF PA12 fallbacks; its manifest mass uses the
+  PC density as a placeholder until the resin TDS is known):
   cad/exports/step/<part>.step   print-oriented, on the plate at Z 0, one solid
   cad/exports/3mf/<part>.3mf     same orientation, one object, unit = millimetre
   cad/exports/stl/<part>.stl     same orientation
@@ -87,7 +89,8 @@ def main():
         m.add_meta_data("k1th", "part", p.name, "xs:string", False)
         m.write(str(f_3mf))
         mat = MATERIALS[p.material]
-        rec = {"material": p.material, "category": p.category, "volume_mm3": round(v0, 3),
+        rec = {"material": p.material, "material_note": mat.density.source, "category": p.category,
+               "volume_mm3": round(v0, 3),
                "mass_g_solid": round(v0 * mat.density.value / 1000, 2),
                "density_g_cm3": f"{mat.density.value} ({mat.density.status})",
                "print_rot_deg": list(p.print_rot), "notes": p.notes,

@@ -86,7 +86,17 @@ PC = Material("PC", Dim(1.20, "ESTIMATED", "lead-specified; typical PC TDS 1.19-
 PA_CF = Material("PA-CF", Dim(1.15, "ESTIMATED", "lead-specified ~1.15; PA12-CF TDS 1.06-1.20"),
                  Dim(5000, "ESTIMATED", "printed PA-CF XY 4-8 GPa, Z far lower"),
                  Dim(40e-6, "ESTIMATED", "printed PA-CF XY 25-60e-6/K"), (0.10, 0.10, 0.10))
-MATERIALS = {m.name: m for m in (ASA, PC, PA_CF)}
+# DD-07a (user decision 2026-11-12): duct body in HT resin, 238 C class (HDT at 0.45 MPa after the full thermal
+# post-cure, e.g. Formlabs High Temp / Weerg High Temp Pro), from a print service; PC and MJF PA12 are fallbacks.
+# No resin density/modulus is invented here: the PC values stand in until the service's resin TDS is known.
+HT_RESIN = Material("HT-resin", Dim(PC.density.value, "ESTIMATED",
+                                    "PLACEHOLDER = PC 1.20 g/cm3; take the real value from the HT resin TDS (DD-07a)"),
+                    Dim(PC.E_mpa.value, "ESTIMATED", "PLACEHOLDER = PC modulus; HT resin TDS needed"),
+                    Dim(PC.cte.value, "ESTIMATED", "PLACEHOLDER = PC CTE; HT resin TDS needed"), (0.90, 0.75, 0.45))
+MATERIALS = {m.name: m for m in (ASA, PC, PA_CF, HT_RESIN)}
+WASHER_M3 = (prm("hw", "WASHER_M3_OD", 7.0, "VERIFIED", "ISO 7089 M3: d1 3.2, d2 7, h 0.5"),
+             prm("hw", "WASHER_M3_H", 0.5, "VERIFIED", "ISO 7089 M3: h 0.5"))
+WASHER_M3_MASS_G = math.pi / 4 * (WASHER_M3[0] ** 2 - 3.2 ** 2) * WASHER_M3[1] * 7.85e-3   # steel
 
 E_STEEL = 200000.0       # MPa, textbook
 E_ALU = 69000.0          # MPa, textbook

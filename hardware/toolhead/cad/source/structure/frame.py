@@ -237,8 +237,8 @@ def _mount(m):
         solid = cyl_y(x, z, y, BACK_Y, D)                           # standoff, through the plate
         solid = solid & bx(-STANDOFF_XMAX, STANDOFF_XMAX, y - 1, BACK_Y + 1, z - D, z + D)   # inside the cover
     elif z < ZMIN:                                                  # lug below the plate
-        solid = cyl_y(x, z, y, BACK_Y, D) + bx(x - r, x + r, y, BACK_Y, z, ZMIN + RIB_W)
-        rb = LUG_BRIDGE_HALF
+        rb = LUG_BRIDGE_HALF                                        # strip up to the plate: X +-3.6 (S8 T_3 lug
+        solid = cyl_y(x, z, y, BACK_Y, D) + bx(x - rb, x + rb, y, BACK_Y, z, ZMIN + RIB_W)   # X -6.6..0.6, plenum-clear)
         x_in = min(max(x, left_edge(ZMIN) + rb), XMAX - rb)
         if abs(x_in - x) > 1e-6:                                    # bridge sideways to the plate,
             zt = min(ZMIN - LUG_COVER_GAP, z + rb)                  # under the cover's bottom edge

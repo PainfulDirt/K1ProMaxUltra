@@ -139,46 +139,68 @@ def anchor4_evaluation(frame_out: dict) -> dict:
                        "bracket if the 10-h torque audit shows preload loss."}
 
 
-def duct_estimates(duct_shape, tabs: list, density_g_cm3: float) -> dict:
-    """R-22: duct cantilever. Rigid duct pivoting about the line through its two tab holes (pitch about X); spring =
-    the two tab pads (PC tab 2.5 + ASA lug, in bending over the 7 x 7 pad) - upper bound - and, in series, the
-    tab arms in torsion (2.5 x 6 PC, from duct_generator tab_arms) - lower bound. The thin posts from the arms
-    down to the plenum and the duct's own bending are ignored (both make it softer)."""
+def duct_estimates(duct_shape, tabs: list, density_g_cm3: float, E_duct: float | None = None) -> dict:
+    """R-22: duct cantilever pitch (rotation about X). Rigid duct on its tabs (duct_generator: pad 7 x 2.5 x 7, an arm
+    along X from the pad to `arm_from_x`, Z band z +-3, then a post down to the plenum floor).
+    Springs per tab:
+      - pad + ASA lug in bending about X (rotational);
+      - pad + lug in compression along Y (axial), which resists pitch when the tabs are spread in Z (T_3);
+      - the arm's free length beyond the pad, in torsion (rotational) and in bending/shear along Y (axial).
+    Upper bound: pads and lugs only. Lower bound: pads + lugs + arms in series. Rotation about the axial stiffness
+    centre at the tab plane. Posts and the duct's own bending are ignored (both lower the result further).
+    E_duct: the duct material's modulus (MPa); default PC (the HT resin TDS value replaces it, DD-07a)."""
     import numpy as np
     import trimesh
     v, f = duct_shape.tessellate(0.05, 0.3)
     m = trimesh.Trimesh(np.array([(q.X, q.Y, q.Z) for q in v]), np.array(f), process=True)
     m.density = density_g_cm3 / 1000.0                    # g/mm3 -> mass in g, inertia in g.mm2
-    yc = sum(t["hole_centre"][1] for t in tabs) / len(tabs)
-    zc = sum(t["hole_centre"][2] for t in tabs) / len(tabs)
-    com = m.center_mass
-    J = float(m.moment_inertia[0, 0]) + m.mass * ((com[1] - yc) ** 2 + (com[2] - zc) ** 2)
-    bb = duct_shape.bounding_box()
-    face_y = min(t["face_y"] for t in tabs)
-    E_pc, E_asa = PC.E_mpa.value, ASA.E_mpa.value
-    G_pc = E_pc / (2 * (1 + NU_PC))
-    rows, k_up, k_lo = [], 0.0, 0.0
+    E_d = E_duct or PC.E_mpa.value
+    E_asa = ASA.E_mpa.value
+    G_d = E_d / (2 * (1 + NU_PC))
+    ins = F.INSERTS["M3"]
+    a_lug = math.pi / 4 * (ins.boss_d ** 2 - ins.hole_d ** 2)
+    i_lug = math.pi * (ins.boss_d ** 4 - ins.hole_d ** 4) / 64
+    rows = []
     for t in tabs:
         px, py, pz = t["pad"]
+        L_lug = F.BACK_Y - t["face_y"]
         i_pad = px * pz ** 3 / 12
-        i_lug = math.pi * F.INSERTS["M3"].boss_d ** 4 / 64 if hasattr(F, "INSERTS") else i_pad
-        k_pad = 1 / (py / (E_pc * i_pad) + (F.BACK_Y - face_y) / (E_asa * i_lug))
-        L_arm = abs(t["hole_centre"][0] - t["arm_from_x"])
+        k_rot_pad = 1 / (py / (E_d * i_pad) + L_lug / (E_asa * i_lug))
+        k_ax_pad = 1 / (py / (E_d * px * pz) + L_lug / (E_asa * a_lug))
+        Lf = max(abs(t["hole_centre"][0] - t["arm_from_x"]) - px / 2, 0.5)     # arm beyond the pad
         b_, t_ = 6.0, py                                   # arm section Z 6 (z +-3) x Y (pad thickness)
         beta = 1 / 3 * (1 - 0.63 * t_ / b_)                # Roark rectangle torsion constant (approx.)
-        k_arm = G_pc * beta * b_ * t_ ** 3 / max(L_arm, 1e-6)
-        rows.append({"id": t["id"], "pad_k_Nmm_per_rad": round(k_pad), "arm_len_mm": round(L_arm, 1),
-                     "arm_torsion_k_Nmm_per_rad": round(k_arm)})
-        k_up += k_pad
-        k_lo += 1 / (1 / k_pad + 1 / k_arm)
-    f = lambda k: math.sqrt(k * 1e-3 / (J * 1e-9)) / (2 * math.pi)
-    return {"lever_mm (tab mating face -> rear end)": round(bb.max.Y - face_y, 1),
-            "lever_mm (tab hole line -> rear end)": round(bb.max.Y - yc, 1),
-            "mass_g": round(m.mass, 2), "com": [round(c, 1) for c in com], "J_about_tab_line_gmm2": round(J),
-            "tabs": rows, "pitch_mode_Hz_upper (pads only)": round(f(k_up)),
-            "pitch_mode_Hz_lower (pads + arm torsion)": round(f(k_lo)),
-            "note": "rigid-body pitch about the tab line; posts and duct bending ignored (both lower it further). "
-                    "Target > 2 x 77.6 Hz. A third tab near the rear (review R-22) or arms of real section raise it."}
+        k_tor = G_d * beta * b_ * t_ ** 3 / Lf
+        k_bend = 3 * E_d * (b_ * t_ ** 3 / 12) / Lf ** 3
+        k_shear = G_d * b_ * t_ / Lf
+        k_ax_arm = 1 / (1 / k_bend + 1 / k_shear)
+        rows.append({"id": t["id"], "z": t["hole_centre"][2], "arm_free_mm": round(Lf, 2),
+                     "k_rot_up": k_rot_pad, "k_rot_lo": 1 / (1 / k_rot_pad + 1 / k_tor),
+                     "k_ax_up": k_ax_pad, "k_ax_lo": 1 / (1 / k_ax_pad + 1 / k_ax_arm)})
+    y_t = sum(t["hole_centre"][1] for t in tabs) / len(tabs)
+    bb = duct_shape.bounding_box()
+    face_y = min(t["face_y"] for t in tabs)
+    com = m.center_mass
+    res = {"lever_mm (tab mating face -> rear end)": round(bb.max.Y - face_y, 1),
+           "lever_mm (tab hole line -> rear end)": round(bb.max.Y - y_t, 1),
+           "mass_g": round(m.mass, 2), "com": [round(c, 1) for c in com], "E_duct_MPa": E_d,
+           "tabs": [{"id": r["id"], "z": r["z"], "arm_free_mm": r["arm_free_mm"],
+                     "rot_k_Nmm_per_rad (pad / with arm)": [round(r["k_rot_up"]), round(r["k_rot_lo"])],
+                     "axial_k_N_per_mm (pad / with arm)": [round(r["k_ax_up"]), round(r["k_ax_lo"])]} for r in rows]}
+    for bound in ("up", "lo"):
+        kz = [r[f"k_ax_{bound}"] for r in rows]
+        zc = sum(k * r["z"] for k, r in zip(kz, rows)) / sum(kz)
+        k_th = sum(r[f"k_rot_{bound}"] for r in rows) + sum(k * (r["z"] - zc) ** 2 for k, r in zip(kz, rows))
+        J = float(m.moment_inertia[0, 0]) + m.mass * ((com[1] - y_t) ** 2 + (com[2] - zc) ** 2)
+        f_hz = math.sqrt(k_th * 1e-3 / (J * 1e-9)) / (2 * math.pi)
+        key = "upper (pads + lugs only)" if bound == "up" else "lower (with tab arms)"
+        res[f"pitch_mode_Hz_{key}"] = round(f_hz)
+        res[f"k_theta_Nmm_per_rad_{key}"] = round(k_th)
+        res[f"J_gmm2_{key}"] = round(J)
+        res[f"rotation_centre_z_{key}"] = round(zc, 2)
+    res["note"] = ("rigid duct; posts and duct bending ignored (both lower it). Target > 2 x 77.6 Hz. Tabs spread in Z "
+                   "(T_3) turn pitch into push-pull on the tab joints, which is far stiffer than arm torsion.")
+    return res
 
 
 def probe_estimates(mount_mass_g: float) -> dict:

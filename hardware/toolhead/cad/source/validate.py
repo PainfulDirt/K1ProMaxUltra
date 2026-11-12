@@ -46,6 +46,10 @@ MIN_WALL = 0.8            # mm: 2 extrusion lines at 0.4 (DESIGN)
 WALL_EPS = 1e-3           # mm: float noise on a wall modelled at exactly MIN_WALL (e.g. the 0.8 mm insert floors)
 WALL_FAIL_SHARE = 0.005   # FAIL if more than 0.5 % of sampled surface is thinner than MIN_WALL
 OVERHANG_DEG = 45.0
+DUCT_SOCK_TARGET = common.prm("validate", "DUCT_SOCK_CLEARANCE_TARGET", 4.5, "DESIGN",
+                               "S8 design value (duct_interface.json v4 review_checks, cfd-report s17); checked here, "
+                               "not in interfaces.py, because the duct generator derives its geometry from that file")
+DUCT_ZMIN_TARGET = common.prm("validate", "DUCT_MIN_Z_TARGET", 3.0, "DESIGN", "S8 flat base plane (duct_interface.json v4)")
 TOL_JOINT = 0.2           # mm: radial play per screw-in-clearance-hole joint (review R-16 assumption)
 TOL_PRINT = 0.2           # mm: FDM position tolerance per printed part (review R-16 assumption)
 SOCKET_OVERLAP_CAP = 0.5  # mm3: duct x fan solid overlap allowed in the socket band (numerical only, R-02)
@@ -250,6 +254,9 @@ def rear_footprint_check(parts_):
     for p in parts_:
         part = p.shape & region
         if part is None or vol(part) <= VOL_TOL:
+            if not p.name.startswith("ref_microprobe"):
+                check(f"rear footprint {p.name} (behind Y +{REAR_FOOT_Y:.0f}, below Z {REAR_FOOT_Z:.0f})", "PASS",
+                      f"nothing there (part max Y {p.shape.bounding_box().max.Y:.2f})")
             continue
         exc = part - foot
         v = vol(exc)
@@ -314,11 +321,12 @@ def _screw_list(by, ci):
             continue
         x, y, z = m["pos"]
         ts = m.get("tab_size") or [None, 2.5]
-        y_seat = (m["hole_centre"][1] - ts[1] / 2) if m.get("hole_centre") else y - 2.5
+        y_tab = (m["hole_centre"][1] - ts[1] / 2) if m.get("hole_centre") else y - 2.5
+        wd, wh = common.WASHER_M3                    # DD-07a: ISO 7089 washer under each duct-tab head
         L = cooling_mod.DUCT_TAB_SCREW_LEN
-        out.append(dict(name=f"duct tab {m.get('id', '')} M3x{L:.0f} ({x}, {z})", seat=(x, y_seat, z), ax=(0, 1, 0),
-                        dk=dk, k=k, L=L, clamps=("duct_", "stub_duct"), step=3, free_len=L,
-                        insert=hole_at(x, y, z, (0, 1, 0))))
+        out.append(dict(name=f"duct tab {m.get('id', '')} M3x{L:.0f} + washer ({x}, {z})", seat=(x, y_tab - wh, z),
+                        ax=(0, 1, 0), dk=dk, k=k, L=L, clamps=("duct_", "stub_duct"), step=3, free_len=L,
+                        insert=hole_at(x, y, z, (0, 1, 0)), washer=((x, y_tab, z), wd, wh)))
     zt = frame.ZMAX + cover.WALL
     for sx in (-1, 1):
         x, y = sx * frame.COVER_SCREW_X, frame.COVER_SCREW_Y
@@ -387,6 +395,9 @@ def hardware_checks(parts, by, ci, stock_mode):
     for sc in _screw_list(by, ci):
         name, seat, ax, dk, k, clamps, step = sc["name"], sc["seat"], sc["ax"], sc["dk"], sc["k"], sc["clamps"], sc["step"]
         head = _cyl_along(seat, ax, k, dk)
+        if sc.get("washer"):                         # washer + head checked as one stack
+            wp, wd, wh = sc["washer"]
+            head = head + _cyl_along(wp, ax, wh, wd)
         top = tuple(seat[i] - ax[i] * k for i in range(3))
         hits, near, gaps = [], [], {}
         for p in solids:
@@ -407,7 +418,9 @@ def hardware_checks(parts, by, ci, stock_mode):
             if d < HEAD_MIN_GAP - CONTACT_TOL:
                 near.append(f"{p.name} {d:.2f} mm")
         st = "FAIL" if hits else ("WARN" if near else "PASS")
-        check(f"screw head {name}", st, f"ISO 7380 Ø{dk} x {k} on {clamps[0].rstrip('_')} at {[round(v, 2) for v in seat]}: "
+        check(f"screw head {name}", st, f"ISO 7380 Ø{dk} x {k}" + (f" on an ISO 7089 Ø{sc['washer'][1]} x {sc['washer'][2]} washer"
+                                                                  if sc.get("washer") else "")
+              + f" on {clamps[0].rstrip('_')} at {[round(v, 2) for v in seat]}: "
               + (f"INTERFERES with {', '.join(hits)}" if hits else "no interference")
               + (f"; nearest other part {min(gaps, key=gaps.get)} {min(gaps.values()):.3f} mm" if gaps else "")
               + (f"; closer than {HEAD_MIN_GAP} to {', '.join(near)}" if near else ""))
@@ -659,6 +672,14 @@ def main():
             RESULTS["interference"].append(row)
             check(f"interference {a.name} x {b.name}", st,
                   f"overlap {ov:.3f} mm3, gap {dist:.3f} mm" + (f" - allowed: {why}" if kind else "") + note)
+    # explicit socket record (R-02): duct x fan solid, whether or not the pair reached the interference rows
+    for f_p in fans:
+        for d_p in [d for d in ci.duct_parts if d.category == "printed"]:
+            ov = vol(d_p.shape & f_p.shape)
+            gap = 0.0 if ov > VOL_TOL else d_p.shape.distance_to(f_p.shape)
+            check(f"socket: {d_p.name} x {f_p.name}", "PASS" if ov <= SOCKET_OVERLAP_CAP else "FAIL",
+                  f"overlap {ov:.3f} mm3 (cap {SOCKET_OVERLAP_CAP}), min gap {gap:.3f} mm to the modelled fan body + outlet nozzle "
+                  f"(FAN_NOZZLE_DEPTH {cooling_mod.FAN_NOZZLE_DEPTH}, ESTIMATED M7)")
     if not any(r["status"] == "FAIL" for r in RESULTS["interference"]):
         check("interference: no unintended overlaps", "PASS", f"{len(cands)} solids checked pairwise")
 
@@ -726,7 +747,7 @@ def main():
             dist = 0.0 if v > VOL_TOL else p.shape.distance_to(ci.duct_air)
             C.setdefault("duct_air_path", {})[p.name] = {"overlap_mm3": round(v, 3), "gap_mm": round(dist, 2)}
             check(f"duct air path vs {p.name}", "FAIL" if v > VOL_TOL else "PASS",
-                  f"overlap {v:.3f} mm3, gap {dist:.2f} mm to the S7 internal air volume")
+                  f"overlap {v:.3f} mm3, gap {dist:.2f} mm to the {ci.raw.get('duct_param_set')} internal air volume")
 
     # the cover yields to the duct and to the frame's duct lugs (only the shelf contact is intended)
     cv = by["cover"]
@@ -784,6 +805,17 @@ def main():
               f"mating face at Y {y:.2f} {100 * f_face:.0f} % solid; screw along {m['axis']}")
 
     zmin_lim = float(I.DUCT_MIN_Z)
+    if "duct_body" in by:
+        d_s = by["duct_body"].shape
+        d_sock = d_s.distance_to(ibox(I.SOCK))
+        d_zmin = d_s.bounding_box().min.Z
+        C["duct_design_targets"] = {"sock_clearance_mm": round(d_sock, 3), "target": DUCT_SOCK_TARGET,
+                                    "lowest_z": round(d_zmin, 3), "target_z": DUCT_ZMIN_TARGET}
+        check("duct design targets (S8: sock clearance, flat base)",
+              "PASS" if d_sock >= DUCT_SOCK_TARGET - 0.005 and d_zmin >= DUCT_ZMIN_TARGET - 1e-3 else "FAIL",
+              f"{d_sock:.3f} mm to the SOCK box (>= {DUCT_SOCK_TARGET}), lowest Z {d_zmin:.2f} (>= {DUCT_ZMIN_TARGET}); the "
+              f"interfaces.py limits stay HOT_ZONE_CLEARANCE {hz} / DUCT_MIN_Z {zmin_lim} because duct_generator.py builds "
+              f"the S8 geometry from them")
     for p in movers:
         zm = p.shape.bounding_box().min.Z
         check(f"DUCT_MIN_Z {p.name}", "PASS" if zm >= zmin_lim - 1e-6 else "FAIL", f"lowest Z {zm:.2f} (>= {zmin_lim})")
@@ -957,7 +989,10 @@ def main():
     h_ = stack["fan screw head vs cover hole"]
     check("tolerance stack-up (R-16; +-%.1f per joint, +-%.1f per print)" % (jt, pt), "INFO",
           f"duct position worst case {d_['worst_case_mm']} / RSS {d_['rss_mm']} mm vs margins {margins.get('HOT_ZONE_CLEARANCE (duct)')} "
-          f"(hot zone) and {margins.get('DUCT_MIN_Z (duct)')} (DUCT_MIN_Z): the worst case exceeds both - duct target for S8; "
+          f"(hot zone) and {margins.get('DUCT_MIN_Z (duct)')} (DUCT_MIN_Z)"
+          + ("" if all(v is not None and v >= d_['worst_case_mm'] for v in (margins.get('HOT_ZONE_CLEARANCE (duct)'),
+                                                                         margins.get('DUCT_MIN_Z (duct)')))
+             else ": the worst case exceeds a margin") + "; "
           f"fan head vs cover hole worst case {h_['worst_case_mm']} / RSS {h_['rss_mm']} mm vs {cover.FAN_HEAD_CLEAR} radial")
 
     a4 = RESULTS["stiffness"]["frame"].get("4th anchor (right stock cover-screw insert, review R-04)")
@@ -967,13 +1002,15 @@ def main():
               f"case); {a4['verdict']}")
     duct_p = next((d for d in ci.duct_parts if d.category == "printed"), None)
     if duct_p is not None and ci.duct_tabs:
-        de = stiffness.duct_estimates(duct_p.shape, ci.duct_tabs, MATERIALS[duct_p.material].density.value)
+        mat_d = MATERIALS[duct_p.material]
+        de = stiffness.duct_estimates(duct_p.shape, ci.duct_tabs, mat_d.density.value, mat_d.E_mpa.value)
         RESULTS["stiffness"]["duct"] = de
-        lo, up = de["pitch_mode_Hz_lower (pads + arm torsion)"], de["pitch_mode_Hz_upper (pads only)"]
+        lo, up = de["pitch_mode_Hz_lower (with tab arms)"], de["pitch_mode_Hz_upper (pads + lugs only)"]
         check("duct cantilever pitch mode estimate (R-22)", "PASS" if lo > 2 * 77.6 else "WARN",
-              f"{lo}..{up} Hz (want > 2 x 77.6 Hz); lever {de['lever_mm (tab mating face -> rear end)']} mm from the tab "
-              f"face, J {de['J_about_tab_line_gmm2']} g.mm2 about the tab line; weak link: the tab arms in torsion "
-              f"{[r['arm_torsion_k_Nmm_per_rad'] for r in de['tabs']]} N.mm/rad")
+              f"{lo}..{up} Hz (want > 2 x 77.6 Hz) on {len(ci.duct_tabs)} tabs {[t['id'] for t in ci.duct_tabs]}; lever "
+              f"{de['lever_mm (tab mating face -> rear end)']} mm from the tab face; k_theta {de['k_theta_Nmm_per_rad_lower (with tab arms)']}"
+              f"..{de['k_theta_Nmm_per_rad_upper (pads + lugs only)']} N.mm/rad, J {de['J_gmm2_lower (with tab arms)']} g.mm2; "
+              f"duct E {de['E_duct_MPa']:.0f} MPa ({mat_d.E_mpa.source})")
 
     # ---- 6. dependencies / release ---------------------------------------------
     RESULTS["unconfirmed_global"] = [list(r) for r in I.all_unconfirmed()]
@@ -1020,7 +1057,8 @@ def write_reports():
         rel = RESULTS["release"].get(n, {}).get("status", "")
         L.append(f"| {n} | {d['material']} | {d['mass_g']} | {d['volume_mm3']} | {' x '.join(str(round(v, 1)) for v in d['bbox_print'])} "
                  f"| {d['wall']['min_mm']} / {d['wall']['p1_mm']} | {100 * d['overhang']['overhang_gt45_share_of_total']:.1f} % | {rel} |")
-    L += ["", "Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS values: ESTIMATED). "
+    L += ["", "Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS values: ESTIMATED); the duct's "
+          "HT resin (DD-07a) uses the PC 1.20 as a placeholder until the resin TDS is known. "
           "Masses are solid-volume (100 % infill) upper bounds.", "",
           "## Moving mass and input shaper", "", "```", json.dumps(RESULTS["mass"], indent=1), "```", "",
           "## Stiffness estimates (hand calculations, ESTIMATED)", "", "```", json.dumps(RESULTS["stiffness"], indent=1),

@@ -38,7 +38,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import bx, prm, cyl_y, PartSpec, group_params, FRAME_FRONT_Y, PARAMS, screw_mass_g
+from .common import bx, prm, cyl_y, PartSpec, group_params, FRAME_FRONT_Y, PARAMS, screw_mass_g, WASHER_M3_MASS_G
 import interfaces as I
 from interfaces import Dim
 
@@ -221,7 +221,14 @@ def _from_dict(d: dict, is_stub: bool, source: str) -> CoolingInterface:
 
 G_REAL = "cooling_real"
 DUCT_TAB_SCREW_LEN = prm(G_REAL, "DUCT_TAB_SCREW_LEN", 6.0, "DESIGN",
-                         "M3x6 ISO 7380: duct tab 2.5 (duct_interface tab_size) + 3.5 into the 4 mm frame insert")
+                         "M3x6 ISO 7380: washer 0.5 + duct tab 2.5 (duct_interface tab_size) + 3.0 into the 4 mm insert")
+DUCT_MATERIAL = "HT-resin"
+DUCT_MATERIAL_NOTE = ("Material (DD-07a, user decision): HT resin, 238 C class (HDT at 0.45 MPa after the FULL thermal "
+                      "post-cure per the TDS), from a print service, order two; fallbacks PC or MJF PA12. Ask for: channels "
+                      "flushed and drained, no support contact on the outlet lips, inside the ports or on the socket faces. "
+                      "Mass uses the PC density as a placeholder: the real value comes from the resin TDS. Brittle: M3 "
+                      "washer under each tab head, tighten only until the tab seats. Exported upright on its flat base "
+                      "(nozzle-frame +Z = print Z); the orientation is the service's choice.")
 # interfaces.py values the duct geometry or its position relative to the nozzle depends on (the duct
 # generator reads them, or the frame/PCB chain the duct bolts to does). DERIVED ones are listed for
 # completeness; the ESTIMATED ones drive the release status.
@@ -296,7 +303,7 @@ def real_interface(params: dict | None = None) -> CoolingInterface:
             gp = getattr(mod, "get_params", None) or (lambda n: getattr(mod, "PARAM_SETS")[n]())
             params = gp(ci.raw.get("duct_param_set") or "S1")
         out = bd(params)
-        mat = "PC" if "PC" in str(ci.raw.get("duct_materials", "PC")) else "PA-CF"
+        mat = DUCT_MATERIAL                 # DD-07a user decision; the JSON's "duct_materials" predates it
         body = out.get("body") if isinstance(out, dict) else None
         if body is None:
             raise KeyError("build_ducts() returned no 'body' part")
@@ -305,13 +312,13 @@ def real_interface(params: dict | None = None) -> CoolingInterface:
         ci.duct_tabs = [dict(t, hole_centre=list(t["xyz"])) for t in info.get("tabs", [])]
         n_tabs = len(ci.duct_mounts)
         hw = [(f"M3x{DUCT_TAB_SCREW_LEN:.0f} ISO 7380 (duct tab to frame lug insert)", n_tabs,
-               screw_mass_g(3, DUCT_TAB_SCREW_LEN))] if n_tabs else []
+               screw_mass_g(3, DUCT_TAB_SCREW_LEN)),
+              ("M3 washer ISO 7089 (7 x 0.5) under each duct-tab head (DD-07a: brittle resin tab)", n_tabs,
+               WASHER_M3_MASS_G)] if n_tabs else []
         parts.append(PartSpec("duct_body", body, "printed", mat, (0.95, 0.55, 0.10), deps=deps,
                               print_rot=(0.0, 0.0, 0.0), hardware=hw,
                               notes=f"owned by the Duct/CFD agent (cad/source/ducts, param set "
-                                    f"{ci.raw.get('duct_param_set')}); status {ci.status}. "
-                                    f"{ci.raw.get('duct_materials', 'PC')}. Print upright as modelled "
-                                    f"(nozzle-frame +Z = print Z, fan socket up)."))
+                                    f"{ci.raw.get('duct_param_set')}); status {ci.status}. {DUCT_MATERIAL_NOTE}"))
     else:
         from build123d import import_step
         for b in d.get("duct_bodies", []):
