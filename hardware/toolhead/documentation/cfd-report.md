@@ -455,7 +455,7 @@ steady passive scalar on the converged flow, 200 iterations (§7). h in W/m²K, 
 | S7 + Same Sky (typical) | 178 | 175 | 163 / 60 / 42 / 111 | 24.8 | 242 / 296 | 4.97 | 140 | 11.9 | +11 % |
 
 What the proxy shows:
-1. **Layer heat-transfer coefficient ×2.5–3.5** over the stock duct at the same fan: part top r ≤ 5
+1. **Layer heat-transfer coefficient ×3.5–4.0** over the stock duct at the same fan: part top r ≤ 5
    147 against 42 (lower bound) and 216 against 54 (upper). The ratio is smaller than the near-wall
    velocity ratio (×5.7) because h grows roughly with √U on a developing boundary layer.
 2. **The weak faces stay weak:** the −X (left, LiDAR side) and +Y (rear, probe side) part faces get
@@ -505,8 +505,11 @@ Numbers behind it (S7, stock 4020 at the lower bound, against the STOCK duct at 
   at 100 % fan** (about 10 % of the 60 W heater). MPC re-calibration handles it (§12.2).
 
 **Upgrade path (conditional, not ordered now).** If V1 shows the stock 4020 at the lower bound **and**
-the V5/V6 overhang and bridge prints still want more cooling, the S7 duct takes a 5015 in the same bay
-with no structural change. Choose the **Same Sky CBM-5015BF-175-459-22** (1 fitted + 1 spare) with a 24 →
+the V5/V6 overhang and bridge prints still want more cooling, the S7 nozzle end takes a 5015 in the same
+bay. That is **not a drop-in**:
+- its duct variant has different tab positions (X 8 / 20), so the frame must be regenerated with it;
+- the fan holes are Ø4.5 (`interfaces.py`);
+- the buck needs a mounting place, and none is modelled yet (`cad/README.md`). Choose the **Same Sky CBM-5015BF-175-459-22** (1 fitted + 1 spare) with a 24 →
 12 V ≥ 0.5 A buck: +21 % part-top h. `with_fan(PARAMS_FINAL, "samesky")` gives its duct variant: the
 plenum enters from the left because its outlet is at the bottom-left, and the tabs are at X 8 / 20. Set
 `cycle_time: 0.002` because its PWM minimum is 200 Hz. Do **not** use the Delta: its minimum-spec unit is
@@ -553,11 +556,14 @@ Judgement per DD-02:
   The window-region speed (0.17 m/s) is barely above STOCK's.
 - **Along the bed under the laser line** S7 sends a 1–1.5 m/s wall jet outward, about 5× STOCK. It can
   move loose dust or strings across the scan line *while the part fan runs*.
-- **At 0 % fan**, the typical state while scanning (the LiDAR macros run between prints), there is no
-  part-fan flow at all: 0 m/s in this model, which has no other air source (the 3010 exhaust is not
-  modelled). That is why the 0 % case was not run as a separate CFD case.
-- Recommendation: keep the part fan off during LiDAR scans (as today). V7 checks window deposits after a
-  long ABS print.
+- **At 0 % fan** there is no part-fan flow at all: 0 m/s in this model, which has no other air source
+  (the 3010 exhaust is not modelled). That is why the 0 % case was not run as a separate CFD case.
+  Not every scan runs at 0 % fan, though. `FIRST_LAYER_SCAN` runs from `_LIDAR_PRINT_SCAN` at the
+  layer-2 change, and the one-layer-print scan from `_SAF_END_PRINT_START`. The slicer's fan may
+  already be on in both (DD-02, `calibration.md` §6).
+- Recommendation: run LiDAR scans with the part fan off. This is proposed, not applied: it is a
+  printer-config change left to the user (`calibration.md` §6). V7 checks window deposits after a long
+  ABS print.
 
 ### 13.2 Mesh independence (S7, 4020 lower bound)
 
@@ -655,7 +661,7 @@ they are compared only between cases on the same domain.
 | V4 | **Heater-power penalty**: `MPC_CALIBRATE ... FAN_BREAKPOINTS=7` (DD-05) with STOCK, then with S7, at 260 °C | printer only | real nozzle cooling (CFD cone near-wall speed 7.2 against 1.0 m/s STOCK at the lower bound) | `fan_ambient_transfer` at 100 % against stock's 0.1166 W/K; plan for the heater's reserve |
 | V5 | **Overhang / bridge prints** in 4 orientations (0°, 90°, 180°, 270° relative to the toolhead): overhang steps 30–70° and 10–40 mm bridges, PLA at 100 % fan, ABS at 30–40 % | printer | real cooling, direction dependence (left/rear sectors are the weakest in CFD) | overhang angle reached, droop per direction |
 | V6 | **Bridge sag measured with the LiDAR**: scan the bridge test print's underside profile with `LIDAR_...` macros (the module reads 1–2 µm) | the printer's own LiDAR | quantitative sag (mm) per orientation and fan speed, STOCK against S7 | sag ratio S7/STOCK; ≥ 30 % improvement expected from the layer speed ratio |
-| V7 | **LiDAR window contamination**: run a 2 h ABS print at 100 % fan, inspect and wipe the module windows; compare scan noise before and after | printer | DD-02 concern (CFD: under 0.15 m/s at the window region) | no visible deposit, scan repeatability unchanged |
+| V7 | **LiDAR window contamination**: run a 2 h ABS print at 100 % fan, inspect and wipe the module windows; compare scan noise before and after | printer | DD-02 concern (CFD: 0.17 m/s mean, 0.25 m/s max at the window region, upper 4020 bound) | no visible deposit, scan repeatability unchanged |
 | V8 | **Clearance / thermal soak**: duct printed in PC, 2 h at 280 °C nozzle in a 45 °C chamber, fan at 0 %; check the lips for distortion | caliper | DD-07 material choice, 3 mm sock clearance | no warping of the lips (Z ≥ 2 mm keeps) |
 
 ## 16. Requests for `interfaces.py` and notes for the Structure agent

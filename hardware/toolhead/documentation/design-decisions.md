@@ -214,8 +214,9 @@ The original wording ("a MOSFET module switched by PB6" for any fan) is withdraw
 MPC `fan_ambient_transfer` must be re-measured after any duct or fan change.
 
 **Outcome.** CFD chose one stock 4020 (DD-01), so the baseline needs no add-on and no channel change:
-stock PB8/PB6/PB3, 0.3 A. The buck and MOSFET sections of `electrical.md` remain only for the
-conditional Same Sky upgrade and for the record.
+stock PB8/PB6/PB3, 0.3 A. `electrical.md` §2 covers the buck for the conditional Same Sky upgrade.
+The MOSFET add-on for 2-wire fans is rejected: it survives as a short note in `electrical.md` §6 and in
+the git history. The text above about feed D and the add-ons is kept as the record of the decision.
 
 ## DD-06: CFD method
 
