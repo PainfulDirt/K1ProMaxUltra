@@ -47,6 +47,11 @@ coupon.** No part has been printed and nothing has been measured on the printer 
    is mandatory.
 6. Physical tests V1–V8 (`cfd-report.md` §15). V1, the 4020 fan curve, needs a spare 4020.
 
+## Decisions taken by the user
+
+- Duct body material: **HT resin** (238 °C class, full thermal post-cure), from a print service,
+  two pieces (`design-decisions.md` DD-07a). PC or MJF PA12 are the fallbacks.
+
 ## Open decisions for the user
 
 - Optional purchase: one spare Creality 4020 (4004110132) for V1.

@@ -317,7 +317,11 @@ What the resin choice changes. These are conditions, not optional advice:
 **Not** covered by this: the frame, cover and probe mount. They take heat-set inserts, and a
 thermoset resin does not soften for inserts. They stay as in the table above.
 
-**Lead's recommendation.**
+**Decision (user, 2026-11-12): the duct body is HT resin**, 238 °C class (HDT at 0.45 MPa per the
+TDS, after the full thermal post-cure), ordered from a print service, two pieces. PC and MJF PA12
+stay as fallbacks. The conditions above apply.
+
+**Lead's recommendation (before the decision).**
 - HT resin (238 °C class, full post-cure) is acceptable and gives the most heat margin. It is the
   better choice if V8 or M20 shows a hot sock.
 - MJF PA12 is the more robust choice against crashes and over-torque, but its heat margin over the
