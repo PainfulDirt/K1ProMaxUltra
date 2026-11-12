@@ -114,8 +114,18 @@ class InsertSpec:
 INSERTS = {
     "M2":   InsertSpec("M2", prm("hw", "INSERT_M2_HOLE_D", 3.2, "ESTIMATED", "typical M2 short insert hole"), 3.0, 1.5),
     "M2.5": InsertSpec("M2.5", prm("hw", "INSERT_M25_HOLE_D", 3.6, "ESTIMATED", "typical M2.5 short insert hole"), 4.0, 1.6),
-    "M3":   InsertSpec("M3", prm("hw", "INSERT_M3_HOLE_D", 4.0, "ESTIMATED", "typical M3 short insert hole (OD 4.6-5.0)"), 4.0, 1.6),
+    "M3":   InsertSpec("M3", prm("hw", "INSERT_M3_HOLE_D", 4.0, "ESTIMATED", "typical M3 short insert hole (OD 4.6-5.0)"), 4.0,
+                       (prm("hw", "INSERT_M3_BOSS_D", 8.5, "DESIGN",
+                            "R-20: >= 1.75 mm of plastic around a 5.0 mm (max) insert knurl") - 4.0) / 2),
 }
+INSERT_M3_KNURL_OD_MAX = prm("hw", "INSERT_M3_KNURL_OD_MAX", 5.0, "ESTIMATED",
+                             "upper end of typical M3 short insert OD 4.6-5.0 (same source as INSERT_M3_HOLE_D)")
+INSERT_FLOOR = prm("hw", "INSERT_FLOOR", 0.8, "DESIGN",
+                   "R-03: every insert hole is blind with >= 0.8 mm (2 lines) of floor, so an over-long screw stops "
+                   "on the floor instead of entering what lies behind (the PCB component zone for the fan screws)")
+TIP_MARGIN_MIN = prm("hw", "SCREW_TIP_MARGIN_MIN", 0.5, "DESIGN",
+                     "screw tip to hole floor: ISO 4759-1 grade A length tolerance js15 (+-0.24 for L 3-6, +-0.42 for L 18-30) + melt")
+THREAD_ENGAGE_MIN = prm("hw", "THREAD_ENGAGE_MIN", 2.5, "DESIGN", "M3 into a brass insert: >= 5 threads (pitch 0.5)")
 INSERT_DEPTH_EXTRA = prm("hw", "INSERT_DEPTH_EXTRA", 1.0, "DESIGN", "melt/screw-tip relief below insert")
 CLEAR = {"M2": 2.4, "M2.5": 2.9, "M3": 3.4}            # ISO 273 medium
 BUTTON_HEAD = {"M3": (5.7, 1.65), "M2.5": (4.7, 1.5)}   # ISO 7380 dk, k

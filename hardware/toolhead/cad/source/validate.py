@@ -43,8 +43,13 @@ VOL_TOL = 1e-3            # mm3: overlaps below this are numerical noise (touchi
 PEN_TOL = 0.1             # mm: overlap thinner than this with a reverse-engineered stock solid = contact (model accuracy)
 CONTACT_TOL = 0.01        # mm: closer than this = contact
 MIN_WALL = 0.8            # mm: 2 extrusion lines at 0.4 (DESIGN)
+WALL_EPS = 1e-3           # mm: float noise on a wall modelled at exactly MIN_WALL (e.g. the 0.8 mm insert floors)
 WALL_FAIL_SHARE = 0.005   # FAIL if more than 0.5 % of sampled surface is thinner than MIN_WALL
 OVERHANG_DEG = 45.0
+TOL_JOINT = 0.2           # mm: radial play per screw-in-clearance-hole joint (review R-16 assumption)
+TOL_PRINT = 0.2           # mm: FDM position tolerance per printed part (review R-16 assumption)
+SOCKET_OVERLAP_CAP = 0.5  # mm3: duct x fan solid overlap allowed in the socket band (numerical only, R-02)
+BED_CONTACT_WARN = 100.0  # mm2: less flat bed contact in the part's own print frame = WARN, none = FAIL (R-05)
 
 # Intended contacts / overlaps: (part A, part B prefix, kind, reason)
 ALLOW = [
@@ -58,7 +63,8 @@ ALLOW = [
     ("probe_mount", "ref_microprobe_body", "contact", "probe flange seat"),
     ("probe_mount", "stock_carriage", "contact", "anchor: roof bears on the carriage tab tops (anchor-shifted carriage)"),
     ("stub_duct_placeholder", "ref_blower_", "contact", "duct inlet on the blower outlet"),
-    ("duct_body", "ref_blower_", "overlap", "duct fan socket slides over the fan outlet nozzle (not in the envelope box)"),
+    ("duct_body", "ref_blower_", "capped", "duct fan socket around the modelled outlet nozzle: only the socket band "
+     "(FAN_NOZZLE_DEPTH above the outlet plane) and at most SOCKET_OVERLAP_CAP mm3 (numerical) may overlap the fan solid"),
 ]
 
 ANCHOR_FAMILY = {"stock_carriage", "stock_bushing_1", "stock_bushing_2", "stock_x_rod_1", "stock_x_rod_2",
@@ -164,7 +170,7 @@ def wall_thickness(mesh, n=1500, seed=1):
         dd, k = _ray_dist(p, -nv, v0, e1, e2)
         if dd is not None:
             out.append(dd)
-            if dd < MIN_WALL:
+            if dd < MIN_WALL - WALL_EPS:
                 wedge = 180.0 - math.degrees(math.acos(max(-1.0, min(1.0, float(nv @ mesh.face_normals[k])))))
                 thin.append((dd, wedge, [round(float(c), 2) for c in p]))
     a = np.array(out)
@@ -172,7 +178,7 @@ def wall_thickness(mesh, n=1500, seed=1):
     edges = [t for t in thin if t[1] >= WEDGE_WALL_DEG]
     return {"samples": int(a.size), "of": int(n), "min_mm": round(float(a.min()), 3),
             "p1_mm": round(float(np.percentile(a, 1)), 3), "p5_mm": round(float(np.percentile(a, 5)), 3),
-            "share_below_min_wall": round(float((a < MIN_WALL).mean()), 4),
+            "share_below_min_wall": round(float((a < MIN_WALL - WALL_EPS).mean()), 4),
             "thin_rays_parallel_faces": len(walls), "thin_rays_acute_edges": len(edges),
             "acute_edge_wedge_deg": [round(min(t[1] for t in edges)), round(max(t[1] for t in edges))] if edges else None,
             "thinnest": [[round(t[0], 3), round(t[1]), t[2]] for t in sorted(thin)[:8]]}
@@ -196,43 +202,157 @@ def overhang(mesh):
             "horizontal_ceilings_mm2 (bridges)": round(float(area[flat].sum()), 1)}
 
 
+# ---------------------------------------------------------------- rear footprint (R-01)
+REAR_FOOT_Y = 10.0        # mm: footprint check behind this Y ...
+REAR_FOOT_Z = 30.0        # ... and below this Z (where the rear keep-out zones were jogged with the probe)
+
+
+def reference_footprint():
+    """XY footprint the rear keep-out zones (tuning.cfg) were measured with: MicroProbe body + 785004 adapter
+    (interfaces.PROBE_FLANGE / PROBE_BODY_Y / PROBE_X, PROBE_ADAPTER_785004), as prisms over all Z."""
+    fw = float(I.PROBE_FLANGE[0])
+    px = float(I.PROBE_X)
+    pr = bx(px - fw / 2, px + fw / 2, float(I.PROBE_BODY_Y[0]), float(I.PROBE_BODY_Y[1]), -100, 200)
+    a = I.PROBE_ADAPTER_785004
+    return pr + bx(a.xmin, a.xmax, a.ymin, a.ymax, -100, 200), [
+        ("MicroProbe body", (px - fw / 2, px + fw / 2, float(I.PROBE_BODY_Y[0]), float(I.PROBE_BODY_Y[1]))),
+        ("785004 adapter", (a.xmin, a.xmax, a.ymin, a.ymax))]
+
+
+def _projected_area(shape, step=0.25):
+    """XY-projected area of a solid (grid of vertical rays against its tessellation), mm2."""
+    m = to_mesh(shape, tol=0.05)
+    bb = m.bounds
+    xs = np.arange(bb[0][0] + step / 2, bb[1][0], step)
+    ys = np.arange(bb[0][1] + step / 2, bb[1][1], step)
+    tri = m.triangles[:, :, :2]
+    hit = 0
+    for x in xs:
+        for y in ys:
+            a, b, c = tri[:, 0], tri[:, 1], tri[:, 2]
+            d1 = (x - b[:, 0]) * (a[:, 1] - b[:, 1]) - (a[:, 0] - b[:, 0]) * (y - b[:, 1])
+            d2 = (x - c[:, 0]) * (b[:, 1] - c[:, 1]) - (b[:, 0] - c[:, 0]) * (y - c[:, 1])
+            d3 = (x - a[:, 0]) * (c[:, 1] - a[:, 1]) - (c[:, 0] - a[:, 0]) * (y - a[:, 1])
+            neg = (d1 < 0) | (d2 < 0) | (d3 < 0)
+            pos = (d1 > 0) | (d2 > 0) | (d3 > 0)
+            if (~(neg & pos)).any():
+                hit += 1
+    return hit * step * step
+
+
+def rear_footprint_check(parts_):
+    """R-01: behind Y +10 and below Z 30, every part must stay inside the XY footprint the rear keep-out zones were
+    measured with. Excess = FAIL with its extent and projected area."""
+    foot, rects = reference_footprint()
+    region = bx(-300, 300, REAR_FOOT_Y, 300, -100, REAR_FOOT_Z)
+    R = RESULTS["clearance"].setdefault("rear_footprint", {"reference": {n: [round(v, 2) for v in r] for n, r in rects},
+                                                          "behind_y": REAR_FOOT_Y, "below_z": REAR_FOOT_Z, "parts": {}})
+    for p in parts_:
+        part = p.shape & region
+        if part is None or vol(part) <= VOL_TOL:
+            continue
+        exc = part - foot
+        v = vol(exc)
+        bb = part.bounding_box()
+        rec = {"x": [round(bb.min.X, 2), round(bb.max.X, 2)], "y": [round(bb.min.Y, 2), round(bb.max.Y, 2)],
+               "z": [round(bb.min.Z, 2), round(bb.max.Z, 2)], "excess_mm3": round(v, 2)}
+        if v > VOL_TOL:
+            eb = exc.bounding_box()
+            area = _projected_area(exc)
+            rec.update({"excess_x": [round(eb.min.X, 2), round(eb.max.X, 2)], "excess_y": [round(eb.min.Y, 2), round(eb.max.Y, 2)],
+                        "excess_z": [round(eb.min.Z, 2), round(eb.max.Z, 2)], "excess_area_mm2": round(area, 1)})
+            check(f"rear footprint {p.name} (behind Y +{REAR_FOOT_Y:.0f}, below Z {REAR_FOOT_Z:.0f})", "FAIL",
+                  f"{area:.0f} mm2 ({v:.0f} mm3) outside the footprint the rear keep-out zones were measured with "
+                  f"(MicroProbe body X +-{float(I.PROBE_FLANGE[0]) / 2:.2f}, Y {float(I.PROBE_BODY_Y[0])}..{float(I.PROBE_BODY_Y[1])}; "
+                  f"785004 X {I.PROBE_ADAPTER_785004.xmin}..{I.PROBE_ADAPTER_785004.xmax}, Y ..{I.PROBE_ADAPTER_785004.ymax}): "
+                  f"excess X {eb.min.X:.1f}..{eb.max.X:.1f}, Y {eb.min.Y:.1f}..{eb.max.Y:.1f}, Z {eb.min.Z:.1f}..{eb.max.Z:.1f} "
+                  f"- re-measure zones 1/3/4 with it fitted, or trim (review R-01)")
+        else:
+            check(f"rear footprint {p.name} (behind Y +{REAR_FOOT_Y:.0f}, below Z {REAR_FOOT_Z:.0f})", "PASS",
+                  f"inside the probe body + 785004 footprint (part X {bb.min.X:.1f}..{bb.max.X:.1f}, Y ..{bb.max.Y:.1f})")
+        R["parts"][p.name] = rec
+
+
 # ---------------------------------------------------------------- screw heads + driver access
 ASSEMBLY_ORDER = ["cooling_module_frame", "fan", "duct", "cover"]   # frame -> fan -> duct -> cover (assembly.md)
-HEAD_MIN_GAP = 0.3        # mm: a head closer than this (minus CONTACT_TOL) to a part it does not clamp = WARN
+HEAD_MIN_GAP = 0.5        # mm: a head closer than this (minus CONTACT_TOL) to a part it does not clamp = WARN (R-15: > FDM tol.)
 ACCESS_LEN = 25.0         # mm: straight approach length checked in front of each head
 HEX_KEY_D = 3.0           # mm: 2.0 mm hex key (2.31 across corners) + clearance; fallback when a Ø6.3 driver is blocked
 
 
+SHANK_D = 3.0             # mm: M3 nominal; a shank overlapping any solid = FAIL (R-02)
+
+
 def _screw_list(by, ci):
-    """Every screw the design adds: (name, seat point, insertion axis, ISO 7380 size, clamped part prefixes, step)."""
+    """Every screw the design adds, as dicts: name, seat (head underside), insertion axis, head (dk, k), length,
+    clamped-part prefixes, assembly step, free_len (shank length checked against every solid; the rest is the
+    threaded engagement) and the insert hole it threads into (frame.INSERT_HOLES record) or None (stock thread)."""
     dk, k = BUTTON_HEAD["M3"]
+    holes = getattr(by["cooling_module_frame"], "insert_holes", [])
+
+    def hole_at(x, y, z, ax):
+        for h in holes:
+            if h["axis"] == list(ax) and all(abs(a_ - b_) < 1e-6 for a_, b_ in zip(h["pos"], (x, y, z))):
+                return h
+        return None
     out = []
+    thread_y = float(I.HEATSINK.ymin)        # PCB screws thread from the heatsink front face / carriage inserts on
     for x, z in I.MODULE_MOUNT_HOLES:
-        out.append((f"PCB M3x{frame.SCREW_LEN:.0f} ({x}, {z})", (x, frame.FRONT_Y, z), (0, 1, 0), dk, k,
-                    ("cooling_module_frame",), 1))
+        out.append(dict(name=f"PCB M3x{frame.SCREW_LEN:.0f} ({x}, {z})", seat=(x, frame.FRONT_Y, z), ax=(0, 1, 0),
+                        dk=dk, k=k, L=frame.SCREW_LEN, clamps=("cooling_module_frame",), step=1,
+                        free_len=thread_y - 0.1 - frame.FRONT_Y, insert=None))
     for f in ci.fans:
         for b in f["screw_bosses"]:
             if [round(v, 6) for v in b["axis"]] != [0, 1, 0]:
                 continue
-            x, _, z = b["pos"]
-            out.append((f"fan M3x{frame.FAN_SCREW_LEN:.0f} ({x}, {z})", (x, f["envelope"][2], z), (0, 1, 0), dk, k,
-                        ("ref_blower_",), 2))
-    tabs = {}
-    if cooling_mod.DUCT_JSON.exists() and not ci.is_stub:
-        for t in json.loads(cooling_mod.DUCT_JSON.read_text()).get("duct_attach_points", []):
-            tabs[t["id"]] = t["hole_centre"][1] - t["tab_size_mm"][1] / 2
+            x, y, z = b["pos"]
+            out.append(dict(name=f"fan M3x{frame.FAN_SCREW_LEN:.0f} ({x}, {z})", seat=(x, f["envelope"][2], z), ax=(0, 1, 0),
+                            dk=dk, k=k, L=frame.FAN_SCREW_LEN, clamps=("ref_blower_",), step=2,
+                            free_len=frame.FAN_SCREW_LEN, insert=hole_at(x, y, z, (0, 1, 0))))
     for m in ci.duct_mounts:
         if [round(v, 6) for v in m["axis"]] != [0, 1, 0]:
             continue
         x, y, z = m["pos"]
-        y_seat = tabs.get(m.get("id"), y - 2.5)
-        out.append((f"duct tab {m.get('id', '')} M3x{cooling_mod.DUCT_TAB_SCREW_LEN:.0f} ({x}, {z})", (x, y_seat, z), (0, 1, 0),
-                    dk, k, ("duct_", "stub_duct"), 3))
+        ts = m.get("tab_size") or [None, 2.5]
+        y_seat = (m["hole_centre"][1] - ts[1] / 2) if m.get("hole_centre") else y - 2.5
+        L = cooling_mod.DUCT_TAB_SCREW_LEN
+        out.append(dict(name=f"duct tab {m.get('id', '')} M3x{L:.0f} ({x}, {z})", seat=(x, y_seat, z), ax=(0, 1, 0),
+                        dk=dk, k=k, L=L, clamps=("duct_", "stub_duct"), step=3, free_len=L,
+                        insert=hole_at(x, y, z, (0, 1, 0))))
     zt = frame.ZMAX + cover.WALL
     for sx in (-1, 1):
-        out.append((f"cover M3x6 ({sx * frame.COVER_SCREW_X}, {frame.COVER_SCREW_Y})",
-                    (sx * frame.COVER_SCREW_X, frame.COVER_SCREW_Y, zt), (0, 0, -1), dk, k, ("cover",), 4))
+        x, y = sx * frame.COVER_SCREW_X, frame.COVER_SCREW_Y
+        out.append(dict(name=f"cover M3x6 ({x}, {y})", seat=(x, y, zt), ax=(0, 0, -1), dk=dk, k=k, L=6.0,
+                        clamps=("cover",), step=4, free_len=6.0, insert=hole_at(x, y, frame.ZMAX, (0, 0, -1))))
     return out
+
+
+def _insert_wall(shape, h, knurl_d):
+    """Min plastic wall around an insert knurl: radial rays at two depths, 10 deg steps (point classification)."""
+    from build123d import Vector
+    x, y, z = h["pos"]
+    ax = h["axis"]
+    r0 = knurl_d / 2
+    worst, low = 99.0, 0
+    n = 0
+    for depth in (0.8, h["insert_len"] - 0.8):
+        for i in range(36):
+            t = math.radians(10 * i)
+            u, v = math.cos(t), math.sin(t)
+            r = r0
+            while r < r0 + 4.0:
+                if ax[1]:
+                    pt = Vector(x + r * u, y + ax[1] * depth, z + r * v)
+                else:
+                    pt = Vector(x + r * u, y + r * v, z + ax[2] * depth)
+                if not shape.is_inside(pt):
+                    break
+                r += 0.05
+            w = r - r0
+            worst = min(worst, w)
+            low += w < 1.6
+            n += 1
+    return round(worst, 2), round(low / n, 3)
 
 
 def _cyl_along(p0, axis, length, d):
@@ -258,11 +378,14 @@ def _step_of(name):
 
 
 def hardware_checks(parts, by, ci, stock_mode):
-    """Model the ISO 7380 heads and a straight driver path for every added screw. Heads vs every printed and
-    stock solid (overlap = FAIL); driver path vs the parts present at that screw's assembly step."""
+    """For every added screw: ISO 7380 head, shank and tip (R-02/R-03), and a straight driver path.
+    Head / shank vs every printed and stock solid (overlap = FAIL); the tip must end inside its insert with
+    THREAD_ENGAGE_MIN engagement and SCREW_TIP_MARGIN_MIN to the blind-hole floor; the driver path is checked
+    against the parts fitted at that screw's assembly step (frame -> fan -> duct -> cover)."""
     solids = [p for p in parts if p.category in ("printed", "reference", "stub") and p.in_assembly]
     H = RESULTS["clearance"].setdefault("screws", {})
-    for name, seat, ax, dk, k, clamps, step in _screw_list(by, ci):
+    for sc in _screw_list(by, ci):
+        name, seat, ax, dk, k, clamps, step = sc["name"], sc["seat"], sc["ax"], sc["dk"], sc["k"], sc["clamps"], sc["step"]
         head = _cyl_along(seat, ax, k, dk)
         top = tuple(seat[i] - ax[i] * k for i in range(3))
         hits, near, gaps = [], [], {}
@@ -288,9 +411,53 @@ def hardware_checks(parts, by, ci, stock_mode):
               + (f"INTERFERES with {', '.join(hits)}" if hits else "no interference")
               + (f"; nearest other part {min(gaps, key=gaps.get)} {min(gaps.values()):.3f} mm" if gaps else "")
               + (f"; closer than {HEAD_MIN_GAP} to {', '.join(near)}" if near else ""))
-        rec = {"seat": [round(v, 3) for v in seat], "axis": list(ax), "step": ASSEMBLY_ORDER[step - 1],
+        rec = {"seat": [round(v, 3) for v in seat], "axis": list(ax), "length": sc["L"], "step": ASSEMBLY_ORDER[step - 1],
                "head_interference": hits, "head_near": near,
                "head_gaps_mm": {k_: round(v_, 3) for k_, v_ in gaps.items()}, "access": {}}
+        # shank (free length) vs every solid
+        sh_end = tuple(seat[i] + ax[i] * sc["free_len"] for i in range(3))
+        shank = _cyl_along(sh_end, ax, sc["free_len"] - 0.02, SHANK_D)      # from the free-length end back to the seat
+        sh_hits = []
+        for p in solids:
+            if bbox_overlap(shank, p.shape):
+                v = vol(shank & p.shape)
+                if v > VOL_TOL and p.name.startswith("stock_"):
+                    ib = (shank & p.shape).bounding_box()
+                    if min(ib.size.X, ib.size.Y, ib.size.Z) < PEN_TOL:
+                        v = 0.0
+                if v > VOL_TOL:
+                    ib = (shank & p.shape).bounding_box()
+                    sh_hits.append(f"{p.name} {v:.2f} mm3 at X {ib.min.X:.1f}..{ib.max.X:.1f}, Y {ib.min.Y:.1f}..{ib.max.Y:.1f}, "
+                                   f"Z {ib.min.Z:.1f}..{ib.max.Z:.1f}")
+        rec["shank_interference"] = sh_hits
+        check(f"screw shank {name}", "FAIL" if sh_hits else "PASS",
+              f"Ø{SHANK_D} over {sc['free_len']:.1f} mm from the seat: " + ("; ".join(sh_hits) if sh_hits else "clear of every solid"))
+        # tip in its insert
+        h = sc["insert"]
+        if h is not None:
+            a_ = 1 if h["axis"][1] else 2
+            sgn = h["axis"][a_]
+            start = h["pos"][a_]
+            tip = seat[a_] + sgn * sc["L"]
+            engage = min(sgn * (tip - start), h["insert_len"])
+            margin = h["depth"] - sgn * (tip - start)
+            max_len = sc["L"] + margin - common.TIP_MARGIN_MIN
+            min_len = sc["L"] - (engage - common.THREAD_ENGAGE_MIN)
+            rec["tip"] = {"tip": round(tip, 3), "engagement_mm": round(engage, 2), "margin_to_floor_mm": round(margin, 2),
+                          "hole_depth": round(h["depth"], 2), "floor": round(h["floor"], 2),
+                          "safe_length_range_mm": [round(min_len, 2), round(max_len, 2)]}
+            if margin < 0:
+                tst = "FAIL"
+            elif margin < common.TIP_MARGIN_MIN - 1e-6 or engage < common.THREAD_ENGAGE_MIN - 1e-6:
+                tst = "WARN"
+            else:
+                tst = "PASS"
+            check(f"screw tip {name}", tst,
+                  f"tip at {'YZ'[a_ - 1]} {tip:.2f}: {engage:.2f} mm in the {h['insert_len']} mm insert (>= {common.THREAD_ENGAGE_MIN}), "
+                  f"{margin:.2f} mm to the blind-hole floor (>= {common.TIP_MARGIN_MIN}; hole {h['depth']:.2f} deep, floor "
+                  f"{h['floor']:.2f}); safe length {min_len:.1f}..{max_len:.1f} mm"
+                  + ("; the fan through-length (20, ESTIMATED M7) sets this: a 19.2 mm fan (STOCK_4020_POS depth) puts the "
+                     "tip 0.8 mm deeper" if name.startswith("fan") else ""))
         # driver access: parts present at this step (order frame -> fan -> duct -> cover), then with everything on
         for label, max_step in (("at its assembly step", step), ("service, everything fitted", 4)):
             present = [p for p in solids if _step_of(p.name) <= max_step]
@@ -317,6 +484,40 @@ def hardware_checks(parts, by, ci, stock_mode):
             check(f"screw access {name} ({label}: {', '.join(n for n in ASSEMBLY_ORDER[:max_step])} fitted)", st, txt)
         H[name] = rec
 
+    # insert audit (R-20): plastic wall around the knurl of every insert in the frame
+    fr = by["cooling_module_frame"]
+    knurl = common.INSERT_M3_KNURL_OD_MAX
+    for h in getattr(fr, "insert_holes", []):
+        w, share = _insert_wall(fr.shape, h, knurl)
+        h["wall_min_mm"], h["share_below_1.6"] = w, share
+        if w >= 1.6 - 1e-6:
+            st, why = "PASS", ""
+        elif w >= frame.TRIM_WALL_MIN - (knurl - common.INSERTS["M3"].hole_d) / 2 - 1e-6 and share <= 0.25:
+            st, why = "INFO", (" - local trim only (the boss is cut by a PCB screw's driver path or kept 0.3 inside the cover); "
+                               "the rest of the ring is >= 1.6")
+        else:
+            st, why = "WARN", ""
+        check(f"insert boss {h['id']}", st,
+              f"Ø{h['boss_d']} boss: min {w:.2f} mm of plastic around a Ø{knurl} knurl (target 1.6), {100 * share:.0f} % of the "
+              f"ring below 1.6; blind hole {h['depth']:.2f} deep, floor {h['floor']:.2f}" + why)
+    RESULTS["clearance"]["frame_insert_holes"] = getattr(fr, "insert_holes", [])
+
+    # fan corner holes vs the modelled outlet nozzle (R-02): a bore through the discharge channel is impossible
+    for f in ci.fans:
+        nz = f.get("nozzle")
+        if nz is None:
+            continue
+        for b in f["screw_bosses"]:
+            L = b.get("through_length") or 0
+            x, y, z = b["pos"]
+            bore = cyl_y(x, z, y, y - L, cooling_mod.FAN_HOLE_D)
+            v = vol(bore & nz)
+            if v > VOL_TOL:
+                check(f"fan {f['id']} hole ({x}, {z}) vs outlet nozzle", "WARN",
+                      f"{v:.0f} mm3 of the Ø{cooling_mod.FAN_HOLE_D} x {L} bore lies in the modelled outlet column "
+                      f"({f['outlet']['size']} at {f['outlet']['centre']}): hole positions (DERIVED, generic Henlor fan) "
+                      f"and outlet (ESTIMATED) contradict each other - measure the 4020 (M7)")
+
 
 # ---------------------------------------------------------------- main
 def main():
@@ -340,6 +541,9 @@ def main():
     printed = [p for p in parts if p.printed()]
     asm_movers = [p for p in parts if p.category in ("printed", "stub") and p.in_assembly]
     refs = [p for p in parts if p.category == "reference"]   # includes stock_* solids in cache mode
+    # fans move with the toolhead: checked like printed parts (stock solids, LiDAR, limits, footprint) - R-16
+    fans = [p for p in parts if p.name.startswith("ref_blower_")]
+    movers = asm_movers + [f for f in fans if f not in asm_movers]
 
     # ---- 1. per part ---------------------------------------------------------
     for p in printed:
@@ -372,7 +576,7 @@ def main():
               f"valid={s.is_valid} solids={len(sols)} watertight={m.is_watertight} V={s.volume:.0f} mm3 "
               f"m={info['mass_g']} g ({p.material})")
         w = info["wall"]
-        st = "FAIL" if w["share_below_min_wall"] > WALL_FAIL_SHARE else ("WARN" if w["min_mm"] < MIN_WALL else "PASS")
+        st = "FAIL" if w["share_below_min_wall"] > WALL_FAIL_SHARE else ("WARN" if w["min_mm"] < MIN_WALL - WALL_EPS else "PASS")
         thin_txt = ""
         if w["thin_rays_parallel_faces"] + w["thin_rays_acute_edges"]:
             thin_txt = (f"; thin rays: {w['thin_rays_parallel_faces']} between parallel faces (thin wall), "
@@ -385,6 +589,10 @@ def main():
         check(f"{p.name}: overhang > {OVERHANG_DEG:.0f} deg (print orientation)", "INFO",
               f"{100 * o['overhang_gt45_share_of_total']:.1f} % of surface, {100 * o['overhang_gt45_share_of_downward']:.0f} % "
               f"of downward faces; flat ceilings (bridges) {o['horizontal_ceilings_mm2 (bridges)']} mm2")
+        bc = o["bed_contact_mm2"]
+        check(f"{p.name}: bed contact (own print frame, rot {tuple(p.print_rot)})",
+              "FAIL" if bc <= 0.0 else ("WARN" if bc < BED_CONTACT_WARN else "PASS"),
+              f"{bc:.1f} mm2 of flat down-facing faces on the plate (WARN < {BED_CONTACT_WARN:.0f}, FAIL at 0; review R-05)")
 
     for issue in getattr(by["cooling_module_frame"], "issues", []):
         check("cooling interface mount point", "WARN" if "optional - skipped" in issue else "FAIL", issue)
@@ -393,7 +601,8 @@ def main():
     cands = asm_movers + refs
     for i, a in enumerate(cands):
         for b in cands[i + 1:]:
-            if a.category == "reference" and b.category == "reference":
+            if a.category == "reference" and b.category == "reference" and not (
+                    a.name.startswith("ref_blower_") or b.name.startswith("ref_blower_")):
                 continue
             if a.category == "stub" and b.category == "stub" and not (
                     a.name.startswith("stub_duct") or b.name.startswith("stub_duct")):
@@ -426,7 +635,21 @@ def main():
                     ov_eff = ov
             else:
                 ov_eff = ov
-            if ov_eff > VOL_TOL:
+            if kind == "capped" and ov_eff > VOL_TOL:
+                fan_p = a if a.name.startswith("ref_blower_") else b
+                env = next((f["envelope"] for f in ci.fans if fan_p.name.endswith(f["model"])), None)
+                band = None
+                if env is not None:
+                    band = bx(env[0] - 5, env[1] + 5, env[2] - 5, env[3] + 5, env[4] - 0.01,
+                              env[4] + cooling_mod.FAN_NOZZLE_DEPTH + 0.01)
+                outside = ov_eff - (vol((sa & sb) & band) if band is not None else 0.0)
+                ib = (sa & sb).bounding_box()
+                note += (f" [overlap at X {ib.min.X:.2f}..{ib.max.X:.2f}, Y {ib.min.Y:.2f}..{ib.max.Y:.2f}, "
+                         f"Z {ib.min.Z:.2f}..{ib.max.Z:.2f}; cap {SOCKET_OVERLAP_CAP} mm3, outside the socket band "
+                         f"{outside:.3f} mm3]")
+                row["note"] = note
+                st = "PASS" if ov_eff <= SOCKET_OVERLAP_CAP and outside <= VOL_TOL else "FAIL"
+            elif ov_eff > VOL_TOL:
                 st = "PASS" if kind == "overlap" else "FAIL"
             elif dist < CONTACT_TOL:
                 st = "PASS" if kind else "WARN"
@@ -443,7 +666,7 @@ def main():
     C = RESULTS["clearance"]
     hz = float(I.HOT_ZONE_CLEARANCE)
     hot = [ibox(I.SOCK), ibox(I.HEATER_BODY)]
-    for p in asm_movers:
+    for p in movers:
         d = min(p.shape.distance_to(h) for h in hot)
         C.setdefault("hot_zone_mm", {})[p.name] = round(d, 2)
         check(f"hot zone {p.name}", "PASS" if d >= hz else "FAIL", f"{d:.2f} mm to sock/heater (>= {hz})")
@@ -451,7 +674,7 @@ def main():
     allow_regions = frame.lidar_allow_regions()
     zones = [(n, ibox(getattr(I, n))) for n in ("LIDAR_RESERVED_OPTICAL", "LIDAR_RESERVED_BODY")]
     zones.append(("LIDAR_LASER_SHEET", by["keepout_lidar_laser_sheet"].shape))
-    for p in asm_movers:
+    for p in movers:
         for zn, z in zones:
             inter = p.shape & z
             v = vol(inter)
@@ -561,19 +784,13 @@ def main():
               f"mating face at Y {y:.2f} {100 * f_face:.0f} % solid; screw along {m['axis']}")
 
     zmin_lim = float(I.DUCT_MIN_Z)
-    for p in asm_movers:
+    for p in movers:
         zm = p.shape.bounding_box().min.Z
         check(f"DUCT_MIN_Z {p.name}", "PASS" if zm >= zmin_lim - 1e-6 else "FAIL", f"lowest Z {zm:.2f} (>= {zmin_lim})")
     check("DUCT_MIN_Z probe pin (exempt: stock purchased part, today's state)", "INFO",
           f"stowed tip Z {float(I.PROBE_STOWED_TIP_Z):.2f} < DUCT_MIN_Z {zmin_lim} - unchanged by this design")
 
-    ry = float(I.REAR_LIMIT_Y)
-    rear_box = bx(-200, 200, ry, 300, -50, 30)
-    for p in asm_movers + [by["ref_microprobe_body"]]:
-        v = vol(p.shape & rear_box)
-        ymax = p.shape.bounding_box().max.Y
-        st = "PASS" if v <= VOL_TOL else "FAIL"
-        check(f"rear limit {p.name}", st, f"max Y {ymax:.2f}; volume behind Y {ry} below Z 30: {v:.3f} mm3")
+    rear_footprint_check(movers + [by["ref_microprobe_body"]])
     pm_y = by["probe_mount"].shape.bounding_box().max.Y
     check("probe_mount rear vs today's 785004 rear (keep-out zones unchanged)",
           "PASS" if pm_y <= I.PROBE_ADAPTER_785004.ymax + 1e-6 else "WARN",
@@ -584,7 +801,7 @@ def main():
     for x, z in list(I.MODULE_MOUNT_HOLES) + [frame.fourth_corner()]:
         c = cyl_y(x, z, -40, -20, max(frame.BOSS_D, frame.F_PAD4_D) + 0.02)
         boss_cols = c if boss_cols is None else boss_cols + c
-    for p in asm_movers:
+    for p in movers:
         v = vol(p.shape & zone)
         v_ok = vol(p.shape & zone & boss_cols) if p.name == "cooling_module_frame" else 0.0
         st = "PASS" if v - v_ok <= VOL_TOL else "FAIL"
@@ -598,7 +815,7 @@ def main():
     # X ends: carriage stalls against the right XY joint inside XY_JOINT_BAND_Z (hard right, soft left)
     zb0, zb1 = I.XY_JOINT_BAND_Z
     rl, ll = float(I.RIGHT_LIMIT_X), float(I.LEFT_LIMIT_X)
-    for p in asm_movers:
+    for p in movers:
         vr = vol(p.shape & bx(rl, rl + 200, -300, 300, zb0, zb1))
         vl = vol(p.shape & bx(ll - 200, ll, -300, 300, zb0, zb1))
         band = p.shape & bx(-300, 300, -300, 300, zb0, zb1)
@@ -714,6 +931,49 @@ def main():
         if isinstance(v, dict) and "first_mode_Hz" in v:
             check(f"frame mode estimate: {k}", "PASS" if v["first_mode_Hz"] > 2 * 77.6 else "WARN",
                   f"{v['first_mode_Hz']} Hz (want > 2 x 77.6 Hz)")
+
+    # tolerance stack-up (R-16), worst case and RSS, against the nominal margins this report measured
+    jt, pt = TOL_JOINT, TOL_PRINT
+    duct_hz = C.get("hot_zone_mm", {}).get("duct_body")
+    duct_zmin = by["duct_body"].shape.bounding_box().min.Z if "duct_body" in by else None
+    loc = (frame.SLEEVE_LOCATE_D - frame.SLEEVE_OD) / 2           # frame on the lower-left sleeve
+    chain_duct = [("frame on its locating sleeve", loc), ("frame print (lug insert)", pt), ("duct tab hole on M3", jt),
+                  ("duct print", pt)]
+    chain_head = [("fan hole on M3", jt), ("frame print (fan insert)", pt), ("cover on its 2 screws", jt), ("cover print", pt)]
+    stack = {}
+    for nm, ch in (("duct position", chain_duct), ("fan screw head vs cover hole", chain_head)):
+        wc = sum(v for _, v in ch)
+        rss = math.sqrt(sum(v * v for _, v in ch))
+        stack[nm] = {"chain": {k: round(v, 3) for k, v in ch}, "worst_case_mm": round(wc, 2), "rss_mm": round(rss, 2)}
+    margins = {}
+    if duct_hz is not None:
+        margins["HOT_ZONE_CLEARANCE (duct)"] = round(duct_hz - hz, 2)
+    if duct_zmin is not None:
+        margins["DUCT_MIN_Z (duct)"] = round(duct_zmin - zmin_lim, 2)
+    margins["fan head hole radial clearance"] = cover.FAN_HEAD_CLEAR
+    stack["nominal_margins_mm"] = margins
+    C["tolerance_stack"] = stack
+    d_ = stack["duct position"]
+    h_ = stack["fan screw head vs cover hole"]
+    check("tolerance stack-up (R-16; +-%.1f per joint, +-%.1f per print)" % (jt, pt), "INFO",
+          f"duct position worst case {d_['worst_case_mm']} / RSS {d_['rss_mm']} mm vs margins {margins.get('HOT_ZONE_CLEARANCE (duct)')} "
+          f"(hot zone) and {margins.get('DUCT_MIN_Z (duct)')} (DUCT_MIN_Z): the worst case exceeds both - duct target for S8; "
+          f"fan head vs cover hole worst case {h_['worst_case_mm']} / RSS {h_['rss_mm']} mm vs {cover.FAN_HEAD_CLEAR} radial")
+
+    a4 = RESULTS["stiffness"]["frame"].get("4th anchor (right stock cover-screw insert, review R-04)")
+    if a4:
+        check("frame 4th anchor to the right cover-screw insert (R-04)", "INFO",
+              f"pitch +{a4['pitch_k_added_Nmm_per_rad']} N.mm/rad ({a4['vs_3_screw_pessimistic']} of the 3-screw pessimistic "
+              f"case); {a4['verdict']}")
+    duct_p = next((d for d in ci.duct_parts if d.category == "printed"), None)
+    if duct_p is not None and ci.duct_tabs:
+        de = stiffness.duct_estimates(duct_p.shape, ci.duct_tabs, MATERIALS[duct_p.material].density.value)
+        RESULTS["stiffness"]["duct"] = de
+        lo, up = de["pitch_mode_Hz_lower (pads + arm torsion)"], de["pitch_mode_Hz_upper (pads only)"]
+        check("duct cantilever pitch mode estimate (R-22)", "PASS" if lo > 2 * 77.6 else "WARN",
+              f"{lo}..{up} Hz (want > 2 x 77.6 Hz); lever {de['lever_mm (tab mating face -> rear end)']} mm from the tab "
+              f"face, J {de['J_about_tab_line_gmm2']} g.mm2 about the tab line; weak link: the tab arms in torsion "
+              f"{[r['arm_torsion_k_Nmm_per_rad'] for r in de['tabs']]} N.mm/rad")
 
     # ---- 6. dependencies / release ---------------------------------------------
     RESULTS["unconfirmed_global"] = [list(r) for r in I.all_unconfirmed()]

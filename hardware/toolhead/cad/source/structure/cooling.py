@@ -63,6 +63,12 @@ STUB_HOLES_XZ = [(prm(G, "STUB_4020_HOLE2_X", -18.65, "STUB", "stock 4020 screw,
 # 4020 (or the 5015s) is in interfaces.py; 28 is the value this adapter always used.
 FAN_INLET_D = prm("fan", "FAN_INLET_D", 28.0, "ESTIMATED",
                   "4020 blower inlet ring diameter, generic 40 mm blower frames (not in interfaces.py); measure (M7)")
+FAN_NOZZLE_DEPTH = prm("fan", "FAN_NOZZLE_DEPTH", 4.0, "ESTIMATED",
+                       "outlet nozzle height above the outlet plane = duct socket depth (duct_interface.json "
+                       "fan_mounting: 'slides over the fan outlet nozzle (4 mm deep ...)'); real shape M7")
+FAN_HOLE_D = prm("fan", "FAN_HOLE_D", 3.4, "ESTIMATED",
+                 "fan corner holes modelled as Ø3.4 through-holes (interfaces BlowerSpec.hole_d, untagged there); the "
+                 "stock M3x18 grip suggests tapping holes instead (review R-03) - M7")
 STUB_DUCT_WALL = prm(G, "STUB_DUCT_WALL", 1.2, "STUB", "placeholder duct shell wall")
 STUB_DUCT_TIP_Y = prm(G, "STUB_DUCT_TIP_Y", -12.0, "STUB", "nozzle-end face; sock front -8.6 + 3 clearance")
 STUB_DUCT_ZMIN = prm(G, "STUB_DUCT_ZMIN", 3.0, "STUB", ">= DUCT_MIN_Z")
@@ -79,6 +85,7 @@ class CoolingInterface:
     duct_mounts: list = field(default_factory=list)
     duct_parts: list = field(default_factory=list)  # PartSpec
     duct_air: object = None                         # internal air path of the real duct (checks only)
+    duct_tabs: list = field(default_factory=list)   # duct_generator tab records (xyz, pad, arm_from_x, face_y)
     status: str = "STUB"
     raw: dict = field(default_factory=dict)
 
@@ -148,20 +155,47 @@ def _convert_ducts_schema(d: dict) -> dict:
             ax = b["axis"]
             half = b.get("through_length", 0.0) / 2
             pos = [b["xyz"][i] + ax[i] * half for i in range(3)]     # fan face toward the frame
-            bosses.append({"pos": pos, "axis": ax, "screw": "M3", "kind": "insert", "status": b.get("status", "")})
+            bosses.append({"pos": pos, "axis": ax, "screw": "M3", "kind": "insert", "status": b.get("status", ""),
+                           "through_length": b.get("through_length")})
         fans.append({"id": fid, "model": model_of.get(str(f.get("type")), "BLOWER_4020_STOCK"), "envelope": env,
                      "intake": {"center": c, "normal": n, "d": FAN_INLET_D}, "screw_bosses": bosses,
-                     "mass_g": f.get("mass_g")})
+                     "mass_g": f.get("mass_g"),
+                     "outlet": {"centre": f.get("outlet_centre"), "size": f.get("outlet_size_mm"),
+                                "blow": f.get("outlet_blow_dir")} if f.get("outlet_centre") else None})
     mounts = []
     for t in d.get("duct_attach_points", []):
         hc, mf = t["hole_centre"], t.get("mating_face", {})
         pos = [hc[0], mf.get("face_y", hc[1]), mf.get("face_z", hc[2])] if "face_y" in mf else \
               [hc[0], hc[1], mf.get("face_z", hc[2])]
         mounts.append({"id": t.get("id"), "pos": pos, "axis": t["screw_axis"], "screw": t.get("screw", "M3"),
-                       "kind": "insert", "optional": "optional" in t.get("note", ""), "note": t.get("note", "")})
+                       "kind": "insert", "optional": "optional" in t.get("note", ""), "note": t.get("note", ""),
+                       "hole_centre": hc, "tab_size": t.get("tab_size_mm")})
     return {"schema": d.get("schema"), "status": "FINAL" if d.get("final_mount_points") else
             f"PROVISIONAL {d.get('version', '')}", "fans": fans, "duct_mounts": mounts,
             "duct_param_set": d.get("duct_param_set"), "duct_materials": d.get("duct_materials", "PC")}
+
+
+def fan_solid(env, outlet, bosses):
+    """Blower solid (R-02): the envelope minus the band the duct socket occupies (FAN_NOZZLE_DEPTH above the
+    outlet plane), plus the outlet nozzle (outlet rectangle from duct_interface.json, that depth), minus the
+    corner holes (FAN_HOLE_D over through_length). Falls back to the envelope box (stub). Returns
+    (solid, nozzle or None). Everything here is ESTIMATED until the 4020 is measured (M7)."""
+    box = bx(*env)
+    if not outlet or not outlet.get("centre") or [round(v, 6) for v in (outlet.get("blow") or [])] != [0, 0, -1]:
+        return box, None
+    (cx, cy, cz), (sx, sy) = outlet["centre"], outlet["size"]
+    if abs(cz - env[4]) > 1e-6:
+        return box, None
+    zt = env[4] + FAN_NOZZLE_DEPTH
+    nozzle = bx(cx - sx / 2, cx + sx / 2, cy - sy / 2, cy + sy / 2, env[4], zt)
+    solid = bx(env[0], env[1], env[2], env[3], zt, env[5]) + nozzle
+    for b in bosses:
+        ax, L = b["axis"], b.get("through_length")
+        if [round(v, 6) for v in ax] != [0, 1, 0] or not L:
+            continue
+        x, y, z = b["pos"]                       # rear face; the hole runs forward over the through-length
+        solid = solid - cyl_y(x, z, y + 0.01, y - L - 0.01, FAN_HOLE_D)
+    return solid, nozzle
 
 
 def _from_dict(d: dict, is_stub: bool, source: str) -> CoolingInterface:
@@ -172,11 +206,11 @@ def _from_dict(d: dict, is_stub: bool, source: str) -> CoolingInterface:
         env = f.get("envelope")
         if env is None:
             raise KeyError(f"duct_interface fan {f.get('id')}: 'envelope' [xmin..zmax] required")
-        solid = bx(*env)
+        solid, nozzle = fan_solid(env, f.get("outlet"), f.get("screw_bosses", []))
         mass = f.get("mass_g") or (float(spec.mass_g) if spec is not None else None)
         ci.fans.append({"id": f.get("id"), "model": f.get("model", "fan"), "solid": solid, "mass_g": mass,
                         "screw_bosses": f.get("screw_bosses", []), "envelope": env,
-                        "intake": f.get("intake"), "outlet": f.get("outlet"),
+                        "intake": f.get("intake"), "outlet": f.get("outlet"), "nozzle": nozzle,
                         "notes": "STUB pose" if is_stub else f"pose from {source}"})
     ci.duct_mounts = d.get("duct_mounts", [])
     for m in ci.duct_mounts + [b for f in ci.fans for b in f["screw_bosses"]]:
@@ -234,7 +268,7 @@ def _register_duct_deps(d: dict) -> list[str]:
     names.append(reg("DUCT_HOTEND_VERSION", 2023.0, "ESTIMATED",
                      "SOCK / HEATER_BODY / NOZZLE_* are the 2023 ceramic hotend; a 'Unicorn' hotend changes the "
                      "stack by 1.6 mm (missing-information M1) and moves the ports relative to the tip"))
-    return ["DUCT_MOUNT_POINTS_FINAL"] + names + DUCT_INTERFACE_DEPS
+    return ["DUCT_MOUNT_POINTS_FINAL", "FAN_NOZZLE_DEPTH", "FAN_HOLE_D"] + names + DUCT_INTERFACE_DEPS
 
 
 def real_interface(params: dict | None = None) -> CoolingInterface:
@@ -267,6 +301,8 @@ def real_interface(params: dict | None = None) -> CoolingInterface:
         if body is None:
             raise KeyError("build_ducts() returned no 'body' part")
         ci.duct_air = out.get("air") if isinstance(out, dict) else None
+        info = out.get("_info", {}) if isinstance(out, dict) else {}
+        ci.duct_tabs = [dict(t, hole_centre=list(t["xyz"])) for t in info.get("tabs", [])]
         n_tabs = len(ci.duct_mounts)
         hw = [(f"M3x{DUCT_TAB_SCREW_LEN:.0f} ISO 7380 (duct tab to frame lug insert)", n_tabs,
                screw_mass_g(3, DUCT_TAB_SCREW_LEN))] if n_tabs else []

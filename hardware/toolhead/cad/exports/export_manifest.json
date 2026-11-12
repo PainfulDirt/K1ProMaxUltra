@@ -11,8 +11,8 @@
   "cooling_module_frame": {
    "material": "ASA",
    "category": "printed",
-   "volume_mm3": 5457.571,
-   "mass_g_solid": 5.84,
+   "volume_mm3": 5860.046,
+   "mass_g_solid": 6.27,
    "density_g_cm3": "1.07 (ESTIMATED)",
    "print_rot_deg": [
     180,
@@ -21,45 +21,45 @@
    ],
    "notes": "ASA (DD-07): nearest point 13.7 mm from the sock = the PCB boss columns at Z 34.3 (heatsink level, which DD-07 names as acceptable in ASA; their lower edge reaches Z 30.55, 1.4 mm below the heatsink bottom Z 31.9). Everything else below the heatsink (plate edge, duct lugs) is 22.9 mm from the sock, outside DD-07's 15 mm hot zone. PCB screws M3x30 (stock + 11.2 mm).",
    "bbox_print": [
-    -24.925,
-    -12.65,
+    -25.375,
+    -12.975,
     0.0,
-    24.925,
-    12.65,
-    55.9
+    25.375,
+    12.975,
+    56.55
    ],
    "size_print_mm": [
-    49.85,
-    25.3,
-    55.9
+    50.75,
+    25.95,
+    56.55
    ],
    "files": {
     "step": {
      "path": "exports/step/cooling_module_frame.step",
-     "sha256_16": "485e8840c83684b8",
+     "sha256_16": "bccb80318775975c",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 3.6162669472560574e-14,
+     "dV_rel": 2.9488502811069006e-14,
      "dBB_mm": 1.4210854715202004e-14,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/cooling_module_frame.3mf",
-     "sha256_16": "94fa2bfbce6aab0b",
+     "sha256_16": "47ff34394b7be78e",
      "objects": 1,
-     "dV_rel": 1.1031561999498931e-05,
-     "dBB_mm": 0.0011199951172002898,
+     "dV_rel": 3.0125549189014327e-05,
+     "dBB_mm": 0.0013206481933707437,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/cooling_module_frame.stl",
-     "sha256_16": "1676c928e156f898",
+     "sha256_16": "76baf8bdc257fe46",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 12956,
-     "dV_rel": 1.102327056214895e-05,
-     "dBB_mm": 0.0011199951172002898,
+     "triangles": 13048,
+     "dV_rel": 3.012563312865839e-05,
+     "dBB_mm": 0.0013206481933707437,
      "pass": 1.0
     }
    }
@@ -67,8 +67,8 @@
   "cover": {
    "material": "ASA",
    "category": "printed",
-   "volume_mm3": 5930.806,
-   "mass_g_solid": 6.35,
+   "volume_mm3": 5922.454,
+   "mass_g_solid": 6.34,
    "density_g_cm3": "1.07 (ESTIMATED)",
    "print_rot_deg": [
     90,
@@ -92,29 +92,29 @@
    "files": {
     "step": {
      "path": "exports/step/cover.step",
-     "sha256_16": "94c101cd8fb10bac",
+     "sha256_16": "df9a9fd6012aa964",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 1.9935622699157114e-15,
-     "dBB_mm": 1.4743761767022079e-12,
+     "dV_rel": 6.1426876949759556e-15,
+     "dBB_mm": 1.4210854715202004e-14,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/cover.3mf",
-     "sha256_16": "c85287e496c4edd7",
+     "sha256_16": "066d997d0024498d",
      "objects": 1,
-     "dV_rel": 6.55735041157134e-05,
+     "dV_rel": 6.57644822855127e-05,
      "dBB_mm": 3.8146970737784613e-07,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/cover.stl",
-     "sha256_16": "74d4b0c503c48a77",
+     "sha256_16": "5602c9fde2bc8eb8",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 2632,
-     "dV_rel": 6.557552918991541e-05,
+     "triangles": 2560,
+     "dV_rel": 6.57668526147836e-05,
      "dBB_mm": 3.8146970737784613e-07,
      "pass": 1.0
     }
@@ -148,7 +148,7 @@
    "files": {
     "step": {
      "path": "exports/step/probe_mount.step",
-     "sha256_16": "96ca5ec8c68ee46d",
+     "sha256_16": "38a981b0dbf2e7c9",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -158,7 +158,7 @@
     },
     "3mf": {
      "path": "exports/3mf/probe_mount.3mf",
-     "sha256_16": "cba4e0e0a4021134",
+     "sha256_16": "83af50d5b2969169",
      "objects": 1,
      "dV_rel": 8.522872665498465e-06,
      "dBB_mm": 7.629394573882564e-07,
@@ -179,8 +179,8 @@
   "fitcheck_coupon": {
    "material": "ASA",
    "category": "fitcheck",
-   "volume_mm3": 2702.113,
-   "mass_g_solid": 2.89,
+   "volume_mm3": 2791.502,
+   "mass_g_solid": 2.99,
    "density_g_cm3": "1.07 (ESTIMATED)",
    "print_rot_deg": [
     90,
@@ -204,29 +204,29 @@
    "files": {
     "step": {
      "path": "exports/step/fitcheck_coupon.step",
-     "sha256_16": "160862bea16e896a",
+     "sha256_16": "7b37431cb2f0cd7a",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 1.0434182224259155e-14,
+     "dV_rel": 1.4661373881946006e-14,
      "dBB_mm": 7.105427357601002e-15,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/fitcheck_coupon.3mf",
-     "sha256_16": "fde4938695da2caa",
+     "sha256_16": "5433e46aee88a26b",
      "objects": 1,
-     "dV_rel": 4.7966791254876244e-05,
+     "dV_rel": 3.380347872802776e-05,
      "dBB_mm": 4.5776367230132564e-07,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/fitcheck_coupon.stl",
-     "sha256_16": "f06518dfac326a09",
+     "sha256_16": "64420a1c36c0b6a9",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 8454,
-     "dV_rel": 4.795454528512131e-05,
+     "triangles": 8452,
+     "dV_rel": 3.379392148600346e-05,
      "dBB_mm": 4.5776367230132564e-07,
      "pass": 1.0
     }
@@ -260,7 +260,7 @@
    "files": {
     "step": {
      "path": "exports/step/duct_body.step",
-     "sha256_16": "80ca7f21029dbe1b",
+     "sha256_16": "66faddbb4399d34a",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -270,7 +270,7 @@
     },
     "3mf": {
      "path": "exports/3mf/duct_body.3mf",
-     "sha256_16": "33d83ec6c1c70164",
+     "sha256_16": "6ea697860b31337f",
      "objects": 1,
      "dV_rel": 9.943915824251118e-06,
      "dBB_mm": 1.143757657473543e-06,
@@ -291,7 +291,7 @@
  },
  "assembly": {
   "path": "exports/step/k1max_toolhead_assembly.step",
-  "sha256_16": "af67eadab8d26c8c",
+  "sha256_16": "05b555b685a9eb94",
   "leaves": 29,
   "groups": [
    "keepout_volumes",
@@ -302,11 +302,11 @@
   "parts": {
    "cooling_module_frame": {
     "group": "printed_parts",
-    "volume_mm3": 5457.571
+    "volume_mm3": 5860.046
    },
    "cover": {
     "group": "printed_parts",
-    "volume_mm3": 5930.806
+    "volume_mm3": 5922.454
    },
    "probe_mount": {
     "group": "printed_parts",
@@ -378,7 +378,7 @@
    },
    "ref_blower_1_BLOWER_4020_STOCK": {
     "group": "reference_stock_parts",
-    "volume_mm3": 32000.0
+    "volume_mm3": 29348.069
    },
    "keepout_pcb_component_zone": {
     "group": "keepout_volumes",
