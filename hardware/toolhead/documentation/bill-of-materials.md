@@ -1,16 +1,17 @@
 # Bill of materials (per toolhead)
 
-The build is decided (DD-01): **one stock Creality 4020 blower (the one already fitted) + the S7
+The build is decided (DD-01): **one stock Creality 4020 blower (the one already fitted) + the S8
 duct + a new cooling-module frame and cover** on the PCB's three-hole pattern. The carriage, hotend,
 extruder, nozzle PCB, 3010, LiDAR and MicroProbe positions are stock and unchanged. The electrics are
 unchanged too (stock PB8 / PB6 / PB3, `electrical.md` §1). This page is the BOM for that build.
-The Same Sky 5015 option is a conditional upgrade and has its own section (§3). Two fans and the
-Delta are rejected (DD-01, `cfd-report.md` §10) and are not listed.
+The duct body is HT resin from a print service (DD-07a, the user's decision). Two fans and the Delta
+are rejected (DD-01) and are not listed. The Same Sky 5015 is not buildable in this architecture
+(§3).
 
 Release status per line (from `cad/exports/validation_report.md`):
 - **PRINT FIRST**: the fit-check coupon. It exists to confirm the ESTIMATED values.
-- **FIT-CHECK FIRST**: print it after the coupon passes and the listed M# are answered, then check
-  it on the printer before trusting it (`assembly.md`).
+- **FIT-CHECK FIRST**: print or order it after the coupon passes and the listed M# are answered,
+  then check it on the printer before trusting it (`assembly.md`).
 - **NOT RELEASED**: depends on MISSING data. Do not print it for use.
 - **RELEASED**: buy or use now.
 
@@ -20,52 +21,59 @@ Screw sizes come from the CAD sources named in each row (`cad/README.md` "BOM").
 ## 1. Printed parts
 
 Masses are solid-volume upper bounds (100 % infill) from the validation report, with ESTIMATED
-densities ASA 1.07, PC 1.20, PA-CF 1.15 g/cm³ (typical TDS values; use your spool's datasheet).
+densities ASA 1.07, PC 1.20, PA-CF 1.15 g/cm³ (typical TDS values; use your spool's datasheet). The
+duct's HT resin uses the PC density 1.20 as a placeholder until the resin TDS is known; HT resins are
+typically 1.2–1.3 g/cm³ (`cfd-report.md` §17.4), so about 9.4–10.2 g.
 Files: `cad/exports/3mf/<name>.3mf`, `cad/exports/stl/<name>.stl`, `cad/exports/step/<name>.step`.
-Print settings: `print-settings.md`.
+Print settings and the service order: `print-settings.md`.
 
 | Part | File name | Material | Mass, g | Qty | Status | Waiting for |
 |---|---|---|---|---|---|---|
-| Fit-check coupon | `fitcheck_coupon` | ASA (same spool as the frame) | 2.89 | 1 | **PRINT FIRST** | — |
-| Cooling-module frame | `cooling_module_frame` | ASA | 5.84 | 1 | **FIT-CHECK FIRST** (8 of 37 dependencies unconfirmed) | coupon result; M10 (PCB pads, component zone, 4th pad); M7 (4020 hole positions and through-length); M6 (LiDAR boxes); insert hole size |
-| Cover | `cover` | ASA | 6.35 | 1 | **FIT-CHECK FIRST** (4 of 18) | M7 (4020 intake face and inlet Ø28); M6 (LiDAR boxes); M9 (front clearance: front −58.2 vs −55.0) |
-| Duct body (S7) | `duct_body` | **PC** (or PA-CF, 8.9 g) | 9.24 | 1 | **FIT-CHECK FIRST** (12 of 24) | M7 (4020 outlet 17 × 13, hole positions, socket fit); M1 (hotend version); M8 (probe keep-out); M10; M6 |
-| MicroProbe mount | `probe_mount` | **PA-CF** (PC acceptable) | 11.45 | 1 | **NOT RELEASED** (12 of 39; `PM_ANCHOR_CONFIRMED_M8` MISSING) | M8 (785004 anchor, photo + calipers). Until then keep the 785004 |
+| Fit-check coupon | `fitcheck_coupon` | ASA (same spool as the frame) | 2.99 | 1 | **PRINT FIRST** | — |
+| Cooling-module frame | `cooling_module_frame` | ASA | 6.64 | 1 | **FIT-CHECK FIRST** (13 of 49 dependencies unconfirmed) | coupon result; M10 (PCB pads, component zone, 4th pad); M7 (4020 hole positions, hole type and through-length); M6 (LiDAR boxes); insert hole size; BT4M sleeve size (ESTIMATED until bought) |
+| Cover | `cover` | ASA | 6.34 | 1 | **FIT-CHECK FIRST** (4 of 19) | M7 (4020 intake face and inlet Ø28); M6 (LiDAR boxes); M9 (front clearance: front −58.2 vs −55.0) |
+| Duct body (S8) | `duct_body` (send the STEP) | **HT resin, 238 °C class** (HDT at 0.45 MPa after the full thermal post-cure, per the TDS), **from a print service** (DD-07a). Fallbacks: PC (FDM, `print-settings.md` §1) or MJF PA12 | 9.4 (PC density placeholder) | **2** (one spare: a resin lip chips rather than bends) | **FIT-CHECK FIRST** (14 of 26) | M7 (4020 outlet 13 × 17, nozzle depth, hole positions, socket fit); M1 (hotend version); M8 (probe keep-out); M10; M6. Order conditions: `print-settings.md` "Duct from a print service" |
+| 785004 probe adapter, reprint | the unchanged Printables 785004 STL (research/01 H.1) | **ASA, PC or PA-CF** (review R-27: today's adapter is of unknown material, possibly PLA/PETG, 5.1 mm from the sock) | not weighed (8.55 cm³: about 9.1–10.3 g depending on the material, ESTIMATED) | 1 | reprint before or with this build | — (same geometry, so the probe calibration does not change) |
+| MicroProbe mount | `probe_mount` | **PA-CF** (PC acceptable) | 11.45 | 1 | **NOT RELEASED** (12 of 39; `PM_ANCHOR_CONFIRMED_M8` MISSING) | M8 (785004 anchor, photo + calipers). Until then keep the (reprinted) 785004 |
 
 No PLA or PETG for any of these parts (DD-07).
 
-Moving-mass change vs stock: **−0.7 … +8.3 g** (validation report). That is the printed parts at
-100 % infill (46.7 g added, including 13.73 g of screws and inserts) minus the stock cover + duct
-(23.8–32.5 g), the 785004 adapter (10.6–10.9 g) and the stock PCB screws (3.9 g). The range assumes
-the new probe mount replaces the 785004. While the 785004 stays (probe mount not released), the
-change is about 0.6–0.9 g lower (11.45 g not added, 10.6–10.9 g not removed). Predicted X shaper
-76.9 … 77.7 Hz (77.6 Hz today), Y 51.8 … 52.0 Hz (52.0 Hz today), ESTIMATED.
+Moving-mass change vs stock: **+3.1 … +12.0 g** (validation report). That is the printed parts at
+100 % infill plus 16.5 g of screws, inserts, washers and the 3 brass sleeves (50.3 g added in all),
+minus the stock cover + duct (23.8–32.5 g), the 785004 adapter (10.6–10.9 g, PLA/PETG ESTIMATED) and
+the stock PCB screws (3.9 g). The range assumes the new probe mount replaces the 785004. While the
+785004 stays (probe mount not released), the change is about 0.6–0.9 g lower (11.45 g not added,
+10.6–10.9 g not removed); its reprint in ASA/PC/PA-CF changes that by an amount not weighed yet.
+Predicted X shaper 76.6 … 77.3 Hz (77.6 Hz today), Y 51.6 … 51.9 Hz (52.0 Hz today), ESTIMATED.
 
-## 2. Fasteners and inserts
+## 2. Fasteners, inserts, sleeves and seal
 
 | # | Item | Exact spec | Qty | Derived from | Status |
 |---|---|---|---|---|---|
 | F1 | PCB / module screws | **M3×30, ISO 7380 button head**, steel (8.8/10.9 or A2) | 3 | `frame.py` `FRAME_PCB_SCREW_LEN` 30: the frame adds 11.2 mm (9.2 boss + 2.0 plate) to the stock M3×18 / M3×18 / M3×20. The upper tips go 0.8 mm deeper than stock into the carriage inserts; the lower one has 7.3 mm engagement in the heatsink (stock 8.5). Tips checked at Y −3.5 against the Henlor carriage (validation PASS) | FIT-CHECK FIRST |
 | F2 | Washer, coupon only | M3, ISO 7089 (3.2 × 7 × 0.5) | 3 | the coupon plate is 1.6 mm against the frame's 2.0 mm; the washer restores the frame's screw depth (`print-settings.md` §5) | RELEASED |
-| F3 | M3 heat-set insert, brass, short | for a **Ø4.0** hole, length **≤ 4.5** (CAD 4.0). The hole is 5.0 deep (4.0 + 1.0 relief), so a standard 5.7 mm insert does **not** fit | frame: **6** (2 fan, 2 duct T_left / T_right, 2 cover); coupon: 1; spares: 5 | `common.py` `INSERTS["M3"]` (hole 4.0 ESTIMATED); `cad/README.md` BOM | FIT-CHECK FIRST (hole size, confirmed by the coupon) |
-| F4 | Cover screws | **M3×6, ISO 7380** | 2 | `frame.py` hardware list: through the 1.2 mm cover top wall, then 4.8 mm into the 5.0 mm insert hole. **Do not use M3×8**: it bottoms out | FIT-CHECK FIRST (follows the cover) |
-| F5 | Duct-to-frame screws | **M3×6, ISO 7380** | 2 | `cooling.py` `DUCT_TAB_SCREW_LEN` 6: duct tab 2.5 mm (`duct_interface.json` `tab_size_mm`) + 3.5 mm in the insert. Maximum usable length 2.5 + 5.0 = 7.5 | FIT-CHECK FIRST (follows the duct) |
-| F6 | Fan-to-frame screws | **M3×24** (ISO 4762 / DIN 912 or ISO 7380; check availability). Rule: L = fan hole through-length + 3.5 … 4.5, and **≤ through-length + 5.0**. M3×25 would bottom out exactly at 5.0 | 2 (the 4020's diagonal pair (−18.65, 60.3) and (16.05, 25.6)) | `frame.py` `FRAME_FAN_SCREW_LEN` 24 = through-length 20 + 4. **The 20 mm through-length is ESTIMATED (M7).** The stock fan is held by M3×18 through the same holes (research/02 C7), so the real length may be under 20: then M3×24 would bottom out. Measure the hole through-length first and buy L by the rule | FIT-CHECK FIRST; **length depends on M7** |
-| F7 | M2.5 heat-set insert, brass, short | for a **Ø3.6** hole, length ≤ 4.5 (CAD 4.0); hole depth 5.0 | coupon: 2; probe mount: 2 (later); spares: 4 | `common.py` `INSERTS["M2.5"]` (ESTIMATED) | coupon: RELEASED; probe mount: NOT RELEASED |
+| F3 | M3 heat-set insert, brass, short | for a **Ø4.0** hole, OD ≤ 5.0, length **4.0** (CAD). The fan and duct-tab holes are blind, **4.2 mm deep** with a 0.8 mm floor; the cover holes 6.0 mm deep. A longer insert (the common 5.7 mm type) does **not** fit | frame: **7** (2 fan, 3 duct T_left / T_right / T_3, 2 cover); coupon: 1; spares: 5 | `common.py` `INSERTS["M3"]` (hole 4.0 ESTIMATED); `cad/README.md` BOM | FIT-CHECK FIRST (hole size, confirmed by the coupon) |
+| F4 | Cover screws | **M3×6, ISO 7380** | 2 | through the 1.2 mm cover top wall, 4.0 mm in the insert; the tip ends 1.2 mm above the hole floor (safe length 4.5…6.7, validation PASS) | FIT-CHECK FIRST (follows the cover) |
+| F5 | Duct-tab screws | **M3×6, ISO 7380** | 3 (T_left, T_right, T_3) | `cooling.py` `DUCT_TAB_SCREW_LEN` 6: washer 0.5 + tab 2.5 + 3.0 in the insert; the tip ends 1.2 mm above the hole floor (safe length 5.5…6.7, validation PASS) | FIT-CHECK FIRST (follows the duct) |
+| F5a | Duct-tab washers | **M3, ISO 7089** (3.2 × 7 × 0.5), steel | 3 | DD-07a: the resin tab is brittle; the washer spreads the head load. Tighten only until the tab seats | FIT-CHECK FIRST (follows the duct) |
+| F6 | Fan-to-frame screws | **M3, ISO 7380 only** (an ISO 4762 head is 3.0 mm tall and stands 1.3 mm proud of the cover, review R-15). CAD length 24; **the final length is pending M7** | 2 (the 4020's diagonal pair (−18.65, 60.3) and (16.05, 25.6)) | `frame.py` `FRAME_FAN_SCREW_LEN` 24 = through-length 20 (ESTIMATED, M7) + 4. With a 20 mm through-length the safe length is **22.5…23.7 mm**, so M3×24 ends 0.2 mm from the insert-hole floor (validation WARN; no standard ISO 7380 length fits). The insert holes are blind, so an over-long screw stops on the floor instead of entering the PCB zone, but it then cannot clamp the fan. The stock fan is held by M3×18 through the same holes (research/02 C7), which suggests tapping holes, not 20 mm clearance holes. Measure the hole type and through-length (M7), then choose the length; if the holes are tapping holes the joint changes (review R-03) | FIT-CHECK FIRST; **length and joint depend on M7** |
+| F7 | M2.5 heat-set insert, brass, short | for a **Ø3.6** hole, length ≤ 4.5 (CAD 4.0) | coupon: 2; probe mount: 2 (later); spares: 4 | `common.py` `INSERTS["M2.5"]` (ESTIMATED) | coupon: RELEASED; probe mount: NOT RELEASED |
 | F8 | Probe screws | **M2.5×5** (BIQU kit), through the 2.1 mm flange, then 2.9 mm into the insert | 2 | `probe_mount.py` hardware; BIQU manual | RELEASED (reuse the kit's; also used on the coupon) |
 | F9 | Probe-mount anchor screws | **~M2, length unknown**: reuse 785004's. The holes are Ø2.4 clearance with a Ø4.2 × 2.95 counterbore | 2 | `probe_mount.py` `PM_ANCHOR_*` (DERIVED from 785004); size and length **MISSING (M8)** | NOT RELEASED |
 | F10 | Cable ties | 2.5 mm wide (slots 1.6 × 3.0 in the frame, 1.6 × 3.2 in the probe mount) | 3 (2 frame top corners, 1 probe-mount roof; the probe-mount one only once that part is released) | `frame.py` `TIE_SLOT`, `probe_mount.py` | RELEASED |
+| F11 | Brass compression sleeves | **Albion Alloys BT4M** brass tube, 4.0 OD × 0.45 wall (ID 3.1), sold in 305 mm lengths | 1 length → cut **3 × 11.10 mm** | `cad/README.md` "Brass compression sleeves (R-04)": one per PCB boss, in a Ø4.1 bore, 0.1 mm shorter than the ASA stack so the preload runs metal → PCB → 3010. ESTIMATED until bought; the lower-left bore is a close fit (Ø4.05), ream it to fit | FIT-CHECK FIRST (follows the frame) |
+| F12 | Fan-socket seal | Kapton (polyimide) tape, or a 0.5–1 mm thin foam gasket on the socket rim | a short strip | `cfd-report.md` §17.9: the socket has 0.25 mm clearance per side; unsealed, those slots leak about 0.09 L/s, about 11 % of the fan flow (ESTIMATED, hand calculation). The CFD assumes a sealed inlet | RELEASED (consumable) |
 
-**Insert length rule (all M3 and M2.5 inserts):** the CAD holes are 5.0 mm deep, sized for a 4.0 mm
-insert plus 1.0 mm of melt and screw-tip relief. Any insert up to 4.5 mm long fits. A longer one
-(the common 5.7 mm M3 type) leaves no relief, and the screws above (F4, F5, F6) were sized for
-**≤ 5.0 mm** of thread below the mating face. Changing insert length means changing screw lengths.
+**Insert length rule (all M3 and M2.5 inserts):** the CAD inserts are 4.0 mm long. Every M3 insert
+hole in the frame is blind with a 0.8 mm floor (review R-03): 4.2 mm deep in the fan standoffs and
+duct lugs, 6.0 mm in the cover shelf. Screw lengths (F4, F5, F6) were checked against that floor.
+Changing insert length means changing screw lengths and re-running `validate.py`.
 
 **Fan screw heads and the cover:** the F6 heads (ISO 7380, Ø5.7 × 1.65) stand proud of the 4020's
-front face. The cover therefore has Ø6.3 through-holes over both, with 0.3 mm clearance, and a 2.0 mm
-hex key reaches the screws through them with the cover on. `validate.py` models every added screw
-head and its driver path (PASS). Still check at the cover fit-check (`assembly.md` step 7): the hole
-positions follow the ESTIMATED 4020 hole positions (M7).
+front face. The cover therefore has Ø6.7 through-holes over both, with 0.5 mm radial clearance
+(review R-15), and a 2.0 mm hex key reaches the screws through them with the cover on. `validate.py`
+models every added screw head and its driver path (PASS). Still check at the cover fit-check
+(`assembly.md` step 7): the hole positions follow the ESTIMATED 4020 hole positions (M7).
 
 **Stock parts removed and kept for rollback** (`assembly.md` §3):
 - front cover + duct;
@@ -74,8 +82,8 @@ positions follow the ESTIMATED 4020 hole positions (M7).
 - PCB screws: 2 × M3×18 BHCS + 1 × M3×20 BHCS (N6/N7).
 
 **Stock parts reused unchanged:** carriage, hotend, heatsink, extruder, nozzle PCB, 3010 hotend
-fan, **the fitted 4020 blower**, LiDAR + bracket, MicroProbe + 785004 (until F9 and the probe mount
-are released).
+fan, **the fitted 4020 blower**, LiDAR + bracket, MicroProbe. The 785004 adapter keeps its geometry
+but is reprinted in ASA, PC or PA-CF (§1); keep the old one for rollback.
 
 **Electrical:** nothing to buy. The 4020 stays on the board's "Model Fan" socket. Only if its lead
 does not reach after the move (the fan sits 6–7 mm further forward than stock: Y −56.5…−36.5
@@ -87,15 +95,20 @@ one 4-pin extension. The pitch is unconfirmed (1.25 mm vs XH2.54, **MEASURE** fi
 
 | Item | Qty | Why | Price (snapshot) |
 |---|---|---|---|
-| Creality K1 / K1 Max 4020 blower, 24 V 0.3 A, 4-pin, **Creality 4004110132** | 1 spare | bench test V1 (P–Q curve, `cfd-report.md` §15 / `validation.md`) without taking the fitted fan off, and a spare | about $10–14 (`cfd-report.md` §12.1, research/03 §11–12 snapshot 2026-11-01; re-check at checkout) |
+| Creality K1 / K1 Max 4020 blower, 24 V 0.3 A, 4-pin, **Creality 4004110132** | 1 spare | bench test V1 (P–Q curve, `cfd-report.md` §15 / `validation.md`) and the M7 measurements without taking the fitted fan off; if the holes turn out to be tapping holes, the spare is the one to drill, so the fitted fan stays intact for rollback (review R-03); and a spare | about $10–14 (`cfd-report.md` §12.1, research/03 §11–12 snapshot 2026-11-01; re-check at checkout) |
 
-## 3. Conditional upgrade: Same Sky CBM-5015BF (not part of the baseline; do not order now)
+## 3. Same Sky CBM-5015BF: not buildable in this architecture (record only; do not order)
 
-Order this only if **both**: bench test V1 measures the stock 4020 at its lower bound (191 Pa
-shut-off), **and** the V5/V6 overhang and bridge prints show insufficient cooling (DD-01 "Would
-reverse it", `cfd-report.md` §12.1). The CFD gain is +13 % layer speed and +21 % part-top h over
-the 4020's lower bound, at +7.4 g plus a 3–6 g buck, a weaker minimum sector (−11 %) and +13 %
-nozzle loss (`cfd-report.md` §10–§11).
+**The Same Sky does not fit this frame and cover** (review R-13, `cfd-report.md` §17.8, DD-01): in
+the XY-joint band it needs 51.6 mm of housing + 1.0 mm stall margin + 2 × 1.7 mm of cover wall and
+gap = 56.0 mm, and 55.2 mm is available. It would need an open-sided or asymmetric cover and an
+accepted 0 mm stall margin, and the S8 duct has no Same Sky variant (S8SS was not run). The list
+below is kept as the record of what the upgrade would have needed. Its original trigger was: bench
+test V1 measures the stock 4020 at its lower bound (191 Pa shut-off), **and** the V5/V6 overhang and
+bridge prints show insufficient cooling (DD-01 "Would reverse it", `cfd-report.md` §12.1). The
+first-round CFD gain on S7 was +13 % layer speed over the 4020's lower bound, at +7.4 g plus a
+3–6 g buck, a weaker minimum sector (−11 %) and +13 % nozzle loss (`cfd-report.md` §10); its thermal
+figure (+21 % part-top h) came from an unclosed balance and is withdrawn (§17.7).
 
 | Item | Qty | EU source, price (snapshots, SECONDARY; re-check at checkout) |
 |---|---|---|
@@ -120,10 +133,9 @@ What the upgrade needs besides the parts (`electrical.md` §2):
   polarity and pull-up.
 - **Config:** `cycle_time: 0.002` (the fan's PWM minimum is 200 Hz). That is a printer-config change
   (`components/fans/klipper/part_fan_samesky.cfg`, example only), left to the user.
-- **CAD:** a different duct variant (`with_fan(PARAMS_FINAL, "samesky")`: the plenum enters from the
-  left, tabs at X 8 / 20) and therefore a frame regenerated from that interface (the Same Sky's holes
-  are Ø4.5, `interfaces.py`). **No buck mount is modelled** (`cad/README.md`). Re-run `validate.py`
-  before printing.
+- **CAD:** a different duct variant and cover (not modelled for S8; see above) and a frame
+  regenerated from that interface (the Same Sky's holes are Ø4.5, `interfaces.py`). **No buck mount
+  is modelled** (`cad/README.md`).
 - **Calibration:** MPC, shaper and fan checks again (`calibration.md`).
 
 ## 4. Tools
@@ -132,13 +144,14 @@ What the upgrade needs besides the parts (`electrical.md` §2):
 |---|---|
 | Soldering iron with temperature control, M2.5 and M3 heat-set insert tips | inserts (`print-settings.md` §3) |
 | Flat cold metal block (≈ 20 × 20 mm) | squaring inserts |
-| Hex keys 1.5 / 2.0 / 2.5 mm (ball-end 2.0 helps on ISO 7380 M3) | ISO 7380 M3 = 2.0; M3×24 ISO 4762 = 2.5; M2.5×5 BIQU = 2.0 (DIN 912 M2.5); ~M2 anchors = 1.5 (if SHCS); stock M3×4 ultra-low = 2.0 (ESTIMATED) |
+| Hex keys 1.5 / 2.0 / 2.5 mm (ball-end 2.0 helps on ISO 7380 M3) | ISO 7380 M3 (all new M3 screws) = 2.0; M2.5×5 BIQU = 2.0 (DIN 912 M2.5); ~M2 anchors = 1.5 (if SHCS); stock M3×4 ultra-low = 2.0 (ESTIMATED); the stock M3×18 / M3×20 BHCS = 2.0 |
 | Calipers ±0.05, feeler gauges 0.05–0.5 | coupon, part checks, hole through-length (M7) |
-| Gauges: a 2.0 mm and a 3.0 mm drill shank (or feeler stack) | duct lowest point ≥ 2.0 mm above the tip; ≥ 3 mm duct-to-sock clearance (`assembly.md`) |
+| Gauges: a 2.0 mm and a 3.0 mm drill shank (or feeler stack) | duct lowest point ≥ 2.0 mm above the tip; ≥ 3 mm duct-to-sock clearance (`assembly.md`); a 3.0 mm shank also checks the port height |
 | Kitchen scale ±1 g | masses (M12) |
-| Flush cutters, deburring tool, Ø3.4 and Ø4.0 drills (hand clean-up only) | print clean-up; support removal under the duct |
+| Flush cutters, deburring tool, Ø3.4 and Ø4.0 drills (hand clean-up only) | print clean-up; support removal (FDM fallback duct only) |
+| Fine razor saw or small tube cutter, deburring tool, Ø4.05 reamer or drill | cutting the 3 BT4M sleeves to 11.10 mm; fitting the lower-left close-fit bore (`cad/README.md`) |
 | Filament dryer, dry box | PC / PA-CF (`print-settings.md` §4) |
 | Glue stick | PC / PA-CF bed release |
 | Hardened 0.4 nozzle | PA-CF (`print-settings.md` §2.2) |
-| Multimeter (DC V with 0.1 mV resolution, mA range), alligator leads, 2 back-probe pins | only for the conditional upgrade (PB6 probe, buck check, `electrical.md` §4) |
-| Fine soldering tip, solder, heat gun, IR thermometer (optional) | only for the conditional upgrade (buck wiring and temperature) |
+| Multimeter (DC V with 0.1 mV resolution, mA range), alligator leads, 2 back-probe pins | only for the Same Sky option, not buildable as modelled (PB6 probe, buck check, `electrical.md` §4) |
+| Fine soldering tip, solder, heat gun, IR thermometer (optional) | only for the Same Sky option (buck wiring and temperature) |

@@ -1,6 +1,6 @@
 # Post-install calibration
 
-The calibration procedure after fitting the new cooling module (frame, stock 4020, S7 duct) and
+The calibration procedure after fitting the new cooling module (frame, stock 4020, S8 duct) and
 cover on **this** K1 Max, and later the probe mount. It uses the printer's own macros
 (`tuning.cfg`, `custom/*.py`, the repo `README.md`). **No sensor moves** (DD-02, DD-03), so there is
 no sensor recalibration in this procedure, only checks. What does change is the nozzle's airflow
@@ -39,11 +39,11 @@ them once the first post-install runs are logged.
 | Probe `z_offset` | maybe a little | same probe pose, but a different thermal environment (new duct airflow), and a new mount once one is fitted | **yes**, load-cell method (step F) |
 | `zero_reference_position`, `mesh_min/max`, `screws_tilt_adjust` | no | follow from the probe offset | no |
 | LiDAR pose, offsets, `custom/lidar.py` reach values | **no** | module and bracket untouched (DD-02) | **check only** (step G): no `LIDAR_OFFSET_CALIBRATION` is run to change anything, because the cover swap happens right next to the bracket |
-| Axis twist (probe and LiDAR) | probably small | pitch behaviour depends on toolhead mass and CG; the mass change is **−0.7 … +8.3 g** (validation report) | **yes** (step H) |
-| Keep-out zones | no, if nothing reaches behind Y +29.1 | new parts end at Y −22.3 (frame), duct body at Y +27.5; the probe mount rear is 29.10 vs 29.1 for 785004 (validation report) | **verify** (step D), and re-measure if a rear part changed |
-| Front/side clearance | **yes** | new cover front **−58.2** vs stock −55.0 (validation WARN, M9); duct body reaches X +31.0 below Z 23 (outside the XY-joint band) | **yes** (step D) |
-| Input shaper | small | predicted X **76.9 … 77.7 Hz**, Y **51.8 … 52.0 Hz** (validation report, ESTIMATED at an X moving mass of 450 g) | **yes** (step H). Also watch for a frame mode near 150 Hz (validation WARN: 147 Hz without the 4th pad) and any duct flutter |
-| MPC fan model | **yes** | `fan_ambient_transfer` is duct-specific (DD-05, research/03 §3); CFD expects the fan's extra nozzle + sock loss to rise by +6.2 … +6.8 W at 100 % (`cfd-report.md` §11) | **required** (step E) |
+| Axis twist (probe and LiDAR) | probably small | pitch behaviour depends on toolhead mass and CG; the mass change is **+3.1 … +12.0 g** (validation report) | **yes** (step H) |
+| Keep-out zones | not expected | new parts end at Y −22.3 (frame) and Y +9.8 (duct body); behind Y +10 nothing leaves the probe body + 785004 footprint the zones were measured with; the probe mount rear is 29.10 vs 29.1 for 785004 (validation report) | **verify, mandatory** (step D.4) |
+| Front/side clearance | **yes** | new cover front **−58.2** vs stock −55.0 (validation WARN, M9); duct body reaches X +31.0 at Z 3.0…27.2 (below the XY-joint band) | **yes** (step D) |
+| Input shaper | small | predicted X **76.6 … 77.3 Hz**, Y **51.6 … 51.9 Hz** (validation report, ESTIMATED at an X moving mass of 450 g) | **yes** (step H). Also watch for a frame mode near 150 Hz (validation WARN: 147 Hz without the 4th pad) and any duct flutter |
+| MPC fan model | **yes** | `fan_ambient_transfer` is duct-specific (DD-05, research/03 §3); CFD expects the fan's extra nozzle + sock loss to rise by about +7.6 W at 100 % (`cfd-report.md` §17.7) | **required** (step E) |
 | Bed PID | no | bed unchanged | runs anyway with `WHAT=heaters` |
 | PA | barely | hotend and extruder unchanged | spot-check (step J) |
 | ADXL `axes_map` | no | PCB orientation unchanged | no |
@@ -86,15 +86,20 @@ Why this order:
 5. Optional, for V4 (`validation.md`): note `fan_ambient_transfer` from `printer.cfg.save_config`
    (0.1166 today). It is the stock reference for the heater-penalty test.
 6. Weigh the stock cover + 4020 on a kitchen scale (M12). Also measure the 4020 (M7): outlet
-   opening and screw-hole through-length, before the fan goes onto the frame (`assembly.md` step 2).
+   opening and nozzle, hole positions, hole type and through-length, before the fan goes onto the
+   frame (`assembly.md` step 2).
+7. Optional, for the per-face criterion of V3 and V5 (`validation.md` §4.3): make the stock-duct
+   reference now, while the stock cover is still fitted: the V5 overhang/bridge prints in the four
+   orientations and, if you have the anemometer, the V3 survey.
 
 ### B. Install, then check cold (motors off)
 
 Follow `assembly.md`. Its checks after each step are part of this calibration:
 - PCB screws replaced in sequence, snug only; frame bosses flat on the PCB.
-- Duct-to-sock gap ≥ 3 mm all round (`HOT_ZONE_CLEARANCE`; CAD 3.35 mm).
-- Duct lowest point ≥ 2.0 mm above the nozzle tip (`DUCT_MIN_Z`; CAD 2.44 mm). A 2 mm drill shank
-  under the duct while the tip sits on a flat block.
+- Duct-to-sock gap ≥ 3 mm all round (`HOT_ZONE_CLEARANCE`; CAD 4.54 mm).
+- Duct lowest point ≥ 2.0 mm above the nozzle tip (`DUCT_MIN_Z`; CAD 3.0 mm, the flat base). A 2 mm
+  drill shank under the duct while the tip sits on a flat block.
+- Duct tabs seated with washers, no crack; the socket seal fitted (`assembly.md` step 6).
 - `PROBE_DOWN`, `QUERY_PROBE`, `PROBE_UP`: the pin deploys and retracts freely, and its lead is not
   pulled by the new tie points.
 - Nothing touches the LiDAR module, its bracket or its windows. The cover's left wall must clear the
@@ -106,13 +111,17 @@ Follow `assembly.md`. Its checks after each step are part of this calibration:
 
 The baseline uses Pellcorp's `[fan]` unchanged (`electrical.md` §1). Nothing to include.
 1. `M106 S26`, `S77`, `S128`, `S255`, then `M107`: the fan starts every time, and the speed rises
-   monotonically by ear. Feel the air at the ports at S255 (cold printer).
-2. If you chose to include `part_fan_stock4020.cfg` with the tach for commissioning (a config change,
+   monotonically by ear. Feel the air at the four ports at S255 (cold printer).
+2. **Socket seal** (part of V2): at S255 hold a tissue or a smoke source at the joint between the
+   duct socket and the fan: no flow out of the joint and no audible hiss. If it leaks, renew the tape
+   or foam (`assembly.md` step 6). Unsealed, the joint leaks about 11 % of the fan flow (ESTIMATED,
+   `cfd-report.md` §17.9).
+3. If you chose to include `part_fan_stock4020.cfg` with the tach for commissioning (a config change,
    `electrical.md` §5): read the rpm in Fluidd. It should be within ±15 % of the datasheet speed at
    S255 (ESTIMATED tolerance; datasheet ±10 %). Note it as the install value for `maintenance.md` §3.
-3. Heat the nozzle to above 40 °C: the 3010 hotend fan starts (unchanged channel; its tach reads in
+4. Heat the nozzle to above 40 °C: the 3010 hotend fan starts (unchanged channel; its tach reads in
    Fluidd). Its intake now draws through the frame window (693 mm² open, validation report).
-4. Only if the fan stalls at low duty: tune `off_below` and `kick_start_time` (`electrical.md` §3)
+5. Only if the fan stalls at low duty: tune `off_below` and `kick_start_time` (`electrical.md` §3)
    **now**, before MPC.
 
 ### D. Clearances and keep-outs (motors on, speed F600, a finger on the e-stop / power switch)
@@ -124,13 +133,15 @@ The baseline uses Pellcorp's `[fan]` unchanged (`electrical.md` §1). Nothing to
    is the M9 open point.
 3. **Left / right:** at Y 150, step to X −2 and X 306.5 at Z 50 and at Z 5. Gap from the cover,
    duct and fan to the XY joints ≥ 1 mm (ESTIMATED). Inside the joint band (Z 44.3…91.8 above the tip)
-   the cover is ±24.0 against `RIGHT_LIMIT_X` 24.2; the duct body reaches X +31.0 only below Z 23,
-   outside the band (validation report).
+   the cover is ±24.0 against `RIGHT_LIMIT_X` 24.2; the duct body reaches X +31.0 only at Z ≤ 27.2,
+   below the band (validation report).
 4. **Rear keep-outs: mandatory for this build** (review R-01). Today's zones were measured with the
-   MicroProbe body and the 785004 adapter as the rearmost parts. The new duct is a different shape
-   behind and beside the probe, so the zones are not known to clear it. Jog with the duct fitted, at
-   **Z 5 and again at Z 0.5**, in 0.5 mm steps. At each point check the gap between the rearmost
-   toolhead part (probe, adapter, duct, frame) and the Z-rod housing.
+   MicroProbe body and the 785004 adapter as the rearmost parts. The S8 duct ends at Y +9.8, and
+   `validate.py` finds nothing behind Y +10 (below Z 30) outside that footprint, so the zones are
+   expected to hold. The footprint and the housing shapes are ESTIMATED, so confirm it on the
+   printer: jog with the duct fitted, at **Z 5 and again at Z 0.5**, in 0.5 mm steps. At each point
+   check the gap between the rearmost toolhead part (probe, adapter, duct, frame) and the Z-rod
+   housing.
 
 | Point or sweep (nozzle X, Y) | Zone it guards |
 |---|---|
@@ -161,18 +172,21 @@ The baseline uses Pellcorp's `[fan]` unchanged (`electrical.md` §1). Nothing to
    60 W heater at full fan (below).
 
 What to expect. The stock fan's share of the block's heat loss is 0.1166 − 0.0800 = 0.0366 W/K at
-100 %, about +8 W at ΔT ≈ 225 K (research/03 §3). The CFD thermal proxy adds +6.2 W (lower 4020
-bound) to +6.8 W (upper) of nozzle + sock loss at 100 % fan over the stock duct
-(`cfd-report.md` §11, which says to expect the fan term to roughly double). On the same 225 K that
-puts `fan_ambient_transfer` at 100 % near **0.14–0.15 W/K** (ESTIMATED, my arithmetic). Treat it as
-indicative only: the proxy ran with 45 °C air and an assumed 150 °C sock surface, and its energy balance does not close: on S7 the heat leaving through the open boundaries exceeds the wall input by 47–56 % (STOCK 2–3 %), so the error differs per case (review R-08).
+100 %, about +8.2 W at ΔT ≈ 225 K (research/03 §3). The CFD thermal proxy adds about **+7.6 W** of
+nozzle + sock loss at 100 % fan over the stock duct (nozzle +3.1 W, sock +4.5 W; lower 4020 bound;
+`cfd-report.md` §17.7, energy balance closed to −0.03 % / −0.5 %). The fan term roughly doubles:
+8.2 + 7.6 ≈ 15.8 W, or about 0.070 W/K on the same 225 K, which puts `fan_ambient_transfer` at 100 %
+near **0.15 W/K** (ESTIMATED arithmetic). Limits of that figure: the proxy ran with 45 °C air and an
+ESTIMATED 150 °C sock surface (the sock share scales with it, M20), at the lower 4020 bound only, and
+it has no conduction or radiation. The S7-era +6.2 / +6.8 W came from an unclosed balance and are
+withdrawn (review R-08).
 
 | Quantity | Pass | Basis |
 |---|---|---|
 | block_heat_capacity | 16.36 ± 10 % | hotend unchanged (ESTIMATED tolerance) |
 | sensor_responsiveness | 0.0917 ± 15 % | ESTIMATED |
 | ambient_transfer (fan 0) | 0.0800 ± 10 % | ESTIMATED; the new cover changes natural convection a little |
-| fan_ambient_transfer at 100 % | **record it** (this is test V4 in `validation.md`). Expected **above** 0.1166, roughly 0.14–0.15. **≤ 0.1166**: less air reaches the nozzle than CFD predicts; check the duct is seated on the fan outlet and no port is blocked. **> ~0.18** (about twice the predicted increase, ESTIMATED limit): a jet is hitting the block or the duct is mis-seated; check the duct pose and the 3 mm sock gap | CFD proxy (indicative); ESTIMATED limits |
+| fan_ambient_transfer at 100 % | **record it** (this is test V4 in `validation.md`). Expected **above** 0.1166, roughly 0.15. **≤ 0.1166**: less air reaches the nozzle than CFD predicts; check the duct is seated on the fan outlet, the socket seal holds and no port is blocked. **> ~0.18** (about twice the predicted increase, ESTIMATED limit): a jet is hitting the block or the duct is mis-seated; check the duct pose and the sock gap | CFD proxy; ESTIMATED limits |
 | Fan-step deviation | ≤ ±1.5 °C, overshoot ≤ 0.5 °C | README baseline |
 | Heater power at the hottest print temperature, fan 100 % | settles clearly below 100 % | `cfd-report.md` §15 V4 ("plan for the heater's reserve") |
 
@@ -181,7 +195,9 @@ indicative only: the proxy ran with 45 °C air and an assumed 150 °C sock surfa
    at 100 %. For the Orca "Speed Benchy" profile that is 32 mm³/s at 255 °C: about 100 mm of filament
    at 13.3 mm/s, in the air over the purge area or the wipe strip. Record the heater duty and the
    temperature droop.
-   - The review estimates about 79 % duty with the new duct against 69 % stock (REVIEWER-ESTIMATE).
+   - The review estimates about 79 % duty with the new duct against 69 % stock (REVIEWER-ESTIMATE,
+     with a fan term of 0.145 W/K). With the S8 expectation of about 0.15 W/K the same arithmetic
+     gives about 81 % (ESTIMATED). The pass limit is unchanged.
    - Pass: duty ≤ 90 % and droop ≤ 3 °C.
    - If it fails, lower the profile's maximum flow or its fan percentage at that flow.
 
@@ -256,13 +272,14 @@ not a change.
 | Probe-nozzle offset printed by the twist run | within ±0.01 of the new z_offset | cross-check of step F |
 | LiDAR twist saved | pass spread ≤ 0.040 (not saved otherwise); expect ≈ 0.012 like the baseline | `twist_touch.py`; baseline |
 | LiDAR twist range | 0.181 ± 0.03 mm | baseline; ESTIMATED tolerance |
-| Shaper X | ≥ **76.0 Hz** (architecture target, DD comparison table); expected **76.9 … 77.7** | validation report (ESTIMATED) |
-| Shaper Y | 51–53 Hz; expected **51.8 … 52.0** | validation report; ±1 Hz ESTIMATED repeatability |
+| Shaper X | ≥ **76.0 Hz** (architecture target, DD comparison table); expected **76.6 … 77.3** | validation report (ESTIMATED) |
+| Shaper Y | 51–53 Hz; expected **51.6 … 51.9** | validation report; ±1 Hz ESTIMATED repeatability |
 | Projected max accel X | ≥ ~4300 mm/s² (baseline 4408) | research/01 §D |
-| X response graph | no new peak at 100–200 Hz. A peak near 150 Hz is the frame's fan-plate mode without the 4th pad (validation WARN 147 Hz). Another new peak may be the duct: it hangs on two tabs and the fan socket, and its own mode is not estimated (`validation.md`) | validation report; `cfd-report.md` §16 |
+| X response graph | no new peak at 100–200 Hz. A peak near 150 Hz is the frame's fan-plate mode without the 4th pad (validation WARN 147 Hz). The duct's pitch mode on its three tabs is estimated at 1530…2742 Hz for a rigid duct, far above this band; a new peak there more likely means a loose duct, fan or cover screw, or a cracked tab (`validation.md`) | validation report |
 | Belt graph | both belt curves still overlap as before | — |
 
-If X is below 76 Hz, check for loose fan, duct or cover screws (a rattle shows as a broad peak).
+If X is below 76 Hz, check for loose fan, duct or cover screws and for a cracked duct tab (a rattle
+shows as a broad peak).
 Then run the M13 mass test and report it.
 
 ### I. LiDAR offsets and twist (only if step G found the bracket disturbed and re-seating did not fix it)
@@ -297,8 +314,9 @@ still running (§6). If the report's gates fail only on such prints, note it for
 
 ### L. Slicer fan percentages (your decision; review R-12)
 
-At the same fan percentage the layer now gets several times the stock airflow: ×3.8–4.8 in layer
-speed in CFD, not measured. Today's Orca percentages were tuned for the stock duct, so ABS/ASA may
+At the same fan percentage the layer now gets several times the stock airflow: about ×4.4 in layer
+speed in CFD (×4.3–5.3 over the robustness checks, ×4.2 at the upper fan bound; `cfd-report.md`
+§17.5), not measured. Today's Orca percentages were tuned for the stock duct, so ABS/ASA may
 lose layer bonding and warp or crack more. PETG bridging and layer adhesion change too. Those
 symptoms would come from the percentages, not from the duct.
 
@@ -330,23 +348,26 @@ item as due by back-dating its counter (`tuning.cfg`). The intervals stay 200 h 
 300 h (twist) and 500 h (heaters).
 
 **Fast path after a fan-only swap** (same duct, same fan model): step C, then
-`CALIBRATE_NEXT_PRINT WHAT=heaters`, then one print. **After a fan model change** (e.g. the
-conditional Same Sky upgrade): C → E → H(shaper). **After a duct change or re-print:** B (duct
+`CALIBRATE_NEXT_PRINT WHAT=heaters`, then one print. **After a fan model change**: C → E →
+H(shaper). **After a duct change or re-print:** B (duct
 clearances) → E → H(shaper) → K.
 
 ## 4. Summary of acceptance numbers
 
 | Step | Number | Baseline | Pass |
 |---|---|---|---|
-| B | duct to sock / duct lowest point above the tip | — (CAD 3.35 / 2.44) | ≥ 3.0 / ≥ 2.0 mm |
-| E | fan_ambient_transfer @100 % | 0.1166 | record; expected ≈ 0.14–0.15; ≤ 0.1166 or > ~0.18 means investigate |
+| B | duct to sock / duct lowest point above the tip | — (CAD 4.54 / 3.0) | ≥ 3.0 / ≥ 2.0 mm |
+| C | socket seal at S255 | — | no flow out of the joint |
+| D.4 | rear keep-out gap, duct fitted | ~3 mm today | 2–4 mm; < 2 mm: stop |
+| E | fan_ambient_transfer @100 % | 0.1166 | record; expected ≈ 0.15; ≤ 0.1166 or > ~0.18 means investigate |
+| E.4 | heater duty / droop at max flow, fan 100 % | — | ≤ 90 % / ≤ 3 °C |
 | E | fan-step deviation | ±1.5 °C | ≤ ±1.5 °C |
 | F | True Zero Touch d | — | ≤ ±0.010 after the update |
 | F | z_offset | 0.831 | ±0.05 (same mount), ±0.5 (new mount) |
 | G | LiDAR ΔX / ΔY (dry run, nothing applied) | −36.013 / −21.336 | ≤ 0.10 / ≤ 0.30, otherwise re-seat; > 5 = stop |
 | H | probe twist range | 0.267 | ±0.03; pass spread ≤ 0.04 |
 | H | LiDAR twist range | 0.181 | ±0.03; pass spread ≤ 0.04 |
-| H | shaper X / Y | 77.6 / 52.0 Hz | X ≥ 76.0 (expected 76.9–77.7), Y 51–53 |
+| H | shaper X / Y | 77.6 / 52.0 Hz | X ≥ 76.0 (expected 76.6–77.3), Y 51–53 |
 | J | PA | 0.046 PETG / 0.04 ASA | ±0.01 |
 | K | first-layer median error | — | ±0.02 mm |
 
@@ -369,11 +390,13 @@ clearances) → E → H(shaper) → K.
 
 ## 6. Proposed, not applied: part fan off during LiDAR scans
 
-DD-02 proposes running every LiDAR scan with the part fan off. With S7 the air speed along the bed
-under the laser line rises to 0.87 m/s mean (1.50 max) against 0.18 m/s for STOCK at 100 % fan
-(`cfd-report.md` §13.1, upper 4020 bound). Air movement is not expected to bend the beam (DD-02),
-but the wall jet can move loose dust or strings across the scan line while the fan runs, and the
-0 % fan case was not simulated. Whether it affects readings at all is open (test V7).
+DD-02 proposes running every LiDAR scan with the part fan off. With S8 the air along the bed under
+the laser line is slower than with STOCK: 0.041 m/s mean (0.13 max) against 0.18 m/s at 100 % fan
+(`cfd-report.md` §13.1, upper 4020 bound); S7's 1–1.5 m/s wall jet along the line is gone. The window
+region sees 0.17 m/s mean (0.34 max) against STOCK's 0.087. Air movement is not expected to bend the
+beam (DD-02), the model has no hot plume and no module body, and the 0 % fan case was not simulated.
+So the rule is now a precaution about fumes and debris at the windows rather than about the bed wall
+jet. Whether the fan affects readings at all is open (test V7).
 
 Where the repo's macros scan, and the fan state there:
 
@@ -403,6 +426,9 @@ points before adopting it:
 - whether the slicer's own fan command for layer 2 comes before or after the layer-change G-code
   (if after, the restore line is redundant but harmless);
 - the 4020 needs some time to spin down; the scan may start before the air has stopped;
-- the pause with the fan off changes the first layer's cooling history for that print.
+- the pause with the fan off changes the first layer's cooling history for that print;
+- the macro restores `printer.fan.speed`, which Klipper reports after `max_power` scaling. That is
+  harmless at the stock `max_power: 1.0`; with another `max_power` the restored speed would be
+  scaled twice (review R-24).
 
 Test V7 (`validation.md`) is the evidence for or against it.

@@ -1,32 +1,47 @@
 # Print settings for the toolhead parts
 
 For the K1 Max with the repo's OrcaSlicer 2.4 profiles (`orcaslicer/`). Part data comes from
-`cad/exports/validation_report.md` (S7 duct, `duct_interface.json` v3-final), `cad/README.md`,
-`cfd-report.md` §12.3 and the part sources in `cad/source/`. Release state per part is in
-`bill-of-materials.md` §1: print the coupon first; the frame, cover and duct are FIT-CHECK FIRST;
-the probe mount is NOT RELEASED.
+`cad/exports/validation_report.md` (S8 duct, `duct_interface.json` v4-final), `cad/README.md`,
+`cfd-report.md` §17.4, `cad/source/ducts/export/duct_S8_report.json` and the part sources in
+`cad/source/`. Release state per part is in `bill-of-materials.md` §1: print the coupon first; the
+frame, cover and duct are FIT-CHECK FIRST; the probe mount is NOT RELEASED.
 
-Materials (DD-07): **PC or PA-CF** within 15 mm of the heater (the whole duct body, the probe
-mount); **ASA** (or ABS) elsewhere; **no PLA or PETG** anywhere.
+Materials (DD-07, DD-07a):
+- **duct body: HT resin from a print service** (the user's decision); fallbacks PC with HDT ≥ 130 °C
+  at 0.45 MPa per its TDS (FDM, below), or MJF PA12 from a service;
+- **probe mount: PA-CF** (PC acceptable); the **785004 adapter reprint: ASA, PC or PA-CF**;
+- **frame, cover, coupon: ASA** (or ABS);
+- **no PLA or PETG** for any toolhead part.
 
-**Duct from a print service (DD-07a), chosen by the user (2026-11-12).** Order the duct body in
-HT resin, two pieces. It needs HDT ≥ 130 °C at 0.45 MPa after the full post-cure, per the TDS;
-order a 238 °C-class resin. The fallbacks are PC (the FDM row below) or MJF PA12. Send the duct STEP or STL, and put the following in the order:
-- full thermal post-cure;
-- every port flushed clean;
-- no support contact on the outlet lips, inside the ports or on the socket faces.
+## Duct from a print service (DD-07a)
 
-Fitting a resin duct: washers under the three tab screws; tighten only until the tab seats. Order
-two (a resin lip chips rather than bends).
+The user chose (2026-11-12) to order the duct body in HT resin. Put the following in the order:
 
-## 1. Per part
+| Item | What to ask for | Basis |
+|---|---|---|
+| File | `cad/exports/step/duct_body.step` (S8). STL: `cad/exports/stl/duct_body.stl` | export manifest |
+| Quantity | **2** (one spare: a resin lip chips rather than bends) | DD-07a |
+| Material | HT resin, **238 °C class**: HDT at 0.45 MPa per the TDS, after the full thermal post-cure. Check the TDS of the exact material the service names; the name alone means nothing | DD-07a |
+| Post-cure | the **full thermal post-cure** listed in the TDS (UV does not reach inside the channels) | DD-07a |
+| Cleaning | every channel and port **flushed with solvent until clean** and drained: plenum, manifold, the four ports, the socket | DD-07a |
+| Supports | **no support contact on the outlet lips, inside the ports or on the socket faces** | DD-07a |
+| Orientation | the service's choice. Suggested: upright on the flat base (nozzle-frame +Z = print Z, base plane on the platform, 1378 mm² of contact), fan socket on top; external supports only under the tab arms and the socket (about 92 mm²) | `duct_S8_report.json` "printability" |
+| Size | 47.6 × 66.2 × 24.1 mm; 7.82 cm³ | validation report |
+| Feature sizes | walls 1.2 mm nominal, thinnest real wall 0.9 mm; tab pads 2.5 mm thick; tab arms 2.5 × 6 mm; ports 7.5 × 3 mm (minimum channel 3.0 mm); the socket is a 0.25 mm clearance fit per side and 0.25 mm under the fan body, so a service tolerance of ±0.1–0.15 mm is fine | `cfd-report.md` §17.4 |
+
+Inspect both pieces on delivery: tabs for cracks, all four ports open, the base flat with every lip
+on the surface, the socket intact (`assembly.md` step 3.4). Fitting a resin duct: an M3 washer under
+each of the three tab screws, and tighten only until the tab seats.
+
+## 1. Per part (FDM)
 
 | Part (file in `cad/exports/{3mf,stl,step}/`) | Material | Orientation (as exported to 3MF) | Layer | Walls | Top / bottom | Infill | Supports | Brim | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| **Fit-check coupon** `fitcheck_coupon` | ASA, same spool and settings as the frame, so the shrinkage matches (`coupon.py`) | front face down (`print_rot` 90° X); 10.8 mm tall | 0.16 | 4 | 5 / 5 | 100 % | none (0.3 % > 45°, 13.3 mm² bridges) | none, or 3 mm if the corners lift | **PRINT FIRST**. ≈ 10 min, 2.89 g |
-| **Cooling-module frame** `cooling_module_frame` | ASA | upside down: top shelf and top edge on the bed, plate vertical (`print_rot` 180° X); the PCB bosses print as horizontal cylinders | 0.16 (rounder horizontal holes) | 5 (the 2.0 mm plate prints solid) | 6 / 6 | 100 % (the parts are mostly walls; masses are 100 % values) | **none**: the teardrop window and short bridges are designed for it (validation INFO: 8.1 % > 45°, 176.4 mm² flat ceilings) | 5 mm, footprint is narrow and 55.9 mm tall | FIT-CHECK FIRST. 5.84 g. Min wall 0.85 mm, 0.00 % of rays under 0.8 mm (validation PASS) |
-| **Cover** `cover` | ASA | front face down (`print_rot` 90° X); all vents are vertical holes or slots | 0.20 | 3 (the 1.2 mm wall = 3 × 0.4 lines, `cover.py`) | 5 / 5 | 100 % | none (validation INFO: 0.3 % > 45°, 30.7 mm² bridges) | 3 mm | FIT-CHECK FIRST. 6.35 g. Cosmetic outer surface on top; seam at the rear edge |
-| **Duct body (S7)** `duct_body` | **PC** (or PA-CF) | **upright as modelled**: fan socket up, nozzle-frame +Z = print Z (`print_rot` 0); the lowest points (the port lips, nozzle-frame Z 2.44) are at the bed; 46.8 × 84.0 × 25.0 mm | 0.12 | as many as fit the 1.2 mm wall (3) | 5 / 5 | 100 % | **external only, under the manifold, the plenum underside and the outer lip bottoms** (`cfd-report.md` §12.3, §16). **None in the air path**: every internal ceiling is ≥ 45°, apart from 0.67 mm² of sub-millimetre micro-bridges at the port roots that print as bridges. See "Duct supports" below | 5 mm, **outer only**; trim it clear of the outlet lips | FIT-CHECK FIRST. 9.24 g PC (8.9 g PA-CF). Check every outlet after printing (below) |
+| **Fit-check coupon** `fitcheck_coupon` | ASA, same spool and settings as the frame, so the shrinkage matches (`coupon.py`) | front face down (`print_rot` 90° X); 10.8 mm tall | 0.16 | 4 | 5 / 5 | 100 % | none (0.6 % > 45°, 23.6 mm² bridges) | none, or 3 mm if the corners lift | **PRINT FIRST**. ≈ 10 min, 2.99 g |
+| **Cooling-module frame** `cooling_module_frame` | ASA | upside down: top shelf and top edge on the bed, plate vertical (`print_rot` 180° X); the PCB bosses print as horizontal cylinders | 0.16 (rounder horizontal holes) | 5 (the 2.0 mm plate prints solid) | 6 / 6 | 100 % (the parts are mostly walls; masses are 100 % values) | **none**: the teardrop window and short bridges are designed for it (validation INFO: 8.0 % > 45°, 204.7 mm² flat ceilings) | 5 mm, the footprint is narrow and the part 67.0 mm tall | FIT-CHECK FIRST. 6.64 g. Min wall 0.8 mm, 0.00 % of rays under 0.8 mm (validation PASS). The PCB boss bores take the BT4M brass sleeves after printing (Ø4.1; lower-left Ø4.05, ream to fit) |
+| **Cover** `cover` | ASA | front face down (`print_rot` 90° X); all vents are vertical holes or slots | 0.20 | 3 (the 1.2 mm wall = 3 × 0.4 lines, `cover.py`) | 5 / 5 | 100 % | none (validation INFO: 0.4 % > 45°, 35.5 mm² bridges) | 3 mm | FIT-CHECK FIRST. 6.34 g. Cosmetic outer surface on top; seam at the rear edge |
+| **Duct body (S8), FDM fallback only** `duct_body` (the released duct is HT resin from a service, above) | **PC** with HDT ≥ 130 °C at 0.45 MPa per its TDS (a PC blend only if its own TDS meets it), or annealed PA-CF (DD-07) | **upright as modelled, flat base on the bed**: nozzle-frame +Z = print Z (`print_rot` 0); the base plane (lips, port feet, manifold and plenum undersides, nozzle-frame Z 3.0) is on the bed, 1378 mm² of contact; fan socket up; 47.6 × 66.2 × 24.1 mm | 0.12 | as many as fit the 1.2 mm wall (3) | 5 / 5 | 100 % | **external only, under the tab arms and the socket** (and its seat), about 92 mm² (`duct_S8_report.json`; `cfd-report.md` §17.4). **None in the air path**: 3.2–4.8 mm² of port-root micro-bridges print as bridges. See "Duct supports and checks" below | 5 mm, **outer only**; trim it clear of the outlet lips | FIT-CHECK FIRST. 9.4 g PC (9.0 g PA-CF). Check every outlet after printing (below) |
+| **785004 probe adapter, reprint** (the unchanged Printables 785004 STL, research/01 H.1) | ASA, PC or PA-CF (DD-07 last row, review R-27). It sits 5.1 mm from the sock box, below the heatsink, where DD-07's second row asks for PC or PA-CF: prefer those | as the STL is laid out; not modelled in this project | as the probe mount row (PC / PA-CF) or the frame row (ASA) | | | 100 % | per the slicer preview | as for that material | same geometry as today, so the probe calibration does not change |
 | **MicroProbe mount** `probe_mount` | **PA-CF** (PC acceptable) | upside down: top face on the bed (`print_rot` 180° X) | 0.12–0.16 | ≥ 5 | 6 / 6 | 100 % (`probe_mount.py`: "100 % infill or ≥ 5 walls") | none (4.3 % > 45°, 292 mm² bridges) | 5 mm (PA warps) | **NOT RELEASED** (M8). Hardened nozzle; anneal (§4) **before** setting the inserts |
 
 Common settings for all parts:
@@ -34,7 +49,8 @@ Common settings for all parts:
 - XY hole compensation 0 and XY contour compensation 0. Insert and screw holes are tuned in CAD
   (`INSERT_*_HOLE_D` in `structure/common.py`) from the coupon result, not in the slicer.
 - Elephant-foot compensation 0.1 mm on the coupon and frame (the faces on the bed are mating or
-  reference faces), and on the duct (its lips are its lowest point and set the 2 mm bed margin).
+  reference faces), and on an FDM duct (its flat base is its lowest point and sets the 3.0 mm
+  height above the tip).
 - Ironing off.
 - Base the process on `0.16mm Optimal Precision @K1 Max Tuned 0.4` (0.20 Standard Precision for
   the cover). "Precision" has the 10 mm³/s quality cap (`orcaslicer/README.md`), and it is the
@@ -42,29 +58,41 @@ Common settings for all parts:
 
 ### Duct supports and checks
 
-The validator's "16.1 % of surface > 45°, 1642 mm² flat ceilings" for the duct counts the
-**outside** downward faces: the manifold and plenum undersides and the outer lip bottoms
-(`cfd-report.md` §16). Those need supports from the build plate. The inside of the duct needs none.
+These checks apply to both the resin duct from the service and the FDM fallback.
 
-In Orca:
+**S8 orientation and supports** (`duct_S8_report.json` "printability", validation report INFO):
+- upright, nozzle-frame +Z = print Z, the flat base (Z 3.0 in the nozzle frame) on the bed:
+  1378 mm² of contact;
+- 3.9 % of the surface is > 45° (81.2 mm² flat ceilings). The external ones sit under the tab arms,
+  the socket and its seat: about 92 mm² of support area. Those need supports from the build plate;
+- inside the air path only 3.2–4.8 mm² of port-root micro-bridges are > 45°. They print as bridges
+  and need no support.
+
+For the FDM fallback, in Orca:
 - supports **on**, type normal (not tree), "on build plate only", so nothing can start on an inside
   floor;
-- a **support blocker** over the fan socket opening, the plenum and every one of the 5 outlets, in
+- a **support blocker** over the fan socket opening, the plenum and every one of the 4 outlets, in
   case Orca still proposes anything there;
 - top Z distance about 0.2 mm and one interface layer, so the supports come off the PC cleanly
   (ESTIMATED starting values);
-- if Orca shows support **inside** a channel in the preview, do not print: the model or the
-  settings are wrong.
+- if Orca shows support **inside** a channel or on a lip in the preview, do not print: the model or
+  the settings are wrong.
 
-After printing:
-- remove the supports with flush cutters, without levering on the lips;
-- check that each of the 5 outlets is open over its full 6 × 3 mm (`cfd-report.md` §12.3): measure
-  the port height with calipers or pin gauges, and look for strings or support remnants in the
-  ports. A port more than about 0.3 mm under size, or partly blocked, is a reject (ESTIMATED limit);
-- check the fan socket: it must slide over the 4020 outlet nozzle without force (CAD: 1.0 mm
-  clearance per side, ESTIMATED, M7);
-- the lowest point is the lip at Z 2.44 above the nozzle tip in the assembly. If the lips print
-  with elephant foot or a support scar, it eats into that 0.44 mm margin over `DUCT_MIN_Z` 2.0.
+For the resin duct, the same rule goes into the order: no support contact on the outlet lips, inside
+the ports or on the socket faces.
+
+After printing, or on delivery:
+- FDM: remove the supports with flush cutters, without levering on the lips or tabs;
+- check that each of the 4 outlets is open over its full **7.5 × 3 mm** (`cfd-report.md` §17.4):
+  a 3.0 mm drill shank or pin gauge enters each port; look for strings, support remnants or, on the
+  resin part, uncured resin in the ports. A port more than about 0.3 mm under size, or partly
+  blocked, is a reject (ESTIMATED limit);
+- check the fan socket: it must slide over the 4020 outlet nozzle without force (CAD: 0.25 mm
+  clearance per side and 0.25 mm under the fan body, ESTIMATED, M7). It is not a press fit;
+- check the base: the duct stands on a flat surface without rocking and every lip touches it. The
+  base is the lowest point, 3.0 mm above the nozzle tip in the assembly, a 1.0 mm margin over
+  `DUCT_MIN_Z` 2.0. Elephant foot or a support scar on the base eats into that margin;
+- check the tabs (T_left, T_right, T_3) for cracks or whitening.
 
 ## 2. OrcaSlicer filament settings
 
@@ -112,7 +140,7 @@ not recorded. Before printing PA-CF:
 - after the nozzle change, follow `maintenance.md` §1 (z_offset, LiDAR offsets, PA).
 
 If no hardened nozzle is available, print the probe mount in **PC** (`probe_mount.py`: "PC
-acceptable") and the duct in PC (the duct's default material is PC anyway).
+acceptable"), and, if the FDM fallback duct is needed, that in PC as well.
 
 ## 3. Heat-set inserts
 
@@ -120,7 +148,7 @@ CAD values are in `structure/common.py`. The hole sizes are ESTIMATED and confir
 
 | Insert | Hole Ø (CAD) | Hole depth | Insert length (CAD) | Where |
 |---|---|---|---|---|
-| M3 brass, short | 4.0 | 5.0 (= 4.0 + 1.0 relief) | 4.0; any length ≤ 4.5 fits | frame: 6 = 2 cover shelf (vertical holes), 2 fan standoffs and 2 duct lugs T_left / T_right (horizontal holes); coupon: 1 |
+| M3 brass, short | 4.0 | blind, 0.8 mm floor: **4.2** in the fan standoffs and duct lugs, **6.0** in the cover shelf (review R-03, R-20) | 4.0; no longer insert fits the 4.2 mm holes | frame: 7 = 2 cover shelf (vertical holes), 2 fan standoffs and 3 duct lugs T_left / T_right / T_3 (horizontal holes); coupon: 1 |
 | M2.5 brass, short | 3.6 | 5.0 | 4.0; ≤ 4.5 | probe mount: 2; coupon: 2 |
 
 Procedure:
@@ -155,6 +183,7 @@ Procedure:
 | ASA | 4 h at 65–80 °C if the spool has been open (ESTIMATED) | not needed | |
 | PC | ≥ 6 h at 70–90 °C (ESTIMATED; per TDS) | optional: 1–2 h at 110–120 °C, slow oven cool (ESTIMATED; per TDS); relieves stress near the hot zone | measure the part before and after; re-check the fit |
 | PA-CF | 8–12 h at 80–100 °C (ESTIMATED; per TDS); keep it in a dry box while printing | recommended if the TDS gives a cycle (it raises HDT strongly for most PA-CF); typically several hours at 80–100 °C (ESTIMATED) | do it **before** the inserts; the part may shrink slightly, so re-measure the probe pocket (21.93 × 15.60 + 0.1 per side) |
+| HT resin (duct, from the service) | — | the service's **full thermal post-cure** per the TDS; the HDT is valid only after it (DD-07a) | the duct takes no inserts; a thermoset does not soften for them |
 
 ## 5. Fit-check coupon procedure
 

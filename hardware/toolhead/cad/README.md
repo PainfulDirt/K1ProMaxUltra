@@ -27,7 +27,8 @@ multi-port duct** (`ducts/duct_generator.py`, param set S8; `duct_interface.json
     and re-run `export.py`. The duct pitch estimate also uses PC's modulus.
 
 The placeholder stub in `structure/cooling.py` is only a fallback. A Same Sky 5015 (+ 24→12 V buck)
-is a conditional upgrade, not the baseline: no buck mount is modelled.
+is not buildable in this frame/cover architecture (`documentation/cfd-report.md` §17.8): no Same Sky
+variant of S8 and no buck mount are modelled.
 
 Frame for every file: origin at the nozzle tip, +X printer right, +Y printer rear, +Z up, mm.
 Every number comes from `source/interfaces.py`, or is a named parameter with a status and a
@@ -62,7 +63,7 @@ S8 now passes every check the phase 6 review added:
 | duct × 4020 solid (R-02) | 0 mm³, min gap 0.25 mm | 1.23 mm³ |
 | lower fan screw shank / head vs the duct | shank clear; head 0.5 mm, from the cover | shank 2.43 mm³; head 0.30 mm |
 | sock / flat base design targets | 4.54 mm (≥ 4.5); Z 3.00 (≥ 3.0) | 3.35; 2.44 |
-| duct pitch mode (R-22) | 1530…2741 Hz on 3 tabs | 113…598 Hz on 2 tabs |
+| duct pitch mode (R-22) | 1530…2742 Hz on 3 tabs | 113…598 Hz on 2 tabs |
 | cover × duct | 0.55 mm | 0.40 mm |
 | tolerance stack-up (R-16), worst case | 0.62 mm against margins of 1.54 (hot zone) and 1.0 (`DUCT_MIN_Z`) | 0.35 / 0.44 margins |
 
@@ -80,7 +81,7 @@ Remaining WARNs, all accepted:
 
 | WARN | Why it is accepted |
 |---|---|
-| duct min wall 0.32 mm on 0.33 % of rays (FAIL threshold 0.5 %) | 2 rays are acute-edge port-root ridges, as in S7. 3 lie between near-parallel faces at the fan socket's front right: (15.4, −56.3, 22.2) and (20.2, −55.6…−55.3, 24.9…26.5), at the edge of the socket notch around the lower-right fan screw (16.05, 25.6). That is a real sliver, reported to the duct owner; 0.33 % is under the 0.5 % FAIL threshold |
+| duct min wall: 0.13 % of rays under 0.8 mm (FAIL threshold 0.5 %) | 0 rays between parallel faces; the 2 thin rays sit on acute convex port-root edges (wedge 57–65°), as in S7. The socket-notch slivers of the first S8 export are gone: the notches are now rectangular cuts with flat faces (`documentation/cfd-report.md` §17.4) |
 | fan screw tips ×2 | M3×24 ends 0.20 mm from the 0.8 mm insert floor; the safe length is 22.5…23.7 mm and no standard ISO 7380 length fits. Decided by M7 (fan through-length, hole type; R-03) |
 | fan hole vs outlet (R-02) | 154 mm³ of the lower Ø3.4 fan bore lies inside the ESTIMATED outlet column; M7 resolves the contradiction |
 | front extent −58.2 vs `FRONT_LIMIT_Y` −55 | soft limit (M9); the 4020 alone reaches −56.5 |
@@ -158,8 +159,10 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
   742370, CC BY) gives real carriage/heatsink/PCB/3010/extruder solids for the interference
   checks. Generate the cache once with
   `python -I cad/source/structure/stock_cache.py <creality-k1-assembly-alpha-v001.step> [outdir]`
-  (or set `K1TH_STOCK_CACHE`). The cache stays outside the repository. Exports never contain
-  third-party geometry: the assembly STEP uses the boxes from `interfaces.py`.
+  (or set `K1TH_STOCK_CACHE`). The cache stays outside the repository. `cad/exports/` never
+  contains third-party geometry: the assembly STEP uses the boxes from `interfaces.py`. The CFD's
+  stock duct and cover STEP (Henlor, CC BY 4.0; cover public domain) are committed under
+  `simulations/cfd/cases/stock/` with their `ATTRIBUTION.md` (review R-26).
 - Export tolerances, documented in `export.py`:
 
   | Check | Tolerance |
@@ -312,7 +315,7 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
   - Printed upside down, no supports.
 - **Stiffness** (hand estimates, `structure/stiffness.py`; numbers in the report):
   - Frame rocking on the 3 screws is ≥ 1.27 kHz. The clamped stack is brass sleeve + PCB + 3010.
-  - Duct cantilever (R-22): rigid duct on 3 tabs, 1530…2741 Hz.
+  - Duct cantilever (R-22): rigid duct on 3 tabs, 1530…2742 Hz.
     - The lower bound puts the short tab arms in series with each pad: torsion, plus bending and
       shear along Y.
     - The three tabs spread in Z turn pitch into push-pull on the tab joints; k_θ 0.44…1.40 N·m/rad.
@@ -339,4 +342,4 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | cable ties 2.5 mm | 3 | frame top corners, probe mount roof |
 | stock 4020 blower | 1 | reused |
 
-No 24→12 V buck or Same Sky 5015 hardware in the baseline (conditional upgrade only).
+No 24→12 V buck or Same Sky 5015 hardware (not buildable in this architecture, `documentation/cfd-report.md` §17.8).

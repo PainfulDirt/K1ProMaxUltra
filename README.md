@@ -47,7 +47,7 @@ helper/
   check-updates.sh       nightly: Pellcorp/Kalico update check -> UPDATES.md
   update.sh              saves overrides (+ git push), updates, re-links, checks Klipper
 orcaslicer/              OrcaSlicer 2.4 profiles for this printer (5 nozzles, 59 processes: Balanced everywhere, Precision (10 mm3/s quality cap) and Fast where they make a difference, plus Speed Benchy profiles (0.4: 12:28, 0.8: 9:14, 1.0: 8:45), 12 filaments)
-hardware/toolhead/       custom toolhead (cooling module, S7 duct, cover, probe mount): CAD, CFD, docs. Work in progress, not installed
+hardware/toolhead/       custom toolhead (cooling module, S8 duct, cover, probe mount): CAD, CFD, docs. Work in progress, not installed
 ```
 
 ## Switches and buttons
@@ -125,7 +125,7 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Roadmap
 
 **Toolhead** ([hardware/toolhead/](hardware/toolhead/README.md))
-- **New part cooling.** The design keeps the stock 4020 fan and replaces the stock duct with a CFD-designed multi-port duct, a new cooling-module frame and a new cover. The LiDAR and Microprobe positions are unchanged. In simulation (steady RANS, 20 mm part proxy, at the conservative end of the stock fan's unknown curve) the airflow in the layer around the nozzle is about 4.8× the stock duct's with the same fan (3.8× at the other end of the curve); nothing has been printed or measured yet. Next: print the fit-check coupon and take the measurements in [missing-information.md](hardware/toolhead/documentation/missing-information.md).
+- **New part cooling.** The design keeps the stock 4020 fan and replaces the stock duct with a CFD-designed multi-port duct, a new cooling-module frame and a new cover. The LiDAR and Microprobe positions are unchanged. In simulation (steady RANS, 20 mm part proxy, at the conservative end of the stock fan's unknown curve, against the stock duct re-run with the same fan and settings) the airflow in the layer around the nozzle is about 4.4× the stock duct's (4.3–5.3× over the robustness checks, 4.2× at the other end of the curve), every side of the part gets more air than with the stock duct, and the heater needs about 7.6 W more at full fan. The duct is to be made in high-temperature resin by a print service. Nothing has been printed or measured yet. Next: print the fit-check coupon and take the measurements in [missing-information.md](hardware/toolhead/documentation/missing-information.md).
 
 **LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check)
 - **True first-layer thickness.** Scan the bare plate, print the first layer, scan again: the difference is the real thickness across the part. Checks True Zero Touch and the mesh with numbers.

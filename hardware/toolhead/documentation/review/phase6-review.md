@@ -810,3 +810,45 @@ difference; `README.md` and `STATUS.md` do not.
   shank intersections, slices, bed contact, extents and clearances.
 - A short Python read of `simulations/cfd/results/*/results.json` and `summary.csv`.
 - No CFD run was started or stopped. No repository file other than this one was written.
+
+## Resolution status (2026-11-12, after the review round)
+
+Added after the review, by the project, not by the reviewer. Each row was checked against the files
+named. Status: **fixed** (the fix the finding asks for is in the design and the documents), **partly**
+(part of it is done; the rest is named), **open** (not done), **user** (waits for a measurement,
+test or action by the user). Nothing has been printed or measured yet, so no fix is confirmed on the
+printer.
+
+| R | Severity | Status | Where, and what remains |
+|---|---|---|---|
+| R-01 | CRITICAL | fixed | S8 ends at Y +9.8 (`cfd-report.md` §17.1, §17.4); `validate.py` checks the XY footprint behind Y +10 below Z 30 against the probe body + 785004 (validation report, rear footprint PASS for every part); rear keep-out jog mandatory (`calibration.md` D.4). The jog itself is still to be done on the printer |
+| R-02 | MAJOR | partly | Fixed: the 4020 is a solid in `validate.py` (body + ESTIMATED nozzle + bores), the socket is four-sided with 0.25 mm clearance and 0.000 mm³ inside the fan (cap 0.5 mm³), screw shanks and tips are checked, the fan screw clears the socket by 0.60 mm (`cfd-report.md` §17.9), a skewed-inlet CFD run was made (§17.5). Open: the hole-vs-outlet contradiction (validation WARN, 154 mm³) until M7 (`missing-information.md`) |
+| R-03 | MAJOR | partly | Fixed: every insert hole is blind with a 0.8 mm floor; fan-screw tip check in `validate.py` (WARN, safe length 22.5…23.7 mm); `bill-of-materials.md` F6, `maintenance.md` §3 and `assembly.md` step 5 corrected. User: the hole type and through-length (M7) decide the screw length and whether the joint changes; drill only a spare 4020 (`assembly.md` step 2.5) |
+| R-04 | MAJOR | fixed | BT4M brass sleeves in the three PCB bosses (`cad/README.md`, BOM F11, `assembly.md` step 3.3); 4th anchor evaluated and not added, with reasons (`cad/README.md`, validation INFO); PCB and 3010 in the clamp stiffness (validation report stiffness); torque audit after the first 10 hot hours (`maintenance.md` §5) |
+| R-05 | MAJOR | fixed | flat base at Z 3.0, 1378 mm² bed contact; bed contact checked in each part's own print frame (validation report); `print-settings.md` updated |
+| R-06 | MAJOR | partly | Fixed: lowest point raised to 3.0 (flat base); CFD cost of 3.0 / 3.5 mm lips measured (`cfd-report.md` §17.3); M11 is priority 1 and asks for the Z-hop; a curling ABS print is in V5 (`validation.md` §4.3). Open: no snag requirement beyond `DUCT_MIN_Z`; the requested `DUCT_MIN_Z = 2.4` is not applied (`cfd-report.md` §16 R7). User: M11 |
+| R-07 | MAJOR | fixed | V8 quantitative (thermocouples, 300 °C, fan 0 %, ≥ 4 h, lip height; `validation.md` V8); materials by HDT ≥ 130 °C at 0.45 MPa (DD-07); duct in HT resin, 238 °C class (DD-07a); sock clearance 4.54 mm, manifold wall 7.8 mm. User: M20 and V8 |
+| R-08 | MAJOR | fixed | frozen-mean scalar method, balance closes to −0.03 % (S8) / −0.5 % (STOCK), ≤ 5 % acceptance (`cfd-report.md` §17.7); S7's thermal W values withdrawn in DD-01, `calibration.md` E, `stock-vs-new.md`, `validation.md` |
+| R-09 | MAJOR | fixed | laminar, STOCK L3, skewed inlet and long-average runs; the spread is quoted with every headline (×4.4, ×4.3–5.3; `cfd-report.md` §17.5); the probe criterion is documented (§13.4) |
+| R-10 | MAJOR | fixed | 120 × 120 mm plate and probe body as a wall run (`cfd-report.md` §17.5); headline with its conditions in `README.md`, `STATUS.md` and the root `README.md`; V5 with the aux fan on and off (`cfd-report.md` §15, `validation.md` V5) |
+| R-11 | MAJOR | fixed | faces reported separately (`cfd-report.md` §17.6, `stock-vs-new.md`, `validation.md`); per-face criterion in DD-01 (S7 fails on −X, S8 passes); V3 and V5 judged per face; per-face values flagged as known to about a factor of 2 |
+| R-12 | MAJOR | fixed | `calibration.md` L (provisional fan maxima, coupons, profile change left to the user). User: the retune |
+| R-13 | MAJOR | fixed | not buildable stated in DD-01, `cfd-report.md` §12.1 and §17.8, `electrical.md` §2.1, `bill-of-materials.md` §3 |
+| R-14 | MINOR | fixed | four-sided socket at 0.25 mm; leak estimated (11 % unsealed; `cfd-report.md` §17.9); seal in `assembly.md` step 6 and BOM F12; checked in `calibration.md` C and V2 |
+| R-15 | MINOR | fixed | ISO 7380 only (BOM F6, `maintenance.md` §0, `cad/README.md`); cover holes Ø6.7, 0.5 mm radial; `HEAD_MIN_GAP` 0.5 (`validate.py`) |
+| R-16 | MINOR | fixed | the 4020 is checked like a printed part (LiDAR, XY band, rear footprint in the validation report); stack-up ±0.2 per joint and print (worst case 0.62 mm, INFO); close-fit Ø4.05 locating bore at the lower-left PCB screw (`cad/README.md`) |
+| R-17 | MINOR | fixed | DD-07 rewritten by HDT and by what a part sees; the frame boss stays ASA with that reasoning (`cad/README.md` R-17 note) |
+| R-18 | MINOR | fixed | max-flow headroom test with pass limits (`calibration.md` E.4) |
+| R-19 | MINOR | partly | Fixed: `FRAME_FRONT_Y` in `duct_generator.py` now derives from `interfaces.PCB_COMPONENT_ZONE`; the fan geometry lives in one place (`FAN4020_M7`). Open: the plain tuples in `interfaces.py` (`PCB_HOLES`, `HEATSINK_FRONT_HOLES`, `COVER_SCREWS`, `X_RODS_YZ`, `XY_JOINT_BAND_Z`, `LIDAR_LINE_X`, `PROBE_ADAPTER_SCREWS`), the untagged `BlowerSpec.hole_d`, "MEASURED-BY-USER", the "MISSING, M2" comment next to the DERIVED `UPPER_PATTERN_HOLES_TARGET`, `PROBE_KEEPOUT` / `DENSITY` / Same Sky mass hard-coded in `duct_generator.py`, the `cfd-report.md` §16 requests, and no FAIL on an unknown status |
+| R-20 | MINOR | fixed | Ø8.5 bosses with 1.80 mm around the knurl; cover holes 6.0 mm deep, the M3×6 tip 1.2 mm above the floor (validation report) |
+| R-21 | MINOR | fixed | claim softened to "no evidence of transport" in `cfd-report.md` §13.1, DD-02, `maintenance.md` §4; V7 is the evidence. Not done (optional): the module box in the LiDAR case |
+| R-22 | MINOR | fixed | third tab T_3; pitch-mode estimate 1530…2742 Hz on three tabs, lever 46 mm (validation report); tap test in `assembly.md` step 6. The estimate assumes a rigid duct |
+| R-23 | MINOR | fixed | every row of the table checked: `README.md` STATUS row, DD-06, the four "47–56 %" sentences, `cfd-report.md` §14.3, §5.2 and §2, M8, the `STATUS.md` tag, the root `README.md` headline, M7 priority 1, `maintenance.md` ISO 7380, the `cad/README.md` export sentence |
+| R-24 | MINOR | fixed | include-order check after `FIRMWARE_RESTART` (`electrical.md` §5); the `max_power` note on the proposed LiDAR macro (`calibration.md` §6). The Same Sky buck inrush is moot: the upgrade is not buildable (R-13) |
+| R-25 | MINOR | user | the frame plate still sits on the ESTIMATED component zone; move it back after M10 |
+| R-26 | NOTE | partly | Fixed: `simulations/cfd/cases/stock/ATTRIBUTION.md`; the cache path is configurable (`K1TH_STOCK_CACHE`). Open: the default in `stock_cache.py` and the reference paths in research/01 are still session scratchpad paths |
+| R-27 | NOTE | user | reprint of the unchanged 785004 in ASA, PC or PA-CF in DD-07, `bill-of-materials.md` §1, `assembly.md` §1, `print-settings.md` §1. The reprint itself is the user's |
+| R-28 | NOTE | partly | Fixed: the STOCK vs S8 inlet area is quantified (≤ 0.5 % on STOCK's flow, `cfd-report.md` §17.9); `validation.md` §1.3 calls the research/04 case numerical verification. Open: research/04 §8 is still headed "Validation case" |
+| R-29 | NOTE | fixed | `README.md`, `STATUS.md`, BOM and `stock-vs-new.md` give the moving mass with the probe mount and say it is 0.6–0.9 g less while the 785004 stays |
+
+Counts: fixed 21, partly 6, open 0, user 2.

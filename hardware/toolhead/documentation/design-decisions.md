@@ -90,39 +90,70 @@ C's cooling) replaces only the feed transition, not the structure.
 - C throws away the calibrated sensor geometry and needs carriage data we do not have. Its cooling
   advantage stays available through the upgrade path.
 
-**Outcome (CFD campaign, `cfd-report.md` §8–12, all [RAN] on the L2 mesh).** The feed is **S: one
-stock 4020 with the S7 multi-port nozzle end.**
+**Outcome (CFD campaign, all [RAN] on the L2 mesh).** The feed is **S: one stock 4020 with the S8
+multi-port nozzle end** (`cfd-report.md` §0, §17). The first round (§8–§12) chose the feed with S7. The
+Phase 6 review round (§17) replaced S7 by S8: S7 reached Y +27.5 behind the nozzle (R-01), had no bed
+contact, a socket inside the fan model and an unclosed thermal balance. S8 keeps S7's fan pose, plenum
+and manifold, ends the manifold at Y +8.6 and uses four 7.5 × 3 mm ports instead of five.
+
+First round (S7, kept as the record of the fan decision; STOCK = the first STOCK run):
 
 | Result at the conservative 4020 curve (191 Pa) | STOCK duct | S7, 1 × 4020 | D2, 2 × 4020 | S7 + Same Sky 5015 |
 |---|---|---|---|---|
-| Layer annulus speed, Z +0.3 [m/s] | 1.83 | **8.84** | 8.40 | 9.99 |
-| Weakest of 8 sectors [m/s] | 0.35 | **6.28** | 3.51 | 5.61 |
-| Part-top h, r ≤ 5 (thermal proxy) [W/m²K] | 42 | **147** | – | 178 |
+| Layer annulus speed, Z +0.3 [m/s] | 1.83 | 8.84 | 8.40 | 9.99 |
+| Weakest of 8 sectors [m/s] | 0.35 | 6.28 | 3.51 | 5.61 |
 | Δ moving mass vs stock, fan + duct only [g] | 0 | +6.1 | +33.0 | +14.2 (+3–6 g buck) |
 
+The S7 thermal-proxy values of that round (part-top h, heater W) came from an unclosed energy balance
+(review R-08). They are withdrawn and are not quoted here.
+
+Review round (released S8; STOCK run again in the same round with the same settings; the spread over
+the robustness checks of `cfd-report.md` §17.5 in brackets):
+
+| Result at the conservative 4020 curve (191 Pa), 20 mm part | STOCK duct | **S8, 1 × 4020** | Ratio |
+|---|---|---|---|
+| Layer annulus speed, Z +0.3 [m/s] | 2.12 | **9.38** | ×4.4 (×4.3–5.3; ×4.2 at the upper bound) |
+| Weakest of 8 sectors [m/s] | 0.36 | **5.51** | ×15 (×12–30: an order of magnitude) |
+| Part top r ≤ 5, near-wall speed [m/s] | 1.68 | 7.53 | ×4.5 (×4.5–5.8) |
+| Side faces −X / +X / −Y / +Y, near-wall speed [m/s] | 0.78 / 0.29 / 1.43 / 0.10 | 4.49 / 3.35 / 2.93 / 0.45 | ×5.8 / ×12 / ×2.0 / ×4.4 |
+| Part-top h, r ≤ 5 (thermal proxy, balance closed to −0.5 % / −0.03 %) [W/m²K] | 40 | **134** | ×3.3 |
+| Heat removed from the part, top + sides [W] | 10.4 | 20.9 | ×2.0 |
+| Extra heater demand at 100 % fan [W] | — | +7.6 | nozzle +3.1, sock +4.5 at an ESTIMATED 150 °C sock |
+
 Reading against the selection rule:
-- The second fan (D) fails all three conditions: −5 % layer speed, −44 % weakest sector, +24 % nozzle
-  impingement, +27 g and a fan beside the nozzle. It is rejected.
-- No fan swap earns a clear margin on S7:
+- The second fan (D) fails all three conditions (first round, on S7): −5 % layer speed, −44 % weakest
+  sector, +24 % nozzle impingement, +27 g and a fan beside the nozzle. It is rejected.
+- No fan swap earned a clear margin on S7 (first round):
   - Delta: −10 % as a minimum-spec unit, +10 % typical;
   - Same Sky: +13 % typical, inside its own tolerance and inside the ±20 % spread of the 4020's
     unknown curve.
-- The 4020 stays. The Same Sky CBM-5015BF was meant as the conditional upgrade, but **as modelled it
-  is not buildable** (review R-13):
-  - its 51.6 mm wide housing puts its right face exactly on the hard X stall limit (24.2) inside the
-    XY-joint band, with 0 mm margin;
-  - no ±24 mm cover can enclose it.
+- The 4020 stays. The Same Sky CBM-5015BF was meant as the conditional upgrade, but **it is not
+  buildable in this architecture** (review R-13, `cfd-report.md` §17.8):
+  - its 51.6 mm wide housing needs 51.6 + 1.0 mm stall margin + 2 × 1.7 mm cover wall and gap =
+    56.0 mm inside the XY-joint band, where 55.2 mm is available (X −31.0 ESTIMATED … +24.2 hard);
+  - no other pose helps.
 
-  It stays an upgrade only if a pose with ≥ 1 mm margin and room for a cover wall exists; the duct
-  revision checks this.
-- One caveat on the price of the gain. The thermal proxy puts the nozzle and sock convective loss at
-  +6.2 W (lower bound) to +6.8 W (upper bound) at 100 % fan, about 10 % of the 60 W heater. Treat
-  that figure as indicative only: its energy balance does not close: on S7 the heat leaving through the open boundaries exceeds the wall input by 47–56 % (STOCK 2–3 %), so the error differs per case (review R-08). It is the reason
-  `MPC_CALIBRATE` is mandatory after fitting.
+  It would need an open-sided or asymmetric cover and an accepted 0 mm stall margin. S8SS was not run.
+
+**Per-face criterion (added after review R-11, `cfd-report.md` §17.6).** The annulus and sector
+metrics alone hid a face that S7 cooled less than stock. So, in addition to the rule above: at the
+conservative fan bound, on the 20 mm part, each of the four side faces must have near-wall |U| (0.3 mm
+off the top 3 mm of the face) **≥ STOCK's** at the same settings. A face counts as worse only if it
+is below **0.8 × STOCK in two independent runs** (a mesh level, a turbulence model or a repeat),
+because single-run face values scatter by about a factor of 2.
+- **S7 fails it on −X** (the LiDAR side): 0.69 against STOCK's 0.79 m/s on L2, 0.49 on L3.
+- **S8 passes it**: every face is above STOCK in every variant run; the lowest ratio is −Y ×2.0
+  (×2.0–2.5 over the variants).
+- D2 (−X 6.90, −Y 4.73 m/s) would have passed on faces and failed on the annulus and nozzle
+  impingement as before.
+
+The price of the gain: about +7.6 W heater demand at 100 % fan, about 13 % of the 60 W heater (the
+sock share scales with the ESTIMATED 150 °C sock surface, M20). It is the reason `MPC_CALIBRATE` is
+mandatory after fitting. The S7-era +6.2 / +6.8 W came from an unclosed balance and are withdrawn.
 
 **Would reverse it.**
 - The V1 bench test measures the 4020 at its lower bound **and** the V5/V6 test prints show
-  insufficient cooling. That re-opens the fan choice (Same Sky only if a buildable pose exists, see
+  insufficient cooling. That re-opens the fan choice (the Same Sky only with a different cover, see
   above), not two fans.
 - CFD shows that no front-bay layout clears the LiDAR zone.
 - Or the user decides on an X-rail rebuild, which makes C's recalibration cost worth paying.
@@ -153,11 +184,14 @@ Airflow and the LiDAR:
 
 **CFD check [RAN]** (`cfd-report.md` §13.1, nozzle 3 mm above a bare bed, fan at 100 %, upper 4020
 bound as the worst case):
-- S7 raises the air speed to 0.87 m/s at the laser line and 0.17 m/s at the window region; STOCK gives
-  0.18 / 0.087.
-- At the window the air moves downward, away from the module, so fumes are not carried onto the windows.
-- No duct part enters `LIDAR_RESERVED`. The duct's leftmost point is X −15.8, against −18 for the
-  optical box.
+- S8 gives 0.041 m/s mean at the laser line, less than STOCK's 0.18: it has no port on the left, and
+  its swirl turns the front-left jet back toward the part. At the window region S8 gives 0.17 m/s mean
+  (0.34 max) against STOCK's 0.087 (0.18). S7 gave 0.87 / 0.17 m/s (first round, superseded).
+- At the window height the air moves downward, toward the jets. That is **no evidence of transport
+  toward the windows in this model**, not a demonstration that fumes stay away: the model is
+  isothermal (no hot plume, no buoyancy) and has no module body (review R-21). V7 is the evidence.
+- No duct part enters `LIDAR_RESERVED` or the laser sheet. The tightest duct clearance is 1.41 mm to
+  the ESTIMATED optical box (validation report).
 
 **Operating rule (proposed, not applied):** run LiDAR scans with the part fan off. The repo's macros do
 not guarantee this in every path:
@@ -165,7 +199,7 @@ not guarantee this in every path:
   may already have switched the fan on;
 - the PA and cross test prints in `custom/lidar.py` set the fan themselves (`M106 S0` / `S128`).
 
-Whether 0.87 m/s at the laser line affects the readings at all is unknown: the 0 % fan case was not
+Whether the air at the laser line affects the readings at all is unknown: the 0 % fan case was not
 simulated, and air movement itself is not expected to bend the beam (above). V7 (`cfd-report.md` §15)
 checks it on the printer. Adding `M106 S0` before the scan is a config change, so it is left to the
 user (`calibration.md`).
@@ -221,7 +255,7 @@ The original wording ("a MOSFET module switched by PB6" for any fan) is withdraw
 MPC `fan_ambient_transfer` must be re-measured after any duct or fan change.
 
 **Outcome.** CFD chose one stock 4020 (DD-01), so the baseline needs no add-on and no channel change:
-stock PB8/PB6/PB3, 0.3 A. `electrical.md` §2 covers the buck for the conditional Same Sky upgrade.
+stock PB8/PB6/PB3, 0.3 A. `electrical.md` §2 records the buck design for the Same Sky, which is not buildable in this architecture (R-13, `cfd-report.md` §17.8).
 The MOSFET add-on for 2-wire fans is rejected: it survives as a short note in `electrical.md` §6 and in
 the git history. The text above about feed D and the add-ons is kept as the record of the decision.
 
@@ -232,12 +266,19 @@ The full write-up is research/04. In short:
 - fans as P–Q curve inlets (`fanPressure`);
 - a nozzle environment of nozzle, sock, heatsink, a 20 mm printed-part proxy whose top is 0.2 mm
   under the tip, and the bed;
-- production mesh level L2. On the final duct the area-averaged metrics change by under 3 % from L2 to L3, but
-  per-face values move by up to 33 % and the weakest sector by 21.5 % (`cfd-report.md` §13.2), so those are
-  compared only between cases on the same mesh.
+- production mesh level L2. On the released S8, L2 → L3 moves the annulus by −10 %, the weakest sector
+  by −21 % and the part top by −3 %, and the S8/STOCK ratios by −3 %, −20 % and +4 %; per-face values
+  move by −11 … +19 % (`cfd-report.md` §17.5, §17.6). The means are converged within the scatter
+  band, the weakest sector is not.
+- run-to-run scatter: re-meshing the same geometry moves single-run means by about ±8–10 %, the
+  weakest sector by ±20–30 % and a single side face by a factor of about 2 (STOCK repeat +16 %,
+  §17.3). Headline ratios are therefore quoted with the spread over a set of robustness checks
+  (laminar, L3, plate, probe body, skewed inlet, long averaging; §17.5).
 
 Results rank designs; absolute velocities carry about ±20–30 % uncertainty plus the fan-curve
 uncertainty. Airflow is not cooling: the finalists get a heat-transfer proxy run, labelled as such.
+Since the review round, h and W are quoted only from proxy runs whose energy balance closes to ≤ 5 %
+(S8 −0.03 %, STOCK −0.5 %; `cfd-report.md` §17.7).
 
 ## DD-07: Materials
 
@@ -247,11 +288,11 @@ filament's heat-deflection temperature (HDT, ISO 75 at 0.45 MPa, from the spool'
 
 | Parts | Requirement | Reason |
 |---|---|---|
-| **Duct body:** the whole part. Its manifold faces the sock across 3–4.5 mm of still air, and the fan is often at 0–30 % for ABS/ASA | **HDT ≥ 130 °C at 0.45 MPa**: pure PC, or annealed PA-CF. A PC blend qualifies only if its own TDS meets the HDT. ASA does not | The review's 1-D estimate (REVIEWER-ESTIMATE, fan off, chamber 45 °C) puts the inner manifold wall at about 99 / 121 / 143 / 157 °C for a sock surface of 120 / 150 / 180 / 200 °C. The sock temperature is MISSING (M20). PC blends are typically around 110–120 °C HDT and pure PC about 135–140 °C (ESTIMATED; check the spool) |
+| **Duct body:** the whole part. In S8 its port lips are 4.54 mm from the sock and the manifold wall 7.8 mm, across still air, and the fan is often at 0–30 % for ABS/ASA | **HDT ≥ 130 °C at 0.45 MPa**: pure PC, or annealed PA-CF. A PC blend qualifies only if its own TDS meets the HDT. ASA does not | The review's 1-D estimate (REVIEWER-ESTIMATE, fan off, chamber 45 °C) puts the inner manifold wall at about 99 / 121 / 143 / 157 °C for a sock surface of 120 / 150 / 180 / 200 °C. The sock temperature is MISSING (M20). PC blends are typically around 110–120 °C HDT and pure PC about 135–140 °C (ESTIMATED; check the spool) |
 | Parts that see the sock or block directly within about 15 mm, below the heatsink bottom (Z < +31.9) | PC or PA-CF | radiation and the convective plume from the heater |
 | Parts at heatsink level or above, or that see the sock only edge-on through the heatsink and the 3010 intake stream. For example, the frame's PCB bosses: lower edge at Z 30.55, 13.7 mm from the sock | ASA is acceptable | the review estimates about 55–65 °C in operation (REVIEWER-ESTIMATE). That is below ASA's Tg of about 100 °C with margin |
 | Cover, frame, everything else | ASA or ABS | Tg about 100 °C; the chamber runs at 45 °C during ABS prints |
-| **Anywhere on the toolhead** | **no PLA or PETG** | Today's 785004 probe adapter (material unknown, possibly PLA/PETG) sits 5.1 mm from the sock box. Reprint the same, unchanged STL in ASA, PC or PA-CF before or with this build (review R-27). Its geometry, and so the probe calibration, does not change |
+| **Anywhere on the toolhead** | **no PLA or PETG** | Today's 785004 probe adapter (material unknown, possibly PLA/PETG) sits 5.1 mm from the sock box. Reprint the same, unchanged STL in PC or PA-CF (it is below the heatsink and within 15 mm of the sock, row 2) before or with this build (review R-27). Its geometry, and so the probe calibration, does not change |
 
 What decides it physically: test V8 (`validation.md` §4). Thermocouples on the sock bottom and on the
 manifold's inner face, nozzle at 300 °C, chamber 45 °C, fan 0 %, at least 4 h. Measure the lip Z
@@ -294,7 +335,7 @@ What the resin choice changes. These are conditions, not optional advice:
    - The three M3 tabs (T_left, T_right, T_3) clamp resin directly. Put an M3 washer under each
      head, and tighten only until the tab seats: a brittle tab cracks from over-torque, it does
      not creep.
-   - The outlet lips sit 2.44 mm above the nozzle tip (S7; S8 per `duct_interface.json` v4). A
+   - S8's flat base and port lips sit 3.0 mm above the nozzle tip (`duct_interface.json` v4). A
      curled-up print, or a nozzle crash, chips a resin lip; PC or PA12 would bend. Keep a
      **spare duct**: order two.
    - The fan socket is a 0.25 mm clearance fit, not a press fit, so it does not load the resin.

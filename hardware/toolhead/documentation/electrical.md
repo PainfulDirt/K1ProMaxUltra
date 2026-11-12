@@ -2,8 +2,8 @@
 
 Scope: the part-cooling fan channel on the nozzle board. The baseline build changes nothing here:
 **one stock Creality 4020, the one already fitted, on the stock channel** (DD-01, DD-05,
-`cfd-report.md` §12.2). This page records what is known about that channel (§1), the conditional
-Same Sky upgrade with its 24→12 V buck (§2), fan tuning (§3), the PB6 probing procedure the upgrade
+`cfd-report.md` §12.2). This page records what is known about that channel (§1), the Same Sky
+path with its 24→12 V buck (§2; record only, not buildable in this architecture, R-13), fan tuning (§3), the PB6 probing procedure the upgrade
 uses (§4), the example Kalico snippets (§5) and, for the record, the rejected options (§6).
 
 Status tags: **VERIFIED** (repo, datasheet), **SECONDARY** (distributor or retailer page, search
@@ -41,7 +41,7 @@ The hotend fan (channel 2: PB5, tach PB4, 3010, 0.1 A) is unchanged (DD-04).
 | Add-on (buck, MOSFET) | none |
 | Config | none. Pellcorp's `[fan]` stays as it is |
 | Optional tach for commissioning | `components/fans/klipper/part_fan_stock4020.cfg` makes the stock values explicit and has the tach lines commented out. Including it is a printer-config change, left to the user (§5) |
-| After fitting | **re-run `MPC_CALIBRATE HEATER=extruder FAN_BREAKPOINTS=7`** (`calibration.md` step E). The duct is new, and the CFD thermal proxy puts the extra nozzle + sock loss at +6.2 … +6.8 W at 100 % fan (`cfd-report.md` §11, indicative) |
+| After fitting | **re-run `MPC_CALIBRATE HEATER=extruder FAN_BREAKPOINTS=7`** (`calibration.md` step E). The duct is new, and the CFD thermal proxy puts the extra nozzle + sock loss at about +7.6 W at 100 % fan (`cfd-report.md` §17.7; the sock share at an ESTIMATED 150 °C sock surface) |
 
 ### 1.3 Current budget, channel 1
 
@@ -51,12 +51,16 @@ The hotend fan (channel 2: PB5, tach PB4, 3010, 0.1 A) is unchanged (DD-04).
 
 Toolhead fan total = channel 1 + 0.1 A (3010 on channel 2, research/03 §2).
 
-## 2. Upgrade path (conditional): Same Sky CBM-5015BF + 24→12 V buck
+## 2. Upgrade path (record only, not buildable as modelled): Same Sky CBM-5015BF + 24→12 V buck
 
 ### 2.1 When, and what it involves
 
-Only if bench test V1 measures the stock 4020 at its lower bound **and** the V5/V6 test prints want
-more cooling (DD-01, `cfd-report.md` §12.1). Parts and prices: `bill-of-materials.md` §3.
+**Not buildable in this architecture** (review R-13, DD-01, `cfd-report.md` §17.8): in the XY-joint
+band the Same Sky needs 56.0 mm of width with a 1 mm stall margin and a cover wall on both sides,
+and 55.2 mm is available. It would need an open-sided or asymmetric cover. This section is kept as the
+record of the electrical side. Its original trigger: bench test V1 measures the stock 4020 at its
+lower bound **and** the V5/V6 test prints want more cooling (DD-01, `cfd-report.md` §12.1). Parts
+and prices: `bill-of-materials.md` §3.
 
 | Item | Upgrade | Source |
 |---|---|---|
@@ -164,7 +168,7 @@ Not needed for the baseline unless the stock fan stalls at low duty (Pellcorp's 
 
 ## 4. Probing PB6 (high or low side, current) — step by step
 
-Goal: closes M15 and decides the wiring in §4.5. **Needed only for the conditional upgrade**, not for
+Goal: closes M15 and decides the wiring in §4.5. **Needed only for the Same Sky path, which is not buildable in this architecture (R-13)**, not for
 the baseline. Time: about 30 min. Tools: a multimeter with alligator-clip leads, two back-probe pins
 (or sewing needles), and a phone camera.
 
@@ -254,7 +258,7 @@ The files are in `hardware/toolhead/components/fans/klipper/`:
 | File | Use |
 |---|---|
 | `part_fan_stock4020.cfg` | baseline: stock values made explicit, with an optional tach. Not needed for the baseline |
-| `part_fan_samesky.cfg` | conditional upgrade: Same Sky with the buck (`cycle_time: 0.002`) |
+| `part_fan_samesky.cfg` | record only (Same Sky not buildable, R-13): Same Sky with the buck (`cycle_time: 0.002`) |
 | `part_fan_delta_mosfet.cfg` | rejected option, kept for the record (§6). Do not use |
 
 **How to use one** (a printer-config change, made by the user, not by this project):
