@@ -36,7 +36,7 @@
    "files": {
     "step": {
      "path": "exports/step/cooling_module_frame.step",
-     "sha256_16": "492098b736e187c5",
+     "sha256_16": "00aa8c6ea69cd5ce",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -46,7 +46,7 @@
     },
     "3mf": {
      "path": "exports/3mf/cooling_module_frame.3mf",
-     "sha256_16": "1a8e249ccad49c47",
+     "sha256_16": "df5cb6bdaadc92da",
      "objects": 1,
      "dV_rel": 1.1031561999498931e-05,
      "dBB_mm": 0.0011199951172002898,
@@ -67,8 +67,8 @@
   "cover": {
    "material": "ASA",
    "category": "printed",
-   "volume_mm3": 6416.613,
-   "mass_g_solid": 6.87,
+   "volume_mm3": 5998.47,
+   "mass_g_solid": 6.42,
    "density_g_cm3": "1.07 (ESTIMATED)",
    "print_rot_deg": [
     90,
@@ -92,29 +92,29 @@
    "files": {
     "step": {
      "path": "exports/step/cover.step",
-     "sha256_16": "12a08aecd648ce92",
+     "sha256_16": "3f069627c79638f9",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 5.669624449147465e-15,
+     "dV_rel": 5.6099811529393315e-15,
      "dBB_mm": 1.4210854715202004e-14,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/cover.3mf",
-     "sha256_16": "f50fdf64ff3e5590",
+     "sha256_16": "1401f62f434cc22c",
      "objects": 1,
-     "dV_rel": 3.365527474556776e-05,
+     "dV_rel": 6.054519900182314e-05,
      "dBB_mm": 3.8146970737784613e-07,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/cover.stl",
-     "sha256_16": "de379cc407812641",
+     "sha256_16": "8574f72749e93ef2",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 1688,
-     "dV_rel": 3.3656597498717276e-05,
+     "triangles": 1780,
+     "dV_rel": 6.0547330104178714e-05,
      "dBB_mm": 3.8146970737784613e-07,
      "pass": 1.0
     }
@@ -148,7 +148,7 @@
    "files": {
     "step": {
      "path": "exports/step/probe_mount.step",
-     "sha256_16": "dec29ec67da9a1de",
+     "sha256_16": "da635a74937d5a72",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -158,7 +158,7 @@
     },
     "3mf": {
      "path": "exports/3mf/probe_mount.3mf",
-     "sha256_16": "51113e0f4c876a97",
+     "sha256_16": "f8cfa32440c54bf6",
      "objects": 1,
      "dV_rel": 8.522872665498465e-06,
      "dBB_mm": 7.629394573882564e-07,
@@ -204,7 +204,7 @@
    "files": {
     "step": {
      "path": "exports/step/fitcheck_coupon.step",
-     "sha256_16": "984669bd15b529c6",
+     "sha256_16": "5f24ffa84f0fbec4",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -214,7 +214,7 @@
     },
     "3mf": {
      "path": "exports/3mf/fitcheck_coupon.3mf",
-     "sha256_16": "d22373d85076a847",
+     "sha256_16": "3bf248bd33f13d86",
      "objects": 1,
      "dV_rel": 4.7966791254876244e-05,
      "dBB_mm": 4.5776367230132564e-07,
@@ -260,7 +260,7 @@
    "files": {
     "step": {
      "path": "exports/step/duct_body.step",
-     "sha256_16": "05213e38f0d8b41e",
+     "sha256_16": "cc289284eb51c1e4",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -270,7 +270,7 @@
     },
     "3mf": {
      "path": "exports/3mf/duct_body.3mf",
-     "sha256_16": "e22a07e8c7697f5f",
+     "sha256_16": "66dda1d661f57a1c",
      "objects": 1,
      "dV_rel": 9.943915824251118e-06,
      "dBB_mm": 1.143757657473543e-06,
@@ -291,7 +291,7 @@
  },
  "assembly": {
   "path": "exports/step/k1max_toolhead_assembly.step",
-  "sha256_16": "f65155fb60d3d4ee",
+  "sha256_16": "cbf99bad9cde301b",
   "leaves": 29,
   "groups": [
    "keepout_volumes",
@@ -306,7 +306,7 @@
    },
    "cover": {
     "group": "printed_parts",
-    "volume_mm3": 6416.613
+    "volume_mm3": 5998.47
    },
    "probe_mount": {
     "group": "printed_parts",

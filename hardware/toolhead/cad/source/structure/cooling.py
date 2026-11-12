@@ -59,6 +59,10 @@ STUB_CZ = (_SP.zmin + _SP.zmax) / 2
 # frame's PCB screw at (12, 58.3) (4.5 mm apart). Diagonal pair only.
 STUB_HOLES_XZ = [(prm(G, "STUB_4020_HOLE2_X", -18.65, "STUB", "stock 4020 screw, upper-left (02:C7)"), 60.3),
                  (16.05, prm(G, "STUB_4020_HOLE3_Z", 25.6, "STUB", "stock 4020 screw, lower-right (02:C7)"))]
+# Blower inlet ring diameter (the cover's intake aperture is sized from it). No datasheet value for the stock
+# 4020 (or the 5015s) is in interfaces.py; 28 is the value this adapter always used.
+FAN_INLET_D = prm("fan", "FAN_INLET_D", 28.0, "ESTIMATED",
+                  "4020 blower inlet ring diameter, generic 40 mm blower frames (not in interfaces.py); measure (M7)")
 STUB_DUCT_WALL = prm(G, "STUB_DUCT_WALL", 1.2, "STUB", "placeholder duct shell wall")
 STUB_DUCT_TIP_Y = prm(G, "STUB_DUCT_TIP_Y", -12.0, "STUB", "nozzle-end face; sock front -8.6 + 3 clearance")
 STUB_DUCT_ZMIN = prm(G, "STUB_DUCT_ZMIN", 3.0, "STUB", ">= DUCT_MIN_Z")
@@ -90,7 +94,7 @@ def stub_interface() -> CoolingInterface:
     fan = {
         "id": "part_fan_1", "model": "BLOWER_4020_STOCK",
         "envelope": [x0, x1, y0, y1, z0, z1],
-        "intake": {"center": [0.0, y0, (z0 + z1) / 2], "normal": [0, -1, 0], "d": 28.0},
+        "intake": {"center": [0.0, y0, (z0 + z1) / 2], "normal": [0, -1, 0], "d": FAN_INLET_D},
         "outlet": {"rect": [x1 - STUB_BLOWER.outlet[1], x1, y0 + 1.5, y0 + 1.5 + STUB_BLOWER.outlet[0]], "z": z0},
         "screw_bosses": [{"pos": [x, y1, z], "axis": [0, 1, 0], "screw": "M3", "kind": "insert"}
                          for x, z in STUB_HOLES_XZ],
@@ -146,7 +150,7 @@ def _convert_ducts_schema(d: dict) -> dict:
             pos = [b["xyz"][i] + ax[i] * half for i in range(3)]     # fan face toward the frame
             bosses.append({"pos": pos, "axis": ax, "screw": "M3", "kind": "insert", "status": b.get("status", "")})
         fans.append({"id": fid, "model": model_of.get(str(f.get("type")), "BLOWER_4020_STOCK"), "envelope": env,
-                     "intake": {"center": c, "normal": n, "d": 28.0}, "screw_bosses": bosses,
+                     "intake": {"center": c, "normal": n, "d": FAN_INLET_D}, "screw_bosses": bosses,
                      "mass_g": f.get("mass_g")})
     mounts = []
     for t in d.get("duct_attach_points", []):

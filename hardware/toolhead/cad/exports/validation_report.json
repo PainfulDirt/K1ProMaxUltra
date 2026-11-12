@@ -28,12 +28,12 @@
   {
    "check": "cover: solid",
    "status": "PASS",
-   "detail": "valid=True solids=1 watertight=True V=6417 mm3 m=6.87 g (ASA)"
+   "detail": "valid=True solids=1 watertight=True V=5998 mm3 m=6.42 g (ASA)"
   },
   {
    "check": "cover: min wall (sampled, 1500 rays)",
    "status": "PASS",
-   "detail": "min 1.19 / p1 1.2 mm; 0.00 % < 0.8 mm"
+   "detail": "min 1.2 / p1 1.2 mm; 0.00 % < 0.8 mm"
   },
   {
    "check": "cover: overhang > 45 deg (print orientation)",
@@ -236,6 +236,16 @@
    "detail": "0.30 mm (>= COVER_YIELD_CLEAR 0.3); cover side-wall bottoms Z {'left': 24.0, 'right': 26.4}"
   },
   {
+   "check": "cover: 4020 intake aperture at X -1.3, Z 43.4",
+   "status": "PASS",
+   "detail": "\u00d830.0 fully open (0 ribs), 707 mm2; over the \u00d828.0 inlet disc (FAN_INLET_D, ESTIMATED M7) 616 of 616 mm2 open = 100.0 % (want 100 %, aperture >= inlet + 2 mm); front wall 0.5 mm in front of the intake face"
+  },
+  {
+   "check": "cover: 3010 plenum vents (side + top slots; bottom and rear also open)",
+   "status": "INFO",
+   "detail": "side 183.2 mm2 + top 52.9 mm2; the 3010 itself draws through the frame window (checked above)"
+  },
+  {
    "check": "frame provides fan F screw at (-18.65, -36.50, 60.30)",
    "status": "PASS",
    "detail": "\u00d84.0 insert hole open (0.000 mm3 material), boss \u00d87.2 100 % solid, mating face at Y -36.50 100 % solid; screw along [0, 1, 0]"
@@ -393,17 +403,17 @@
   {
    "check": "moving mass vs stock",
    "status": "INFO",
-   "detail": "added 47.1 g, removed 38.3..47.3 g -> delta -0.1..+8.8 g; X shaper 76.8..77.6 Hz (77.6 now), Y 51.7..52.0 Hz (52.0 now)"
+   "detail": "added 46.7 g, removed 38.3..47.3 g -> delta -0.6..+8.4 g; X shaper 76.9..77.7 Hz (77.6 now), Y 51.8..52.0 Hz (52.0 now)"
   },
   {
    "check": "frame mode estimate: rocking on the 3-screw pattern, optimistic (preloaded bolt + boss)",
    "status": "PASS",
-   "detail": "4391 Hz (want > 2 x 77.6 Hz)"
+   "detail": "4440 Hz (want > 2 x 77.6 Hz)"
   },
   {
    "check": "frame mode estimate: rocking on the 3-screw pattern, pessimistic (boss in compression only)",
    "status": "PASS",
-   "detail": "1155 Hz (want > 2 x 77.6 Hz)"
+   "detail": "1168 Hz (want > 2 x 77.6 Hz)"
   },
   {
    "check": "frame mode estimate: fan out-of-plane (Y) on plate, with 4th pad",
@@ -423,7 +433,7 @@
   {
    "check": "release cover",
    "status": "INFO",
-   "detail": "FIT-CHECK FIRST; 3 unconfirmed of 16 dependencies"
+   "detail": "FIT-CHECK FIRST; 4 unconfirmed of 18 dependencies"
   },
   {
    "check": "release probe_mount",
@@ -520,8 +530,8 @@
    "is_valid": true,
    "n_solids": 1,
    "watertight": true,
-   "volume_mm3": 6416.61,
-   "mass_g": 6.87,
+   "volume_mm3": 5998.47,
+   "mass_g": 6.42,
    "density": "1.07 g/cm3 (ESTIMATED: lead-specified; typical ASA TDS 1.05-1.10)",
    "bbox_nozzle_frame": [
     -24.0,
@@ -541,11 +551,11 @@
     0,
     0
    ],
-   "mesh_volume_mm3": 6417.19,
+   "mesh_volume_mm3": 5999.91,
    "wall": {
     "samples": 1500,
     "of": 1500,
-    "min_mm": 1.19,
+    "min_mm": 1.2,
     "p1_mm": 1.2,
     "p5_mm": 1.2,
     "share_below_min_wall": 0.0,
@@ -555,11 +565,11 @@
     "thinnest": []
    },
    "overhang": {
-    "total_area_mm2": 11815.8,
-    "bed_contact_mm2": 1994.0,
+    "total_area_mm2": 10746.3,
+    "bed_contact_mm2": 1646.3,
     "downward_area_mm2": 42.1,
     "overhang_gt45_mm2": 36.0,
-    "overhang_gt45_share_of_total": 0.003,
+    "overhang_gt45_share_of_total": 0.0034,
     "overhang_gt45_share_of_downward": 0.8552,
     "horizontal_ceilings_mm2 (bridges)": 30.7
    },
@@ -952,6 +962,30 @@
    "duct_body": 0.4,
    "cooling_module_frame": 0.3
   },
+  "cover_fan_intake": [
+   {
+    "centre_xz": [
+     -1.3,
+     43.4
+    ],
+    "y_front_wall": [
+     -58.2,
+     -57.0
+    ],
+    "d_aperture": 30.0,
+    "d_inlet": 28.0,
+    "ribs": 0,
+    "inlet_disc_mm2": 615.8,
+    "open_over_inlet_mm2": 615.8,
+    "open_over_inlet_pct": 100.0,
+    "aperture_open_mm2": 706.9
+   }
+  ],
+  "cover_vent_area_mm2": {
+   "fan_intake_aperture_mm2": 706.9,
+   "plenum_side_vents_mm2": 183.2,
+   "plenum_top_slots_mm2": 52.9
+  },
   "frame_mount_points": {
    "fan F screw": {
     "pos": [
@@ -1009,12 +1043,12 @@
  "mass": {
   "added_g": {
    "cooling_module_frame": 5.84,
-   "cover": 6.87,
+   "cover": 6.42,
    "probe_mount": 11.45,
    "duct_body": 9.24,
    "hardware (screws, inserts)": 13.73
   },
-  "added_total_g": 47.1,
+  "added_total_g": 46.7,
   "removed_g": {
    "stock cover (+duct, without fan; 23.8 g measured K1, 32-32.5 K1 Max reports)": [
     23.8,
@@ -1030,58 +1064,58 @@
    ]
   },
   "delta_g_range": [
-   -0.1,
-   8.8
+   -0.6,
+   8.4
   ],
   "basis": "solid-volume mass (100 % infill = upper bound) of every printed assembly part incl. the real duct body; hardware = screws + inserts incl. fan and duct-tab screws; stock 4020 reused (BLOWER_4020_STOCK.mass_g ESTIMATED, moves, no change); removed = stock cover+duct, 785004 adapter, stock PCB screws",
   "shaper_Hz_for_delta_range": {
    "X": {
     "m=400 g": [
-     77.61,
-     76.76
+     77.66,
+     76.8
     ],
     "m=450 g": [
-     77.61,
-     76.85
+     77.65,
+     76.89
     ],
     "m=500 g": [
-     77.61,
-     76.92
+     77.65,
+     76.96
     ]
    },
    "Y": {
     "m=820 g": [
-     52.0,
-     51.72
-    ],
-    "m=880 g": [
-     52.0,
+     52.02,
      51.74
     ],
+    "m=880 g": [
+     52.02,
+     51.75
+    ],
     "m=960 g": [
-     52.0,
-     51.76
+     52.02,
+     51.77
     ]
    }
   }
  },
  "stiffness": {
   "frame": {
-   "carried_mass_g": 45.9,
-   "com_y": -40.1,
-   "lever_from_pcb_mm": 17.8,
-   "load_N (2 x m x 20 m/s2)": 1.84,
+   "carried_mass_g": 45.5,
+   "com_y": -40.0,
+   "lever_from_pcb_mm": 17.7,
+   "load_N (2 x m x 20 m/s2)": 1.82,
    "rocking on the 3-screw pattern, optimistic (preloaded bolt + boss)": {
     "k_joint_N_per_mm": 47404,
     "k_theta_Nmm_per_rad": 18203095,
     "deflection_at_com_um": 0.03,
-    "first_mode_Hz": 4391
+    "first_mode_Hz": 4440
    },
    "rocking on the 3-screw pattern, pessimistic (boss in compression only)": {
     "k_joint_N_per_mm": 3281,
     "k_theta_Nmm_per_rad": 1259938,
-    "deflection_at_com_um": 0.46,
-    "first_mode_Hz": 1155
+    "deflection_at_com_um": 0.45,
+    "first_mode_Hz": 1168
    },
    "fan out-of-plane (Y) on plate, with 4th pad": {
     "I_strip_mm4": 29.2,
@@ -1226,13 +1260,19 @@
      "module 46.6 x 19.4 x 25-28 outside the stock cover; research/01 \u00a7H, 02 \u00a79 (M6)"
     ],
     [
+     "FAN_INLET_D",
+     "ESTIMATED",
+     "28.0",
+     "4020 blower inlet ring diameter, generic 40 mm blower frames (not in interfaces.py); measure (M7)"
+    ],
+    [
      "DUCT_FAN_F_ENVELOPE",
      "ESTIMATED",
      "(-21.3, 18.7, -56.5, -36.5, 23.4, 63.4)",
      "duct_interface.json fans.F.envelope_box: XZ at the STOCK_4020_POS centre (DERIVED), rear face 3 mm in front of the frame plate (DESIGN), thickness = screw through-length (ESTIMATED, M7)"
     ]
    ],
-   "n_deps": 16
+   "n_deps": 18
   },
   "probe_mount": {
    "status": "NOT RELEASED",

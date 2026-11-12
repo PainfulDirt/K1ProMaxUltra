@@ -13,9 +13,13 @@
 - Left wall is removed (full thickness) wherever it would enter
   LIDAR_RESERVED_BOXES (+0.5 mm): a partial cut would leave a 0.7 mm sliver.
 - Front wall COVER_GAP in front of the fan's intake face.
-- Vents: slots in front of the part-fan intake; side and top slots over the
-  plenum between frame and fan (3010 intake path); open rear-top (cable exit,
-  in front of the carriage strain relief).
+- Part-fan intake: a fully open round aperture (FAN_INLET_D + 2 x
+  COVER_INTAKE_MARGIN) centred on the 4020 intake, no grille: the front wall
+  sits only COVER_GAP in front of the impeller eye, where a grille would
+  throttle the blower (the CFD fan model has no cover).
+- Vents: side and top slots over the plenum between frame and fan (3010
+  intake path); open bottom and open rear-top (cable exit, in front of the
+  carriage strain relief).
 Print: front face down (no supports; all vents are vertical holes or slots).
 """
 from __future__ import annotations
@@ -40,7 +44,9 @@ REAR_Y = prm(G, "COVER_SIDE_REAR_Y", float(I.XCARRIAGE.ymin) - 0.5, "DESIGN",
              "side walls end 0.5 in front of the carriage envelope (XCARRIAGE.ymin)")
 STRAIN_RELIEF_YMIN = prm(G, "CARRIAGE_STRAIN_RELIEF_YMIN", -32.3, "DERIVED", "02:N16 cable strain relief Y -32.3..-23.8, Z 72.3..91.2")
 TOP_REAR_Y = STRAIN_RELIEF_YMIN - 0.5     # top wall stops in front of the strain relief; open behind = cable exit
-SLOT_W = prm(G, "COVER_SLOT_W", 2.0, "DESIGN", "vent slot width (finger-safe, prints clean)")
+SLOT_W = prm(G, "COVER_SLOT_W", 2.0, "DESIGN", "plenum vent slot width (finger-safe, prints clean)")
+INTAKE_MARGIN = prm(G, "COVER_INTAKE_MARGIN", 1.0, "DESIGN",
+                    "fan intake aperture = FAN_INLET_D + 2 x 1.0, fully open (no grille ribs)")
 SLOT_P = prm(G, "COVER_SLOT_PITCH", 4.0, "DESIGN", "vent pitch (2 mm bars)")
 
 
@@ -101,18 +107,19 @@ def build(cooling, frame_shape=None) -> PartSpec:
     holes = []
     for sx in (-1, 1):
         holes.append(cyl_z(sx * F.COVER_SCREW_X, F.COVER_SCREW_Y, zt - 1, zt + WALL + 1, CLEAR["M3"]))
-    # front vents in front of each fan intake
+    # intake aperture in front of each fan: fully open, inlet ring + 2 x COVER_INTAKE_MARGIN, centred on the
+    # intake. No grille: a grille at COVER_GAP in front of the impeller eye would throttle the blower (not in CFD).
+    groups = {"fan_intake_aperture": [], "plenum_side_vents": [], "plenum_top_slots": []}
+    apertures = []
     for f in cooling.fans:
         it = f.get("intake")
         if not it:
             continue
         cx, _, cz = it["center"]
-        r = it.get("d", 28.0) / 2 + 1.0
-        disc = cyl_y(cx, cz, yi - WALL - 1, yi + 1, 2 * r)
-        z = cz - r
-        while z < cz + r:
-            holes.append(bx(cx - r, cx + r, yi - WALL - 1, yi + 1, z, z + SLOT_W) & disc)
-            z += SLOT_P
+        d_ap = it.get("d", C.FAN_INLET_D) + 2 * INTAKE_MARGIN
+        groups["fan_intake_aperture"].append(cyl_y(cx, cz, yi - WALL - 1, yi + 1, d_ap))
+        apertures.append({"centre_xz": [round(cx, 3), round(cz, 3)], "y_front_wall": [round(yi - WALL, 3), round(yi, 3)],
+                          "d_aperture": d_ap, "d_inlet": it.get("d", C.FAN_INLET_D), "ribs": 0})
     # side vents over the plenum (frame front .. fan back) and a bit in front of it
     yv0 = F.FRONT_Y - 0.8
     yv1 = yv0 - 12.0
@@ -120,17 +127,29 @@ def build(cooling, frame_shape=None) -> PartSpec:
         xa, xb = (xi - 1.0, xi + WALL + 1.0) if sx > 0 else (-xi - WALL - 1.0, -xi + 1.0)
         for k in range(4):
             z = F.SIDE_OPEN[0] + 1.0 + k * SLOT_P
-            holes.append(bx(xa, xb, yv1, yv0, z, z + SLOT_W))
+            groups["plenum_side_vents"].append(bx(xa, xb, yv1, yv0, z, z + SLOT_W))
         # top slots over the plenum, outside the screw shelf
         x_a, x_b = F.SHELF_X + 1.5, xi - 1.0
-        holes.append(bx(min(sx * x_a, sx * x_b), max(sx * x_a, sx * x_b), F.FRONT_Y - 5.0, F.FRONT_Y - 0.8,
-                        zt - 1, zt + WALL + 1))
+        groups["plenum_top_slots"].append(bx(min(sx * x_a, sx * x_b), max(sx * x_a, sx * x_b), F.FRONT_Y - 5.0,
+                                             F.FRONT_Y - 0.8, zt - 1, zt + WALL + 1))
+    # open area of each vent group = material it removes from the closed shell / wall thickness
+    vent_area = {}
+    for k, hs in groups.items():
+        v = 0.0
+        for h in hs:
+            cut_ = shell & h
+            v += cut_.volume if cut_ is not None else 0.0
+        vent_area[k + "_mm2"] = round(v / WALL, 1)
+        holes += hs
     for h in holes:
         shell -= h
-    deps = ["PCB", "XCARRIAGE", "RIGHT_LIMIT_X", "LIDAR_RESERVED_OPTICAL", "LIDAR_RESERVED_BODY"] + list(group_params(G))
+    deps = ["PCB", "XCARRIAGE", "RIGHT_LIMIT_X", "LIDAR_RESERVED_OPTICAL", "LIDAR_RESERVED_BODY",
+            "FAN_INLET_D"] + list(group_params(G))
     deps += list(group_params(C.G)) if cooling.is_stub else (
         ["DUCT_MOUNT_POINTS_FINAL"] + [n for n in C.PARAMS if n.startswith("DUCT_FAN_") and n.endswith("_ENVELOPE")])
     spec = PartSpec("cover", shell, "printed", "ASA", (0.85, 0.35, 0.10), deps=deps, print_rot=(90, 0, 0),
                     notes="2 screws from the top; slides forward without unplugging LiDAR / probe / fan")
     spec.wall_bottoms = zb
+    spec.vent_area = vent_area
+    spec.intake_apertures = apertures
     return spec

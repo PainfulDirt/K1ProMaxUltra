@@ -29,7 +29,7 @@ ESTIMATED / MISSING / STUB dependencies.
 |---|---|---|---|---|
 | Fit-check coupon | `exports/*/fitcheck_coupon.*` | ASA | 2.9 g | **PRINT FIRST** (≈10 min) |
 | Cooling-module frame | `exports/*/cooling_module_frame.*` | ASA | 5.8 g | FIT-CHECK FIRST (PCB pads and component zone ESTIMATED, M10; 4020 hole positions and thickness ESTIMATED, M7; insert hole size) |
-| Cover | `exports/*/cover.*` | ASA | 6.9 g | FIT-CHECK FIRST (follows the 4020 front face, M7; LiDAR boxes, M6) |
+| Cover | `exports/*/cover.*` | ASA | 6.4 g | FIT-CHECK FIRST (follows the 4020 front face and inlet diameter, M7; LiDAR boxes, M6) |
 | Duct body (S7) | `exports/*/duct_body.*` | PC (or PA-CF, 8.9 g) | 9.2 g | FIT-CHECK FIRST (4020 outlet size and holes M7, socket fit, hotend version M1, probe keep-out M8, component zone M10, LiDAR boxes M6) |
 | MicroProbe mount | `exports/*/probe_mount.*` | PA-CF (PC acceptable) | 11.5 g | NOT RELEASED (785004 anchor unconfirmed, M8) |
 
@@ -53,9 +53,9 @@ Validation today (`validate.py`, Henlor stock cache present): **0 FAIL, 4 WARN**
 inner face (X −24, stock cover width) lies inside the carriage's left face (X −25.2), which is
 where the LiDAR bracket seats. The box stays as is until M6.
 
-Moving mass vs stock: **−0.1 … +8.8 g** (printed parts at 100 % infill + all screws/inserts, minus
-the stock cover+duct, the 785004 adapter and the stock PCB screws); X shaper 76.9…77.6 Hz at an
-X moving mass of 450 g (77.6 Hz today), Y 51.7…52.0 Hz.
+Moving mass vs stock: **−0.6 … +8.4 g** (printed parts at 100 % infill + all screws/inserts, minus
+the stock cover+duct, the 785004 adapter and the stock PCB screws); X shaper 76.9…77.7 Hz at an
+X moving mass of 450 g (77.6 Hz today), Y 51.8…52.0 Hz.
 
 ### Print the coupon first
 `fitcheck_coupon` is printed face down, with no supports. It checks, on the real printer:
@@ -126,7 +126,7 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
 | Part | Driven by `interfaces.py` | Own parameters (DESIGN unless noted) |
 |---|---|---|
 | frame | `MODULE_MOUNT_HOLES`, `MODULE_MOUNT_BEARING_Y` (−22.3), `MODULE_MOUNT_PAD_D`, `PCB_COMPONENT_ZONE` (plate back at −31.5), `PCB`, `FAN3010_PATTERN_CZ`, `LIDAR_RESERVED_BOXES`, `RIGHT_LIMIT_X` | `FRAME_PLATE_T` 2.0; `FRAME_ZMAX` 71.8 (below the carriage strain relief); `FRAME_XMAX` 20; `FRAME_WINDOW_R` 15 (teardrop, intake ≥ 625 mm²); `FRAME_RIB_DEPTH` 2.0; `FRAME_BOSS_D` 7.5 with a Ø5.8 neck (Henlor 2nd-plate holes Ø6.2, DERIVED); `FRAME_FOURTH_PAD_ON` (ESTIMATED); `FRAME_PCB_SCREW_LEN` 30 (3× M3×30 ISO 7380 replace stock M3×18/18/20); cover screws `COVER_SCREW_X/Y`; tie slots `FRAME_TIE_*` |
-| cover | `PCB`, `XCARRIAGE`, `RIGHT_LIMIT_X`, LiDAR boxes, fan envelope | `COVER_HALF_W` 24.0 (stock width, DERIVED); `COVER_WALL` 1.2; `COVER_GAP` 0.5 (front wall to fan face); `COVER_ZMIN` 24; `COVER_YIELD_CLEAR` 0.3 (right wall bottom raised to Z 26.4 over T_right); top wall stops in front of the strain relief (`CARRIAGE_STRAIN_RELIEF_YMIN`, DERIVED 02:N16) |
+| cover | `PCB`, `XCARRIAGE`, `RIGHT_LIMIT_X`, LiDAR boxes, fan envelope | `COVER_HALF_W` 24.0 (stock width, DERIVED); `COVER_WALL` 1.2; `COVER_GAP` 0.5 (front wall to fan face); `COVER_INTAKE_MARGIN` 1.0 (intake aperture = `FAN_INLET_D` 28, ESTIMATED M7, + 2 = Ø30, fully open); `COVER_ZMIN` 24; `COVER_YIELD_CLEAR` 0.3 (right wall bottom raised to Z 26.4 over T_right); top wall stops in front of the strain relief (`CARRIAGE_STRAIN_RELIEF_YMIN`, DERIVED 02:N16) |
 | probe mount | `PROBE_*`, `PROBE_BODY_Y`, `PROBE_ADAPTER_785004`, `PROBE_ADAPTER_SCREWS`, `REAR_LIMIT_Y`, `SOCK` | 785004 relations from 01 §H.1 (`PM_SEAT_TO_ANCHOR_Z` 27.05, `PM_SEAT_TO_TOP_Z` 32.5, `PM_MATING_FACE_Y` 16.9, `PM_FRONT_LOW_Y` 13.4, windows, Ø2.4/Ø4.2 anchor holes); carriage tabs from Henlor (`PM_TAB_*`); `PM_PAD_T` 4; `PM_WALL` 2.4; pocket 0.8 deep; M2.5 inserts; `PM_ANCHOR_CONFIRMED_M8` (MISSING) |
 | coupon | same as frame bosses + probe flange | `COUPON_*` |
 | duct body (Duct/CFD agent) | `SOCK`, `HEATER_BODY`, `HOT_ZONE_CLEARANCE`, `DUCT_MIN_Z`, `PROBE_BODY_Y`, `PROBE_ADAPTER_785004`, `PCB_COMPONENT_ZONE`, `STOCK_4020_POS`, `FAN3010`, LiDAR boxes | from `duct_interface.json`: `DUCT_FAN_F_OUTLET_SIZE`, `DUCT_FAN_F_SCREW_HOLES`, `DUCT_FAN_F_ENVELOPE` (ESTIMATED, M7), `DUCT_FAN_SOCKET_FIT`, `DUCT_HOTEND_VERSION` (M1), `DUCT_MOUNT_POINTS_FINAL`; `DUCT_TAB_SCREW_LEN` 6 |
@@ -177,8 +177,18 @@ $K1_PY cad/source/export.py                      # STEP/3MF/STL + assembly STEP,
     length. This clears the duct's T_right tab (top Z 26.0) and the frame lug (top 26.1) by ≥ 0.3,
     and the cover still slides off forward.
   - Front wall 0.5 mm in front of the 4020 intake face, front at Y −58.2.
+  - **4020 intake fully open.** A Ø30 round aperture (inlet ring `FAN_INLET_D` 28 + 2 × 1.0) sits
+    centred on the intake at X −1.3, Z 43.4, with no grille and no ribs. A grille 0.5 mm in front of
+    the impeller eye would throttle the blower, and the CFD fan model has no cover. `validate.py`
+    measures the aperture on the solid: 707 mm² open, and the Ø28 inlet disc is 100 % open
+    (616 mm²).
+    - The inlet diameter is the 28 mm the cooling adapter always used. It is not in
+      `interfaces.py` and was untagged before; it is now registered as ESTIMATED (M7).
+    - The 4020's own frame stays behind the opening, so the impeller is no more exposed than on a
+      bare fan.
   - Open at the bottom and rear, so it slides forward without unplugging the LiDAR, probe or fan, and without removing the duct.
-  - Front vents over the fan intake; side and top vents over the plenum (3010 intake path).
+  - Side and top vents over the plenum: 183 + 53 mm², unchanged; the bottom and rear are also open.
+    The 3010 draws through the frame window, 693 mm², unchanged.
   - Left wall cut back out of the LiDAR boxes, through its full thickness: a partial cut left a
     0.7 mm sliver.
   - Reusing the stock carriage cover screws (X ±22.6, Y −2.2, Z 35.35) would need an arm through `LIDAR_RESERVED_BODY` on the left, so they are not used.

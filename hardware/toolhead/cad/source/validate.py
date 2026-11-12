@@ -380,6 +380,30 @@ def main():
               f"{dist:.2f} mm (>= COVER_YIELD_CLEAR {cyc}); cover side-wall bottoms Z "
               f"{ {('left' if k < 0 else 'right'): round(v, 2) for k, v in getattr(cv, 'wall_bottoms', {}).items()} }")
 
+    # part-fan intake through the cover: measured on the cover solid, not taken from cover.py's own numbers
+    for ap in getattr(cv, "intake_apertures", []):
+        cx, cz = ap["centre_xz"]
+        y0, y1 = ap["y_front_wall"]
+        a_in = math.pi / 4 * ap["d_inlet"] ** 2
+        a_ap = math.pi / 4 * ap["d_aperture"] ** 2
+        blk_in = vol(cv.shape & cyl_y(cx, cz, y0 - 0.5, y1 + 0.5, ap["d_inlet"])) / cover.WALL
+        blk_ap = vol(cv.shape & cyl_y(cx, cz, y0 - 0.5, y1 + 0.5, ap["d_aperture"])) / cover.WALL
+        open_in, open_ap = a_in - blk_in, a_ap - blk_ap
+        C.setdefault("cover_fan_intake", []).append({**ap, "inlet_disc_mm2": round(a_in, 1), "open_over_inlet_mm2": round(open_in, 1),
+                                                     "open_over_inlet_pct": round(100 * open_in / a_in, 2),
+                                                     "aperture_open_mm2": round(open_ap, 1)})
+        ok = open_in >= 0.999 * a_in and ap["d_aperture"] >= ap["d_inlet"] + 2 - 1e-9
+        check(f"cover: 4020 intake aperture at X {cx:.1f}, Z {cz:.1f}", "PASS" if ok else "FAIL",
+              f"Ø{ap['d_aperture']:.1f} fully open ({ap['ribs']} ribs), {open_ap:.0f} mm2; over the Ø{ap['d_inlet']:.1f} inlet "
+              f"disc (FAN_INLET_D, ESTIMATED M7) {open_in:.0f} of {a_in:.0f} mm2 open = {100 * open_in / a_in:.1f} % "
+              f"(want 100 %, aperture >= inlet + 2 mm); front wall {cover.GAP} mm in front of the intake face")
+    va = getattr(cv, "vent_area", {})
+    if va:
+        C["cover_vent_area_mm2"] = va
+        check("cover: 3010 plenum vents (side + top slots; bottom and rear also open)", "INFO",
+              f"side {va.get('plenum_side_vents_mm2')} mm2 + top {va.get('plenum_top_slots_mm2')} mm2; "
+              f"the 3010 itself draws through the frame window (checked above)")
+
     # the frame really provides the fan screw bosses and the duct-tab lugs at the interface points
     fr_s = by["cooling_module_frame"].shape
     ins = common.INSERTS["M3"]
