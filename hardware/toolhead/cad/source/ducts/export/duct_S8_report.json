@@ -43,16 +43,16 @@
     "min_channel_mm": 3.0
   },
   "mass": {
-    "body_volume_cm3": 7.836,
+    "body_volume_cm3": 7.824,
     "volume_within_15mm_of_heater_cm3": 1.492,
-    "mass_all_PC_g": 9.4,
-    "mass_all_ASA_g": 8.38,
-    "mass_PC_near_ASA_rest_g": 8.58,
+    "mass_all_PC_g": 9.39,
+    "mass_all_ASA_g": 8.37,
+    "mass_PC_near_ASA_rest_g": 8.57,
     "fans_g": 24.0,
     "fan_types": {
       "F": "4020"
     },
-    "total_PC_g": 33.4,
+    "total_PC_g": 33.39,
     "notes": "fan masses from interfaces.py: Creality K1 stock 4020 blower 24.0 g ESTIMATED; duct at 100 % infill; screws/inserts not included"
   },
   "ports": [
@@ -348,7 +348,7 @@
     "print": {
       "orientation": "upright, nozzle-frame +Z = print Z, base plane on the bed",
       "bed_contact_mm2": 1378.2,
-      "overhang_gt45_external_mm2 (support area)": 94.5,
+      "overhang_gt45_external_mm2 (support area)": 92.3,
       "overhang_gt45_in_air_path_mm2": 4.78
     }
   }

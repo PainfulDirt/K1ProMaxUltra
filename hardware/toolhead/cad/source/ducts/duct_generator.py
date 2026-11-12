@@ -878,15 +878,21 @@ def fan_seat(fan, t, seat):
         hx, hy, hz = h["xyz"]
         if not (z_out - seat["below"] - 3 < hz < z_body + 3):
             continue
+        # all cut-outs are boxes with flat faces (no curved cut grazing a wall = no slivers; HT-resin duct,
+        # DD-07a): each one removes a wall's full thickness or nothing of it
         r_sh = seat["shank_d"] / 2 + seat["shank_clear"]
-        cuts.append(Solid.make_cylinder(r_sh, 80).rotate(Axis.X, -90).translate((hx, b[2] - 20, hz)))
         r_hd = seat["head_d"] / 2 + seat["head_clear"]
-        yf = b[2] - 20.0                                              # head sits on the fan's front face b[2]
-        # (1) whole socket wall thickness in front of the nozzle, above the outlet plane: a notch
-        cuts.append(Solid.make_cylinder(r_hd, y0 + 0.01 - yf).rotate(Axis.X, -90).translate((hx, yf, hz))
-                    & box_solid(hx - r_hd - 1, hx + r_hd + 1, yf - 1, y0 + 0.02, z_out, hz + r_hd + 1))
-        # (2) anything else within head_clear of the head (feed wall top below the outlet plane)
-        cuts.append(Solid.make_cylinder(r_hd, b[2] + seat["head_clear"] - yf).rotate(Axis.X, -90).translate((hx, yf, hz)))
+        top = z_body + 1.0
+        xr = x1 + w + 0.5                                             # past the socket's right wall
+        # shank: a rectangular slot open to the top through every socket wall it crosses
+        cuts.append(box_solid(hx - r_sh, hx + r_sh, b[2] - 5, b[3] + 5, hz - r_sh, top))
+        # head (on the fan's front face b[2]): (1) from the nozzle-gap plane up, the socket's front wall and the
+        # front end of its right wall, over the head's X band, back to the socket's inner face
+        cuts.append(box_solid(hx - r_hd, max(hx + r_hd, xr), b[2] - 20, y0 + 0.01, z_out - g, top))
+        # (2) below that, everything within head_clear of the head's plane (feed/socket wall fronts), from the
+        #     socket ring's bottom up (no lip left under it): a flat 0.3-0.55 mm step in a 1.2 mm wall
+        cuts.append(box_solid(hx - r_hd, max(hx + r_hd, xr), b[2] - 20, b[2] + seat["head_clear"],
+                              min(hz - r_hd, z_out - seat["below"] - 0.01), z_out - g + 0.01))
     return ring, cuts
 
 
@@ -1280,7 +1286,7 @@ def interface_json(params, rep, version, final=False):
         "duct_envelope": rep["envelope"],
         "keep_clear_for_duct": "the duct body's space: see duct_envelope and the STEP; the frame must not enter "
                                "the duct air path or come within 3 mm of the sock (interfaces.HOT_ZONE_CLEARANCE)",
-        "duct_materials": "nozzle end PC or PA-CF (DD-07); printed upright, fan socket up",
+        "duct_materials": "HT resin, HDT >= 130 C at 0.45 MPa after full post-cure, 238 C class ordered (DD-07a); fallbacks PC or MJF PA12. FDM orientation: upright, fan socket up",
         "duct_mass_g": rep["mass"]["mass_all_PC_g"],
         "keepout_violations_mm3": rep["keepout_violations_mm3"],
         "soft_limit_excess_mm": rep["soft_limit_excess_mm"],

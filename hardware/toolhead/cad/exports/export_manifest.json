@@ -37,7 +37,7 @@
    "files": {
     "step": {
      "path": "exports/step/cooling_module_frame.step",
-     "sha256_16": "ff060a8419a1ef20",
+     "sha256_16": "c6035656a6b16d5d",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -47,7 +47,7 @@
     },
     "3mf": {
      "path": "exports/3mf/cooling_module_frame.3mf",
-     "sha256_16": "4b754604f02ed406",
+     "sha256_16": "b319049ebf8c2d1a",
      "objects": 1,
      "dV_rel": 3.2424092308408394e-05,
      "dBB_mm": 0.0006351470947265625,
@@ -94,7 +94,7 @@
    "files": {
     "step": {
      "path": "exports/step/cover.step",
-     "sha256_16": "65357cf2b35f69e7",
+     "sha256_16": "20d850d131018a48",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -104,7 +104,7 @@
     },
     "3mf": {
      "path": "exports/3mf/cover.3mf",
-     "sha256_16": "0639361eb71f3018",
+     "sha256_16": "5a7168a85e866da7",
      "objects": 1,
      "dV_rel": 6.57644822855127e-05,
      "dBB_mm": 3.8146970737784613e-07,
@@ -151,7 +151,7 @@
    "files": {
     "step": {
      "path": "exports/step/probe_mount.step",
-     "sha256_16": "d4452b62ecca28c3",
+     "sha256_16": "af74792a13b63886",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -161,7 +161,7 @@
     },
     "3mf": {
      "path": "exports/3mf/probe_mount.3mf",
-     "sha256_16": "77b5d28650d13837",
+     "sha256_16": "8df9d8f97b3b0047",
      "objects": 1,
      "dV_rel": 8.522872665498465e-06,
      "dBB_mm": 7.629394573882564e-07,
@@ -208,7 +208,7 @@
    "files": {
     "step": {
      "path": "exports/step/fitcheck_coupon.step",
-     "sha256_16": "0014c462617bf56e",
+     "sha256_16": "4a02e60c29b364a2",
      "solids": 1,
      "is_valid": true,
      "closed": true,
@@ -218,7 +218,7 @@
     },
     "3mf": {
      "path": "exports/3mf/fitcheck_coupon.3mf",
-     "sha256_16": "3c6f1f3aa7def926",
+     "sha256_16": "8560608a5bd9055b",
      "objects": 1,
      "dV_rel": 3.380347872802776e-05,
      "dBB_mm": 4.5776367230132564e-07,
@@ -240,8 +240,8 @@
    "material": "HT-resin",
    "material_note": "PLACEHOLDER = PC 1.20 g/cm3; take the real value from the HT resin TDS (DD-07a)",
    "category": "printed",
-   "volume_mm3": 7836.4,
-   "mass_g_solid": 9.4,
+   "volume_mm3": 7823.68,
+   "mass_g_solid": 9.39,
    "density_g_cm3": "1.2 (ESTIMATED)",
    "print_rot_deg": [
     0.0,
@@ -265,30 +265,30 @@
    "files": {
     "step": {
      "path": "exports/step/duct_body.step",
-     "sha256_16": "c822125ac62a476f",
+     "sha256_16": "29b8babe05dc8ee8",
      "solids": 1,
      "is_valid": true,
      "closed": true,
-     "dV_rel": 4.757310237078155e-13,
+     "dV_rel": 4.997542833111012e-13,
      "dBB_mm": 3.9257486150745535e-12,
      "pass": true
     },
     "3mf": {
      "path": "exports/3mf/duct_body.3mf",
-     "sha256_16": "ba952bdf06a2266d",
+     "sha256_16": "4014d240bd468ae1",
      "objects": 1,
-     "dV_rel": 4.271816107638017e-06,
-     "dBB_mm": 4.814697867061568e-07,
+     "dV_rel": 2.5867693700962763e-06,
+     "dBB_mm": 4.814697263100243e-07,
      "pass": true
     },
     "stl": {
      "path": "exports/stl/duct_body.stl",
-     "sha256_16": "c2aabb7edc298b80",
+     "sha256_16": "9e7f0ff1843fa48b",
      "watertight": true,
      "winding_consistent": true,
-     "triangles": 3340,
-     "dV_rel": 4.297773882565042e-06,
-     "dBB_mm": 4.814697867061568e-07,
+     "triangles": 2646,
+     "dV_rel": 2.614160203708302e-06,
+     "dBB_mm": 4.814697263100243e-07,
      "pass": 1.0
     }
    }
@@ -296,7 +296,7 @@
  },
  "assembly": {
   "path": "exports/step/k1max_toolhead_assembly.step",
-  "sha256_16": "bcca1b35a3ee11e5",
+  "sha256_16": "60d97f6121dd84bd",
   "leaves": 29,
   "groups": [
    "keepout_volumes",
@@ -319,7 +319,7 @@
    },
    "duct_body": {
     "group": "printed_parts",
-    "volume_mm3": 7836.4
+    "volume_mm3": 7823.68
    },
    "ref_nozzle": {
     "group": "reference_stock_parts",

@@ -6,7 +6,7 @@ Cooling module: `/home/user/K1ProMaxUltra/hardware/toolhead/cad/source/ducts/duc
 
 | Status | Check | Detail |
 |---|---|---|
-| WARN | duct_body: min wall (sampled, 1500 rays) | min 0.316 / p1 1.15 mm; 0.33 % < 0.8 mm; thin rays: 3 between parallel faces (thin wall), 2 at acute convex edges (wedge 65..66 deg); thinnest at [15.42, -56.28, 22.21] (nozzle frame) |
+| WARN | duct_body: min wall (sampled, 1500 rays) | min 0.163 / p1 1.166 mm; 0.13 % < 0.8 mm; thin rays: 0 between parallel faces (thin wall), 2 at acute convex edges (wedge 57..65 deg); thinnest at [20.8, 1.22, 5.8] (nozzle frame) |
 | WARN | screw tip fan M3x24 (-18.65, 60.3) | tip at Y -32.50: 4.00 mm in the 4.0 mm insert (>= 2.5), 0.20 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 22.5..23.7 mm; the fan through-length (20, ESTIMATED M7) sets this: a 19.2 mm fan (STOCK_4020_POS depth) puts the tip 0.8 mm deeper |
 | WARN | screw tip fan M3x24 (16.05, 25.6) | tip at Y -32.50: 4.00 mm in the 4.0 mm insert (>= 2.5), 0.20 mm to the blind-hole floor (>= 0.5; hole 4.20 deep, floor 0.80); safe length 22.5..23.7 mm; the fan through-length (20, ESTIMATED M7) sets this: a 19.2 mm fan (STOCK_4020_POS depth) puts the tip 0.8 mm deeper |
 | WARN | fan F hole (16.05, 25.6) vs outlet nozzle | 154 mm3 of the Ø3.4 x 20.0 bore lies in the modelled outlet column ([13.0, 17.0] at [12.2, -46.5, 23.4]): hole positions (DERIVED, generic Henlor fan) and outlet (ESTIMATED) contradict each other - measure the 4020 (M7) |
@@ -27,7 +27,7 @@ Cooling module: `/home/user/K1ProMaxUltra/hardware/toolhead/cad/source/ducts/duc
 | PASS | fitcheck_coupon: solid | valid=True solids=1 watertight=True V=2792 mm3 m=2.99 g (ASA) |
 | PASS | fitcheck_coupon: min wall (sampled, 1500 rays) | min 1.0 / p1 1.0 mm; 0.00 % < 0.8 mm |
 | PASS | fitcheck_coupon: bed contact (own print frame, rot (90, 0, 0)) | 848.2 mm2 of flat down-facing faces on the plate (WARN < 100, FAIL at 0; review R-05) |
-| PASS | duct_body: solid | valid=True solids=1 watertight=True V=7836 mm3 m=9.4 g (HT-resin) |
+| PASS | duct_body: solid | valid=True solids=1 watertight=True V=7824 mm3 m=9.39 g (HT-resin) |
 | PASS | duct_body: bed contact (own print frame, rot (0.0, 0.0, 0.0)) | 1378.2 mm2 of flat down-facing faces on the plate (WARN < 100, FAIL at 0; review R-05) |
 | PASS | interference cooling_module_frame x cover | overlap 0.000 mm3, gap 0.000 mm - allowed: cover top wall bears on the frame shelf top (Z FRAME_ZMAX), clamped by the 2 cover screws; elsewhere >= COVER_YIELD_CLEAR (separate check) |
 | PASS | interference cooling_module_frame x duct_body | overlap 0.000 mm3, gap 0.000 mm - allowed: duct-to-frame mount lugs |
@@ -138,12 +138,12 @@ Cooling module: `/home/user/K1ProMaxUltra/hardware/toolhead/cad/source/ducts/duc
 | PASS | frame mode estimate: rocking on the 3-screw pattern, optimistic (preloaded bolt + clamped stack) | 4436 Hz (want > 2 x 77.6 Hz) |
 | PASS | frame mode estimate: rocking on the 3-screw pattern, pessimistic (clamped stack in compression only) | 1259 Hz (want > 2 x 77.6 Hz) |
 | PASS | frame mode estimate: fan out-of-plane (Y) on plate, with 4th pad | 1416 Hz (want > 2 x 77.6 Hz) |
-| PASS | duct cantilever pitch mode estimate (R-22) | 1530..2741 Hz (want > 2 x 77.6 Hz) on 3 tabs ['T_left', 'T_right', 'T_3']; lever 46.3 mm from the tab face; k_theta 442198..1396435 N.mm/rad, J 4787 g.mm2; duct E 2200 MPa (PLACEHOLDER = PC modulus; HT resin TDS needed) |
+| PASS | duct cantilever pitch mode estimate (R-22) | 1530..2742 Hz (want > 2 x 77.6 Hz) on 3 tabs ['T_left', 'T_right', 'T_3']; lever 46.3 mm from the tab face; k_theta 442198..1396435 N.mm/rad, J 4782 g.mm2; duct E 2200 MPa (PLACEHOLDER = PC modulus; HT resin TDS needed) |
 | INFO | cooling_module_frame: overhang > 45 deg (print orientation) | 8.0 % of surface, 53 % of downward faces; flat ceilings (bridges) 204.7 mm2 |
 | INFO | cover: overhang > 45 deg (print orientation) | 0.4 % of surface, 87 % of downward faces; flat ceilings (bridges) 35.5 mm2 |
 | INFO | probe_mount: overhang > 45 deg (print orientation) | 4.3 % of surface, 63 % of downward faces; flat ceilings (bridges) 291.9 mm2 |
 | INFO | fitcheck_coupon: overhang > 45 deg (print orientation) | 0.6 % of surface, 100 % of downward faces; flat ceilings (bridges) 23.6 mm2 |
-| INFO | duct_body: overhang > 45 deg (print orientation) | 3.9 % of surface, 27 % of downward faces; flat ceilings (bridges) 83.1 mm2 |
+| INFO | duct_body: overhang > 45 deg (print orientation) | 3.9 % of surface, 27 % of downward faces; flat ceilings (bridges) 81.2 mm2 |
 | INFO | interfaces: LIDAR_RESERVED_BODY overlaps stock_carriage | 38 mm3, X -25.20..-24.00 (1.20 mm from the box face, <= 1.20) - expected: LIDAR_RESERVED_BODY is module + bracket (interfaces.py) and the stock bracket attaches to the toolhead's left side (research/01 sH.2; 02 s7 item 2 lists the LiDAR bracket holes on the carriage). The box's inner face X -24.0 (stock cover width) lies 1.2 mm inside the carriage's left face X -25.2 (02:N1): that slab is where the bracket seats. Box kept as is until M6 (bracket position) |
 | INFO | cover: 3010 plenum vents (side + top slots; bottom and rear also open) | side 164.8 mm2 + top 52.9 mm2; the 3010 itself draws through the frame window (checked above) |
 | INFO | DUCT_MIN_Z probe pin (exempt: stock purchased part, today's state) | stowed tip Z 1.45 < DUCT_MIN_Z 2.0 - unchanged by this design |
@@ -177,7 +177,7 @@ Cooling module: `/home/user/K1ProMaxUltra/hardware/toolhead/cad/source/ducts/duc
 | cover | ASA | 6.34 | 5922.45 | 48.0 x 49.0 x 29.1 | 1.2 / 1.2 | 0.4 % | FIT-CHECK FIRST |
 | probe_mount | PA-CF | 11.45 | 9955.26 | 34.0 x 15.7 x 33.3 | 0.9 / 1.0 | 4.3 % | NOT RELEASED |
 | fitcheck_coupon | ASA | 2.99 | 2791.5 | 32.0 x 51.8 x 10.8 | 1.0 / 1.0 | 0.6 % | PRINT FIRST (fit-check coupon; it exists to confirm the ESTIMATED values) |
-| duct_body | HT-resin | 9.4 | 7836.4 | 47.6 x 66.2 x 24.1 | 0.316 / 1.15 | 3.9 % | FIT-CHECK FIRST |
+| duct_body | HT-resin | 9.39 | 7823.68 | 47.6 x 66.2 x 24.1 | 0.163 / 1.166 | 3.9 % | FIT-CHECK FIRST |
 
 Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS values: ESTIMATED); the duct's HT resin (DD-07a) uses the PC 1.20 as a placeholder until the resin TDS is known. Masses are solid-volume (100 % infill) upper bounds.
 
@@ -189,7 +189,7 @@ Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS valu
   "cooling_module_frame": 6.64,
   "cover": 6.34,
   "probe_mount": 11.45,
-  "duct_body": 9.4,
+  "duct_body": 9.39,
   "hardware (screws, inserts)": 16.5
  },
  "added_total_g": 50.3,
@@ -215,7 +215,7 @@ Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS valu
  "shaper_Hz_for_delta_range": {
   "X": {
    "m=400 g": [
-    77.3,
+    77.31,
     76.46
    ],
    "m=450 g": [
@@ -253,7 +253,7 @@ Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS valu
   "carried_mass_g": 46.4,
   "com_y": -41.2,
   "lever_from_pcb_mm": 18.9,
-  "load_N (2 x m x 20 m/s2)": 1.86,
+  "load_N (2 x m x 20 m/s2)": 1.85,
   "clamp stack per PCB screw (N/mm, series)": {
    "brass sleeve": 45213,
    "PCB (FR-4 z)": 50658,
@@ -361,7 +361,7 @@ Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS valu
  "duct": {
   "lever_mm (tab mating face -> rear end)": 46.3,
   "lever_mm (tab hole line -> rear end)": 47.5,
-  "mass_g": 9.4,
+  "mass_g": 9.39,
   "com": [
    11.9,
    -27.4,
@@ -409,13 +409,13 @@ Densities: ASA 1.07, PC 1.20, PA-CF 1.15 g/cm3 (lead-specified, typical TDS valu
     ]
    }
   ],
-  "pitch_mode_Hz_upper (pads + lugs only)": 2741,
+  "pitch_mode_Hz_upper (pads + lugs only)": 2742,
   "k_theta_Nmm_per_rad_upper (pads + lugs only)": 1396435,
-  "J_gmm2_upper (pads + lugs only)": 4710,
+  "J_gmm2_upper (pads + lugs only)": 4705,
   "rotation_centre_z_upper (pads + lugs only)": 17.0,
   "pitch_mode_Hz_lower (with tab arms)": 1530,
   "k_theta_Nmm_per_rad_lower (with tab arms)": 442198,
-  "J_gmm2_lower (with tab arms)": 4787,
+  "J_gmm2_lower (with tab arms)": 4782,
   "rotation_centre_z_lower (with tab arms)": 17.57,
   "note": "rigid duct; posts and duct bending ignored (both lower it). Target > 2 x 77.6 Hz. Tabs spread in Z (T_3) turn pitch into push-pull on the tab joints, which is far stiffer than arm torsion."
  }

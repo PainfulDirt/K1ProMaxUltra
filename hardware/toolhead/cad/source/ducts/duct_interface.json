@@ -189,8 +189,8 @@
     ]
   },
   "keep_clear_for_duct": "the duct body's space: see duct_envelope and the STEP; the frame must not enter the duct air path or come within 3 mm of the sock (interfaces.HOT_ZONE_CLEARANCE)",
-  "duct_materials": "nozzle end PC or PA-CF (DD-07); printed upright, fan socket up",
-  "duct_mass_g": 9.4,
+  "duct_materials": "HT resin, HDT >= 130 C at 0.45 MPa after full post-cure, 238 C class ordered (DD-07a); fallbacks PC or MJF PA12. FDM orientation: upright, fan socket up",
+  "duct_mass_g": 9.39,
   "keepout_violations_mm3": {},
   "soft_limit_excess_mm": {
     "FRONT_LIMIT_Y": 1.5,
@@ -244,7 +244,7 @@
     "print": {
       "orientation": "upright, nozzle-frame +Z = print Z, base plane on the bed",
       "bed_contact_mm2": 1378.2,
-      "overhang_gt45_external_mm2 (support area)": 94.5,
+      "overhang_gt45_external_mm2 (support area)": 92.3,
       "overhang_gt45_in_air_path_mm2": 4.78
     }
   },
