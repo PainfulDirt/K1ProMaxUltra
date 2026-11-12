@@ -54,7 +54,7 @@ or estimated.
 | Part-top heat-transfer coefficient (thermal proxy) | 147 vs 42 W/m²K (×3.5), lower bound | SIMULATED | §11 |
 | Price: extra nozzle + sock heat loss at 100 % fan | +6.2 … +6.8 W (about 10 % of the 60 W heater) | SIMULATED (proxy, indicative) | §11 |
 | LiDAR window region air speed | 0.17 vs 0.087 m/s (moving downward, away from the windows) | SIMULATED | §13.1 |
-| Moving-mass change | −0.7 … +8.3 g | ESTIMATED | `cad/exports/validation_report.md` |
+| Moving-mass change | −0.7 … +8.3 g, assuming the new probe mount replaces the 785004 adapter; with the 785004 kept (the baseline until M8) about 0.6–0.9 g less | ESTIMATED | `cad/exports/validation_report.md` |
 | X / Y input shaper | 76.9 … 77.7 Hz (77.6 today) / 51.8 … 52.0 Hz (52.0 today) | ESTIMATED (today's values MEASURED) | validation report |
 | Front extent | −58.2 vs −55.0 for the stock cover (3.2 mm further forward) | DESIGN | validation report |
 | CAD checks | 0 FAIL / 4 WARN | GEOMETRIC | validation report |
@@ -95,7 +95,7 @@ Full comparison, row by row with tags: `documentation/stock-vs-new.md`.
 | [`documentation/research/`](documentation/research/) | 01 repo and sensors, 02 mechanical interfaces, 03 fans and cooling, 04 toolchain and CFD method |
 | [`cad/README.md`](cad/README.md) | CAD structure, parameters, release rule, accepted WARNs, CAD-side BOM |
 | [`cad/exports/validation_report.md`](cad/exports/validation_report.md) | current CAD checks, masses, shaper estimate, dependencies per part |
-| [`STATUS.md`](STATUS.md) | session snapshot from 2026-11-01 (before the CFD result); superseded by this page |
+| [`STATUS.md`](STATUS.md) | current state, next steps and open decisions |
 
 ## Folders
 

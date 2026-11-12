@@ -260,11 +260,16 @@ The files are in `hardware/toolhead/components/fans/klipper/`:
 **How to use one** (a printer-config change, made by the user, not by this project):
 1. Copy the chosen file next to `tuning.cfg` on the printer, as `part_fan.cfg`.
 2. Add `[include part_fan.cfg]` as the **last** line of `tuning.cfg`. Each snippet re-declares
-   `[fan]` with only the options it changes. Klipper merges a re-declared section and the later
-   value wins, so the include must come after Pellcorp's `fan_control.cfg`, which `tuning.cfg`
-   does.
-3. `FIRMWARE_RESTART`. Check in `klippy.log` (config dump at start) that `[fan]` shows the new
-   values.
+   `[fan]` with only the options it changes. Klipper merges a re-declared section, and the value read
+   **later** wins. So the snippet only takes effect if it is read after Pellcorp's
+   `fan_control.cfg`. **That order is not verified:** the repo's `printer.cfg` holds only the
+   overrides and includes `tuning.cfg` on its first line, and where the printer's own `printer.cfg`
+   includes `fan_control.cfg` is unknown (review R-24).
+3. `FIRMWARE_RESTART`, then check what Klipper actually uses, either in the Fluidd console:
+   `{action_respond_info(printer.configfile.settings.fan|string)}` inside a one-line macro, or in
+   the config dump at the top of `klippy.log`. The `[fan]` values must be the snippet's
+   (`cycle_time`, `kick_start_time`, `off_below`). If they are Pellcorp's, move the include line to
+   the end of the printer's `printer.cfg`, after the Pellcorp includes, and check again.
 4. Run `CONFIG_OVERRIDES` (or `BACKUP_TO_GITHUB`) so the change survives Pellcorp updates.
 
 **Rollback:** delete the include line (and the file), then `FIRMWARE_RESTART`. Pellcorp's stock

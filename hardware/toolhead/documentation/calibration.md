@@ -57,15 +57,16 @@ them once the first post-install runs are logged.
 | A | Baseline capture (before disassembly) | yes | 20 min |
 | B | Install (`assembly.md`), cold checks | no | — |
 | C | Fan function test (no config change) | no | 10 min |
-| D | Clearances and keep-outs, motors on, slow | no | 15 min |
-| E | **MPC re-calibration** (+ fan-step test, heater reserve) | yes | 15–25 min |
+| D | Clearances and keep-outs (rear jog **mandatory**), motors on, slow | no | 30 min |
+| E | **MPC re-calibration** (+ fan-step test, heater reserve, max-flow headroom) | yes | 25–35 min |
 | F | Probe z_offset via the load cells | yes | 15 min |
 | G | LiDAR checks (no recalibration) | yes (optional dry-run cross) | 10 min |
 | H | Twist (probe + LiDAR) and input shaper, via `CALIBRATE_NEXT_PRINT` and one sacrificial print | yes | 30 min |
 | I | LiDAR offsets and twist, **only** if step G found the bracket disturbed | yes | 15 min |
 | J | PA spot-check (`LIDAR_PA_CALIBRATION`) | yes | 15 min |
 | K | First-layer checks | yes | one print |
-| L | Save and back up | — | — |
+| L | Slicer fan percentages: re-tune (your decision) | yes | several coupons |
+| M | Save and back up | — | — |
 
 Why this order:
 - MPC goes first among the hot steps: the nozzle wipe cools its blob at `M106 S255`
@@ -125,20 +126,25 @@ The baseline uses Pellcorp's `[fan]` unchanged (`electrical.md` §1). Nothing to
    duct and fan to the XY joints ≥ 1 mm (ESTIMATED). Inside the joint band (Z 44.3…91.8 above the tip)
    the cover is ±24.0 against `RIGHT_LIMIT_X` 24.2; the duct body reaches X +31.0 only below Z 23,
    outside the band (validation report).
-4. **Rear keep-outs, only if a part behind the nozzle changed** (new probe mount, or anything past
-   Y +29.1): move the nozzle to each point below in 0.5 mm steps and check the gap between the
-   rearmost toolhead part and the Z-rod housing. Today's zones were measured with ~3 mm left.
+4. **Rear keep-outs: mandatory for this build** (review R-01). Today's zones were measured with the
+   MicroProbe body and the 785004 adapter as the rearmost parts. The new duct is a different shape
+   behind and beside the probe, so the zones are not known to clear it. Jog with the duct fitted, at
+   **Z 5 and again at Z 0.5**, in 0.5 mm steps. At each point check the gap between the rearmost
+   toolhead part (probe, adapter, duct, frame) and the Z-rod housing.
 
-| Point (nozzle X, Y) | Zone it guards |
+| Point or sweep (nozzle X, Y) | Zone it guards |
 |---|---|
 | 150, 292 | zone1 (middle housing) |
+| sweep X 105 → 130 at the largest allowed Y, beside zone1 | middle housing, reached by anything right of the probe |
 | −2, 291 | zone2 (left corner) |
 | 286, 301 | zone3 (right housing) |
+| sweep X 266 → 306.5 along the zone3/zone4 borders | right housing and corner |
 | 306.5, 286 | zone4 (right corner) |
 
-   Accept a gap of 2–4 mm (ESTIMATED). If it is less than 2 mm, re-measure that zone the way the
-   `tuning.cfg` comment describes, and update `[keep_out]` plus the Orca bed shapes
-   (`orcaslicer/make_profiles.py`). If it is more than 5 mm, leave the zones alone (conservative).
+   Accept a gap of 2–4 mm (ESTIMATED). If it is less than 2 mm anywhere, stop. Re-measure that zone the
+   way the `tuning.cfg` comment describes, then update `[keep_out]` plus the Orca bed shapes
+   (`orcaslicer/make_profiles.py`). That is a printer-config change, so it is your decision; keep the
+   old values for rollback. If the gap is more than 5 mm, leave the zones alone (conservative).
 
 ### E. MPC re-calibration (required after fitting, and after any fan or duct change)
 
@@ -159,8 +165,7 @@ What to expect. The stock fan's share of the block's heat loss is 0.1166 − 0.0
 bound) to +6.8 W (upper) of nozzle + sock loss at 100 % fan over the stock duct
 (`cfd-report.md` §11, which says to expect the fan term to roughly double). On the same 225 K that
 puts `fan_ambient_transfer` at 100 % near **0.14–0.15 W/K** (ESTIMATED, my arithmetic). Treat it as
-indicative only: the proxy ran with 45 °C air and an assumed 150 °C sock surface, and its energy
-balance closes only to 47–56 % on S7.
+indicative only: the proxy ran with 45 °C air and an assumed 150 °C sock surface, and its energy balance does not close: on S7 the heat leaving through the open boundaries exceeds the wall input by 47–56 % (STOCK 2–3 %), so the error differs per case (review R-08).
 
 | Quantity | Pass | Basis |
 |---|---|---|
@@ -170,6 +175,18 @@ balance closes only to 47–56 % on S7.
 | fan_ambient_transfer at 100 % | **record it** (this is test V4 in `validation.md`). Expected **above** 0.1166, roughly 0.14–0.15. **≤ 0.1166**: less air reaches the nozzle than CFD predicts; check the duct is seated on the fan outlet and no port is blocked. **> ~0.18** (about twice the predicted increase, ESTIMATED limit): a jet is hitting the block or the duct is mis-seated; check the duct pose and the 3 mm sock gap | CFD proxy (indicative); ESTIMATED limits |
 | Fan-step deviation | ≤ ±1.5 °C, overshoot ≤ 0.5 °C | README baseline |
 | Heater power at the hottest print temperature, fan 100 % | settles clearly below 100 % | `cfd-report.md` §15 V4 ("plan for the heater's reserve") |
+
+4. **Heater headroom at maximum flow** (review R-18). Static power (step 3) is not the worst case.
+   Extrude a purge at the highest volumetric flow you print, at the hottest temperature, with the fan
+   at 100 %. For the Orca "Speed Benchy" profile that is 32 mm³/s at 255 °C: about 100 mm of filament
+   at 13.3 mm/s, in the air over the purge area or the wipe strip. Record the heater duty and the
+   temperature droop.
+   - The review estimates about 79 % duty with the new duct against 69 % stock (REVIEWER-ESTIMATE).
+   - Pass: duty ≤ 90 % and droop ≤ 3 °C.
+   - If it fails, lower the profile's maximum flow or its fan percentage at that flow.
+
+   Also check flow consistency at fan 0 % and 100 %, because the cooler tip changes melt temperature
+   (step J's PA test is one way to do it).
 
 ### F. Probe z_offset via the load cells
 
@@ -278,7 +295,23 @@ Orca filament profile.
 A single-layer print runs its after-scan from `_SAF_END_PRINT_START`, possibly with the part fan
 still running (§6). If the report's gates fail only on such prints, note it for test V7.
 
-### L. Save and back up
+### L. Slicer fan percentages (your decision; review R-12)
+
+At the same fan percentage the layer now gets several times the stock airflow: ×3.8–4.8 in layer
+speed in CFD, not measured. Today's Orca percentages were tuned for the stock duct, so ABS/ASA may
+lose layer bonding and warp or crack more. PETG bridging and layer adhesion change too. Those
+symptoms would come from the percentages, not from the duct.
+
+1. Starting point (REVIEWER-ESTIMATE, a starting point only): ABS/ASA and PETG fan maxima at about
+   1/3–1/2 of today's values (ABS/ASA 0–30 % → about 0–12 %; PETG 30–80 % → about 15–35 %). PLA can
+   stay at 100 %.
+2. Tune with a layer-adhesion coupon (snap test of a thin wall), a warp coupon (a long thin bar,
+   measuring the corner lift) and the V5 overhang/bridge print, in that filament.
+3. Record the result in the filament profiles (`orcaslicer/make_profiles.py`). This is a slicer
+   profile change: keep the old values for rollback.
+4. Do the same for the overhang/bridge fan values (M18).
+
+### M. Save and back up
 
 `SAVE_CONFIG` if anything is still pending, then `CONFIG_OVERRIDES` / `BACKUP_TO_GITHUB`. Record
 the new values in a commit message. Run `CALIBRATION_STATUS`: the H steps reset their counters.

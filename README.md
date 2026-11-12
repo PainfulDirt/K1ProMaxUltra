@@ -125,7 +125,7 @@ Rough steps on a Simple AF printer that has Kalico and the load-cell bed firmwar
 ## Roadmap
 
 **Toolhead** ([hardware/toolhead/](hardware/toolhead/README.md))
-- **New part cooling.** The design keeps the stock 4020 fan and replaces the stock duct with a CFD-designed multi-port duct, a new cooling-module frame and a new cover. The LiDAR and Microprobe positions are unchanged. In simulation the airflow in the layer around the nozzle is about 4.8× the stock duct's with the same fan; nothing has been printed or measured yet. Next: print the fit-check coupon and take the measurements in [missing-information.md](hardware/toolhead/documentation/missing-information.md).
+- **New part cooling.** The design keeps the stock 4020 fan and replaces the stock duct with a CFD-designed multi-port duct, a new cooling-module frame and a new cover. The LiDAR and Microprobe positions are unchanged. In simulation (steady RANS, 20 mm part proxy, at the conservative end of the stock fan's unknown curve) the airflow in the layer around the nozzle is about 4.8× the stock duct's with the same fan (3.8× at the other end of the curve); nothing has been printed or measured yet. Next: print the fit-check coupon and take the measurements in [missing-information.md](hardware/toolhead/documentation/missing-information.md).
 
 **LiDAR** (done: LiDAR PA calibration, LiDAR offset self-check)
 - **True first-layer thickness.** Scan the bare plate, print the first layer, scan again: the difference is the real thickness across the part. Checks True Zero Touch and the mesh with numbers.

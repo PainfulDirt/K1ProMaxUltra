@@ -22,12 +22,12 @@ coupon.** No part has been printed and nothing has been measured on the printer 
     - layer air speed ×4.8;
     - weakest sector ×14–18;
     - part-top heat transfer ×3.5 (thermal proxy).
-  - Price: about +6 W nozzle and sock heat loss at 100 % fan (ESTIMATED from the proxy).
+  - Price: about +6 W nozzle and sock heat loss at 100 % fan (SIMULATED, thermal proxy with an unclosed energy balance: indicative only).
   - Mesh check L1/L2/L3: the means are converged. The weakest sector is not (±27 %).
 - **CAD integrated with the final duct:** `cad/`
   - `validate.py`: 0 FAIL / 4 WARN, with the 4 WARNs explained in `cad/README.md`;
   - exports in `cad/exports/` verified.
-  - Moving mass −0.7 … +8.3 g vs stock; X shaper 76.9 … 77.7 Hz (77.6 today). Both ESTIMATED.
+  - Moving mass −0.7 … +8.3 g vs stock, with the new probe mount (about 0.6–0.9 g less with the 785004 kept); X shaper 76.9 … 77.7 Hz (77.6 today). Both ESTIMATED.
 - **Documentation:** in `documentation/`
   - BOM, electrical (no change for the baseline), calibration, print settings, maintenance;
   - assembly, validation, stock-vs-new.

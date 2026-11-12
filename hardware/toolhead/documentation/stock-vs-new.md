@@ -42,7 +42,7 @@ CFD values are given at both 4020 bounds, **lower / upper** (191 / 390 Pa shut-o
 | Nozzle cone near-wall U0.3 [m/s] | 0.95 / 1.90 | 7.17 / 10.98 | SIMULATED | — | `cfd-report.md` §10 |
 | Nozzle convective loss at 100 % fan [W] | 1.16 / 1.65 | 4.38 / 5.57 | SIMULATED (proxy) | — | §11 |
 | Sock convective loss at 100 % fan [W] (sock surface assumed 150 °C) | 6.8 / 9.5 | 9.8 / 12.3 | SIMULATED (proxy) + ESTIMATED sock temperature | — | §11 |
-| **Extra heater demand at 100 % fan** | — | **+6.2 / +6.8 W** (about 10 % of the 60 W heater); about 2–3 W at 40–60 % fan | SIMULATED (proxy; energy balance closes only to 47–56 % on S7, indicative) | — (V4) | §11 |
+| **Extra heater demand at 100 % fan** | — | **+6.2 / +6.8 W** (about 10 % of the 60 W heater); about 2–3 W at 40–60 % fan | SIMULATED (proxy; energy balance unclosed: outflow exceeds wall input by 47–56 % on S7; indicative) | — (V4) | §11 |
 | MPC `fan_ambient_transfer` at 100 % [W/K] | **0.1166** | ≈ 0.14–0.15 | stock MEASURED; new ESTIMATED (my arithmetic, `calibration.md` E) | — (V4, `calibration.md` E) | `printer.cfg.save_config`; `calibration.md` |
 | MPC `ambient_transfer` (fan 0) [W/K] | 0.0800 | expected about the same | stock MEASURED; new ESTIMATED | — | `printer.cfg.save_config` |
 | Hotend, heater, sock | stock 2023 ceramic, 60 W | unchanged | DESIGN | — | DD-01 |

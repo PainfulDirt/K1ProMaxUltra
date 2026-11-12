@@ -107,16 +107,23 @@ Reading against the selection rule:
   - Delta: −10 % as a minimum-spec unit, +10 % typical;
   - Same Sky: +13 % typical, inside its own tolerance and inside the ±20 % spread of the 4020's
     unknown curve.
-- The 4020 stays. The Same Sky CBM-5015BF is the documented, conditional upgrade: it fits the same bay,
-  and `with_fan(PARAMS_FINAL, "samesky")` generates its duct variant.
+- The 4020 stays. The Same Sky CBM-5015BF was meant as the conditional upgrade, but **as modelled it
+  is not buildable** (review R-13):
+  - its 51.6 mm wide housing puts its right face exactly on the hard X stall limit (24.2) inside the
+    XY-joint band, with 0 mm margin;
+  - no ±24 mm cover can enclose it.
+
+  It stays an upgrade only if a pose with ≥ 1 mm margin and room for a cover wall exists; the duct
+  revision checks this.
 - One caveat on the price of the gain. The thermal proxy puts the nozzle and sock convective loss at
-  +6.2 W (lower bound) to +6.8 W (upper bound) at 100 % fan, about 10 % of the 60 W heater. Its energy
-  balance closes only to 47–56 % on S7, so treat that figure as indicative. It is the reason
+  +6.2 W (lower bound) to +6.8 W (upper bound) at 100 % fan, about 10 % of the 60 W heater. Treat
+  that figure as indicative only: its energy balance does not close: on S7 the heat leaving through the open boundaries exceeds the wall input by 47–56 % (STOCK 2–3 %), so the error differs per case (review R-08). It is the reason
   `MPC_CALIBRATE` is mandatory after fitting.
 
 **Would reverse it.**
 - The V1 bench test measures the 4020 at its lower bound **and** the V5/V6 test prints show
-  insufficient cooling. That switches to the Same Sky upgrade, not to two fans.
+  insufficient cooling. That re-opens the fan choice (Same Sky only if a buildable pose exists, see
+  above), not two fans.
 - CFD shows that no front-bay layout clears the LiDAR zone.
 - Or the user decides on an X-rail rebuild, which makes C's recalibration cost worth paying.
 
@@ -225,18 +232,33 @@ The full write-up is research/04. In short:
 - fans as P–Q curve inlets (`fanPressure`);
 - a nozzle environment of nozzle, sock, heatsink, a 20 mm printed-part proxy whose top is 0.2 mm
   under the tip, and the bed;
-- production mesh level L2 (mesh-independent to about 1.5 % on averaged metrics).
+- production mesh level L2. On the final duct the area-averaged metrics change by under 3 % from L2 to L3, but
+  per-face values move by up to 33 % and the weakest sector by 21.5 % (`cfd-report.md` §13.2), so those are
+  compared only between cases on the same mesh.
 
 Results rank designs; absolute velocities carry about ±20–30 % uncertainty plus the fan-curve
 uncertainty. Airflow is not cooling: the finalists get a heat-transfer proxy run, labelled as such.
 
 ## DD-07: Materials
 
-| Parts | Material | Reason |
-|---|---|---|
-| Hot zone: any part below the heatsink (Z < +31.9) within 15 mm of the sock surface. In practice the duct nozzle ends and lips. | PC or PA-CF | ASA's Tg of about 100 °C is too close to the radiant and convective load at the sock. Community covers warped at the outlets with the fan off at 260 °C. |
-| Parts at heatsink level or above (Z ≥ +31.9), e.g. the frame's PCB bosses about 14 mm from the sock | ASA is acceptable | they sit beside the actively cooled heatsink, not the heater |
-| Everything else | ASA, or ABS | Tg about 100 °C; the chamber runs at 45 °C during ABS prints |
-| Anywhere | no PLA or PETG | |
+Revised after the Phase 6 review (R-07, R-17, R-27). The first version used a 15 mm distance rule
+and a community anecdote. It is replaced by a rule based on what a part sees and on the
+filament's heat-deflection temperature (HDT, ISO 75 at 0.45 MPa, from the spool's TDS).
 
-Exact limits come from the chosen filament's datasheet.
+| Parts | Requirement | Reason |
+|---|---|---|
+| **Duct body:** the whole part. Its manifold faces the sock across 3–4.5 mm of still air, and the fan is often at 0–30 % for ABS/ASA | **HDT ≥ 130 °C at 0.45 MPa**: pure PC, or annealed PA-CF. A PC blend qualifies only if its own TDS meets the HDT. ASA does not | The review's 1-D estimate (REVIEWER-ESTIMATE, fan off, chamber 45 °C) puts the inner manifold wall at about 99 / 121 / 143 / 157 °C for a sock surface of 120 / 150 / 180 / 200 °C. The sock temperature is MISSING (M20). PC blends are typically around 110–120 °C HDT and pure PC about 135–140 °C (ESTIMATED; check the spool) |
+| Parts that see the sock or block directly within about 15 mm, below the heatsink bottom (Z < +31.9) | PC or PA-CF | radiation and the convective plume from the heater |
+| Parts at heatsink level or above, or that see the sock only edge-on through the heatsink and the 3010 intake stream. For example, the frame's PCB bosses: lower edge at Z 30.55, 13.7 mm from the sock | ASA is acceptable | the review estimates about 55–65 °C in operation (REVIEWER-ESTIMATE). That is below ASA's Tg of about 100 °C with margin |
+| Cover, frame, everything else | ASA or ABS | Tg about 100 °C; the chamber runs at 45 °C during ABS prints |
+| **Anywhere on the toolhead** | **no PLA or PETG** | Today's 785004 probe adapter (material unknown, possibly PLA/PETG) sits 5.1 mm from the sock box. Reprint the same, unchanged STL in ASA, PC or PA-CF before or with this build (review R-27). Its geometry, and so the probe calibration, does not change |
+
+What decides it physically: test V8 (`validation.md` §4). Thermocouples on the sock bottom and on the
+manifold's inner face, nozzle at 300 °C, chamber 45 °C, fan 0 %, at least 4 h. Measure the lip Z
+before and after. Pass: the inner face stays at least 15 K below the filament's HDT, and lip Z changes
+by less than 0.1 mm.
+
+Fallbacks if V8 fails:
+- the duct revision's larger manifold-to-sock clearance;
+- aluminium tape on the manifold's inner face, as a radiation shield;
+- annealed PA-CF.
