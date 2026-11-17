@@ -174,6 +174,24 @@ def trim_dir(data_dir, limit, min_age=600.0):
     return removed
 
 
+class Pacer:
+    """lidar._TICK on the printer itself: after `work` s of analysis, rest
+    `rest` s (about half the CPU; local-mode measurements 2026-11-17: the
+    level 4/5 fit ran 38 s at 50-55 %, the first-layer check 24 s, total
+    CPU idle down to 4-9 %, so Klipper had little room left)."""
+
+    def __init__(self, work=0.02, rest=0.02, clock=time.monotonic,
+                 sleep=time.sleep):
+        self.work, self.rest = work, rest
+        self.clock, self.sleep = clock, sleep
+        self.t = clock()
+
+    def __call__(self):
+        if self.clock() - self.t >= self.work:
+            self.sleep(self.rest)
+            self.t = self.clock()
+
+
 class _NullRaw:
     """--profile k1: no raw capture files (2.6-12 MB each, offline work
     only)."""
@@ -200,10 +218,14 @@ class Service:
         # folder trimmed to the newest 200 MB
         self.raw_files = True
         self.trim_bytes = 0
+        # the heavy analysis (fine mesh, first-layer check) shares the K1's
+        # CPU with Klipper: paced there, flat out on the Pi
+        lidar._TICK = None
         if profile == "k1":
             self.KEEP_SCANS = 6
             self.raw_files = False
             self.trim_bytes = 200 * 1024 * 1024
+            lidar._TICK = Pacer()
         self.scans = {}
         # calibration job generation: pf_plan starts a new one; scans begun
         # since then belong to that job (stale strips of an earlier job are
