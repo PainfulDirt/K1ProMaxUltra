@@ -6,8 +6,22 @@
 OUT=/usr/data/printer_data/config/UPDATES.md
 TMP=$OUT.tmp
 
+# git fetch / rev-list are heavy for the K1 (~200 MB RAM, slow CPU): only
+# when the printer is known to be idle, never while printing or paused (also
+# not when Moonraker doesn't answer); the next night tries again
+state=$(python3 -c 'import json,urllib.request
+try:
+    r=json.load(urllib.request.urlopen("http://127.0.0.1:7125/printer/objects/query?print_stats=state",timeout=10))
+    print(r["result"]["status"]["print_stats"]["state"])
+except Exception:
+    print("unknown")')
+case "$state" in
+    standby|complete|cancelled|error) ;;
+    *) exit 0 ;;
+esac
+
 cd /usr/data/pellcorp || exit 1
-git fetch -q origin 2> /dev/null
+nice -n 19 git fetch -q origin 2> /dev/null
 pc_installed=$(grep installed_sha /usr/data/pellcorp.done | cut -d= -f2)
 [ -n "$pc_installed" ] || pc_installed=$(git rev-parse HEAD)
 pc_up=$(git rev-parse @{upstream})
@@ -16,7 +30,7 @@ pc_log=$(git --no-pager log --no-color --date=short --format="- %ad %s" $pc_inst
 
 cd /usr/data/klipper || exit 1
 kl_branch=$(git rev-parse --abbrev-ref HEAD)
-git fetch -q origin 2> /dev/null
+nice -n 19 git fetch -q origin 2> /dev/null
 kl_up=$(git rev-parse @{upstream})
 kl_count=$(git rev-list --count HEAD..$kl_up 2> /dev/null || echo "?")
 kl_log=$(git --no-pager log --no-color --date=short --format="- %ad %s" HEAD..$kl_up 2> /dev/null | head -40)

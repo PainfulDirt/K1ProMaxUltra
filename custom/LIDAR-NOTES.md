@@ -60,6 +60,14 @@ cx_ai_middleware &`, then `ubus call laser set_state '{"laser_plugged": 1}'`
 (it only sets the module up on that message). Don't change the module's
 baud rate (0x1B, below) while the middleware should stay usable.
 
+`lidar-start.sh restart` (the `LIDAR_DRIVER` macro) stops `lidar-direct.py`
+and `lidar-bridge.py` (TERM, KILL after 5 s) and starts them again; without
+`restart` it only starts what isn't running. After a lost reply or a port
+error (USB re-enumeration) the driver re-initialises the module and restores
+what the clients set: laser, stream, stream mode, level, exposure, gain, and
+switches the fill light off. It never exits on port errors; it retries the
+init every 3 s while the module is missing.
+
 Unix socket `/tmp/ai_server_uds`. Request = JSON + `0x03` (ETX), reply the
 same. Use **one persistent connection**: the middleware leaks a descriptor
 per connection and stops accepting after a few thousand.
@@ -144,7 +152,7 @@ answer `status + data`. Simple commands take ~8 ms.
 | 0x55 | status | - | error bits (0 = ok) |
 | 0x56 | IR picture capture | `type res` (type 0 **never**: YMODEM push, hangs; 1 raw, 2 JPEG) | status + size u24; stream must be off (status 4) |
 | 0x57 | IR picture download | mode: 0 next chunk, 1 resend last, 2 done (frees it) | status + up to 2000 bytes |
-| 0x58 / 0x59 / 0xAB | internal hang watchdog: set (**written to flash**) / get / hang on purpose | | refused by the driver |
+| 0x58 / 0x59 / 0xAB | internal hang watchdog: set (**written to flash**) / get / hang on purpose | | 0x58 and 0xAB refused by the driver (`UNSAFE` in lidar_serial.py); 0x59 is a harmless getter (bare value) and allowed |
 | 0xA0 / 0xA1 | auth challenge / key | - / 32 bytes | see below |
 | 0xAA | set authorised flag | | sets the flag unchecked (debug backdoor) |
 

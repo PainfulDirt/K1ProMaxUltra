@@ -215,12 +215,32 @@ class TwistTouch:
         except self.printer.command_error as e:
             restore("measuring failed (%s)" % (e,))
             return
+        except Exception:
+            restore("measuring failed")
+            raise
         finally:
             if bed_mesh is not None:
                 bed_mesh.set_mesh(mesh)
+        # a failing LiDAR save must not keep the probe result from being
+        # applied (nor leave the compensation cleared): report it at the end
+        lidar_err = None
         if lidar is not None:
-            self._lidar_result(gcmd, lidar, lmeas, lxs, y, dists)
+            try:
+                self._lidar_result(gcmd, lidar, lmeas, lxs, y, dists)
+            except Exception as e:
+                lidar_err = e
+        try:
+            self._probe_result(gcmd, atc, meas, n, xs, x0, x1, x_off, old,
+                               restore)
+        except Exception:
+            if not self.applied:
+                restore("applying the result failed")
+            raise
+        if lidar_err is not None:
+            raise gcmd.error("LiDAR twist: not saved (%s)" % (lidar_err,))
 
+    def _probe_result(self, gcmd, atc, meas, n, xs, x0, x1, x_off, old,
+                      restore):
         try:
             means, offsets, drift, res = fit_twist(meas, n, self.passes)
         except ValueError:
@@ -260,7 +280,6 @@ class TwistTouch:
             "In use now, saved by the next SAVE_CONFIG"
             % (", ".join("%+.3f" % c for c in comp), avg, spread)
         )
-
 
     def _lidar_result(self, gcmd, lidar, lmeas, lxs, y, dists):
         # same fit as the probe; saved on its own, whatever the probe's

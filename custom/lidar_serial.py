@@ -167,6 +167,11 @@ class LidarSerial:
             attr[6][termios.VTIME] = 0
             termios.tcsetattr(fd, termios.TCSANOW, attr)
             termios.tcflush(fd, termios.TCIOFLUSH)
+        except termios.error as e:
+            # not an OSError: EIO while the USB serial device re-enumerates
+            # (laser_power.sh restart, USB drop); callers handle OSError
+            os.close(fd)
+            raise OSError(*e.args) from None
         except Exception:
             os.close(fd)
             raise
@@ -247,7 +252,10 @@ class LidarSerial:
         except LidarError:
             # drop the replies still on the way so they can't answer later requests
             time.sleep(0.3)
-            termios.tcflush(self.fd, termios.TCIFLUSH)
+            try:
+                termios.tcflush(self.fd, termios.TCIFLUSH)
+            except (OSError, termios.error, TypeError) as e:
+                self._log('flush after a pipeline error failed: %s' % (e,))
             self.parser = FrameParser()
             raise
 

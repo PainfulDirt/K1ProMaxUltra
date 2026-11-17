@@ -29,11 +29,21 @@ fi
 
 [ "$1" = "links" ] && exit 0
 
-# nightly update check
+# nightly update check: merge our job into root's crontab (other entries are
+# kept; an older version of our line is replaced); idempotent
 mkdir -p /etc/crontabs
-cp $C/crontab /etc/crontabs/root
+CT=/etc/crontabs/root
+touch $CT
+{ grep -v 'pellcorp-overrides/custom/check-updates.sh' $CT
+  grep -v '^#' $C/crontab | grep .; } > $CT.new
+if cmp -s $CT.new $CT; then
+    rm -f $CT.new
+else
+    mv $CT.new $CT
+    echo root >> /etc/crontabs/cron.update   # busybox crond: reload root's table
+fi
 pidof crond > /dev/null || crond -c /etc/crontabs
 
-# LiDAR: keep it powered and start Creality's driver for lidar.py
+# LiDAR: keep it powered and start the open driver (lidar-direct.py) for lidar.py
 $C/lidar-start.sh > /dev/null 2>&1 &
 exit 0

@@ -4,3 +4,7 @@ moonraker.secrets
 k1-lidar/
 local/
 CLAUDE.md
+
+# compiled Python (Kalico writes .pyc next to the plugins)
+*.pyc
+__pycache__/

@@ -83,6 +83,10 @@ class NozzleWipe:
         )
         # a strip touch further than this from Z0 is not the strip
         self.max_surface = config.getfloat("max_surface", 0.5, above=0.0)
+        # after a full wipe, leave the strip towards the front to this Y: a
+        # later G28 homes X first at the current Y, and homing moves bypass
+        # [keep_out] (the probe would sweep through the rear housings)
+        self.park_y = config.getfloat("park_y", 250.0, maxval=285.0)
         room = self.x_max - self.x_min - self.wipe_len - self.peel_len
         if room < 0.0:
             raise config.error(
@@ -275,10 +279,23 @@ class NozzleWipe:
             self._run("G0 Z5 F900\nM106 S0")
             self._temp(after)
         finally:
+            if touch:
+                self._leave_strip(gcmd)
             if bed_mesh is not None:
                 bed_mesh.set_mesh(mesh)
             self.active = False
             self._run("RESTORE_GCODE_STATE NAME=_nozzle_wipe")
+
+    def _leave_strip(self, gcmd):
+        # off the strip towards the front, on the error path too (NOZZLE_SCRUB
+        # goes back where it started instead)
+        try:
+            pos = self.printer.lookup_object("toolhead").get_position()
+            if pos[1] > self.park_y:
+                self._run("G90\nG0 Z%.2f F900\nG0 Y%.1f F6000"
+                          % (max(pos[2], 5.0), self.park_y))
+        except self.printer.command_error as e:
+            gcmd.respond_info("Nozzle wipe: could not leave the strip: %s" % (e,))
 
 
 def load_config(config):

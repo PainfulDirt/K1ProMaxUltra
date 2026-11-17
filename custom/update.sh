@@ -41,8 +41,13 @@ except Exception:
 PY
 }
 
-case "$(state)" in
+# only from a known idle state: refuse while printing/paused, and when the
+# state can't be read (Moonraker/Klipper not answering) rather than guess
+st=$(state)
+case "$st" in
+    standby|complete|cancelled|error) ;;
     printing|paused) echo "printer is busy, not updating"; say "Update refused: printer is printing"; exit 1 ;;
+    *) echo "printer state '$st', not updating"; say "Update refused: printer state unknown ($st)"; exit 1 ;;
 esac
 
 echo "--- saving overrides"
@@ -52,15 +57,24 @@ case "$what" in
     pellcorp)
         cd /usr/data/pellcorp && git pull --ff-only || { say "Update aborted: git pull failed"; exit 1; }
         sh ./installer.sh --update
+        rc=$?
         ;;
     kalico)
         branch=$(git -C /usr/data/klipper rev-parse --abbrev-ref HEAD)
         sh /usr/data/pellcorp/installer.sh --klipper-repo kalico "$branch"
+        rc=$?
         ;;
     *) echo "unknown target $what"; exit 1 ;;
 esac
 
 $C/k1max-boot.sh links
+if [ "$rc" != "0" ]; then
+    # Klipper is not restarted on top of a half-done install
+    msg="Update of $what FAILED: installer exit code $rc, Klipper not restarted - see k1max_update.log"
+    echo "$msg"
+    say "$msg"
+    exit 1
+fi
 echo "--- restarting Klipper"
 /etc/init.d/S55klipper_service restart
 
