@@ -1,0 +1,8 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  K1 toolhead CFD pipeline template (OpenFOAM v2512). placeholders filled by run_case.py
+\*---------------------------------------------------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object decomposeParDict; }
+
+numberOfSubdomains @{np};
+method          @{decomp_method};      // scotch (default) | hierarchical
+coeffs          { n (@{decomp_n}); order xyz; }

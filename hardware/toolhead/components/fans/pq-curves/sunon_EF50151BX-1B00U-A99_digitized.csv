@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon EF50151BX-1B00U-A99 (5015 blower 51.7x51.6x15, 12 VDC, 2 ball bearings, 2 wires; -G99 = + FG tach, same aero)
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage 12 V
+# status: DIGITIZED (manufacturer catalogue curve 1) - table values VERIFIED (catalogue): 150 mA, 1.80 W, 6200 rpm, 5.4 CFM, 0.97 inH2O, 45.8 dBA, 31 g
+# source: https://www.sunon.com/en/MANAGE/Docs/PRODUCT/286/360/Sunon%20DC%20Brushless%20Fan%20&%20Blower_(240-A).pdf (catalogue 240-A, printed page 83 / PDF page 84, curve '1'); shop: https://www.sunon.cz/ventilator-dc-blower-12v-51-6x51-7x15mm-ef50151bx-1b00u-a99/ (the shop's EF50151BX-G99 PDF actually contains the EF50151B2 sheet)
+# method: the curve is a vector path in the PDF; read with PyMuPDF get_drawings(); filled outline, centre line on 0.5 pt scan lines; axis from grid lines (x 0..6 CFM = pt 82.29..233.01, y 0..1.0 inH2O = pt 662.68..531.73); resampled to 21 points
+# estimated digitizing error: +-1 % of full scale (small catalogue chart, 150 pt wide); check: 0.961 inH2O / 5.37 CFM vs table 0.97 / 5.4
+# derived end points: dP(Q=0) = 239.7 Pa (0.962 inH2O, 24.45 mmH2O); Q(dP=0) = 2.5408e-03 m3/s (5.38 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,239.74
+1.270390e-04,227.52
+2.540779e-04,215.66
+3.811169e-04,206.55
+5.081558e-04,200.17
+6.351948e-04,193.54
+7.622337e-04,185.35
+8.892727e-04,176.93
+1.016312e-03,169.69
+1.143351e-03,164.01
+1.270390e-03,155.97
+1.397428e-03,143.94
+1.524467e-03,129.54
+1.651506e-03,113.29
+1.778545e-03,95.02
+1.905584e-03,78.09
+2.032623e-03,63.71
+2.159662e-03,49.53
+2.286701e-03,33.61
+2.413740e-03,16.79
+2.540779e-03,0.00

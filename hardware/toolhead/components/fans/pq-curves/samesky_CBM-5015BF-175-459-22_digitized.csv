@@ -1,0 +1,27 @@
+# nHeaderLine=14 (OpenFOAM csv: skip this many lines)
+# model: Same Sky (ex CUI) CBM-5015BF-175-459-22 (5015 blower 51.2x51.6x15, 12 VDC, dual ball, 4 wires: +, -, tach (yellow), PWM (blue))
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage 12 V, 100 % PWM
+# status: DIGITIZED (manufacturer curve; 11 plotted measurement markers) - table values VERIFIED: 0.22 A typ / 0.33 A max, 2.64 W typ / 3.96 W max, 7500 rpm, 4.75 CFM, 1.24 inH2O, 45.9 dBA; PWM 0.2-50 kHz, VIH 2.5-10 V, VIL 0-0.8 V; tach open collector 3.3-15 V, 2 pulses/rev; series weight 23.23-31.4 g (not given per model)
+# source: https://www.sameskydevices.com/product/resource/cbm-50bf.pdf (CBM-50BF series datasheet, rev 1.02, 2024-09-12, page 4, embedded raster 1635x781 px)
+# method: embedded image extracted at native resolution; axes from gridlines (x 0..5 CFM = px 131..1589, y 0..30 mmH2O = px 700.5..124); diamond markers located by 11x11 px dark-pixel density, centroids used
+# note: the curve has a near-vertical stall step at ~2.97 CFM (17.3 -> 13.4 mmH2O); points kept as plotted (Q strictly increasing)
+# estimated digitizing error: +-0.01 CFM, +-0.05 mmH2O; check: 31.5 mmH2O (1.24 inH2O) at Q=0 and 4.75 CFM at dP=0 vs table 1.24 inH2O / 4.75 CFM
+# derived end points: dP(Q=0) = 309.2 Pa (1.241 inH2O, 31.53 mmH2O); Q(dP=0) = 2.2425e-03 m3/s (4.75 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,309.22
+5.662800e-07,309.18
+5.948299e-04,260.96
+9.840531e-04,213.07
+1.399655e-03,170.05
+1.405177e-03,131.56
+1.579213e-03,98.83
+1.724747e-03,74.80
+1.874576e-03,51.63
+1.994580e-03,36.87
+2.109299e-03,28.66
+2.239165e-03,0.71
+2.242488e-03,0.00

@@ -1,0 +1,25 @@
+# Generated OpenFOAM case data - cases are written to $K1_CFD_WORKDIR (outside the repo);
+# these patterns guard against a case accidentally being created in here.
+processor*/
+postProcessing/
+polyMesh/
+triSurface/
+extendedFeatureEdgeMesh/
+dynamicCode/
+VTK/
+log.*
+*.foam
+*.eMesh
+*.OpenFOAM
+# numeric time directories (0.5, 100, 1e-05, ...) but keep template/0 style dirs out too
+[0-9]*/
+!pipeline/template/**
+# large mesh / geometry intermediates
+*.msh
+*.vtk
+*.vtu
+*.vtp
+*.stl
+!pipeline/**/*.stl
+__pycache__/
+*.pyc

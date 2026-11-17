@@ -1,0 +1,9 @@
+# EXAMPLE fan P-Q curve (NOT a real fan): linear, 300 Pa shut-off, 4.0e-3 m^3/s free delivery.
+# Static pressure rise vs volumetric flow at the fan outlet. Replace with datasheet data.
+# Columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure rise, Pa)
+Q_m3_per_s,dP_Pa
+0.0,300.0
+0.001,225.0
+0.002,150.0
+0.003,75.0
+0.004,0.0

@@ -1,0 +1,64 @@
+{
+  "runs": [
+    "val_flowrate_L1",
+    "val_flowrate_L2",
+    "val_flowrate_L3"
+  ],
+  "cells": [
+    352009,
+    602008,
+    1105476
+  ],
+  "metrics": {
+    "slot_U_mean_flux": {
+      "values_coarse_to_fine": [
+        11.181084884939654,
+        10.99537146914931,
+        11.130490171713834
+      ],
+      "p_observed": null,
+      "extrapolated": null,
+      "GCI_fine": 0.015174388153621526,
+      "change_L2_to_L3_rel": 0.012288689194688758,
+      "change_L1_to_L2_rel": -0.016609606107229415
+    },
+    "annulus_Umag_mean": {
+      "values_coarse_to_fine": [
+        10.841624543426247,
+        10.917487700806364,
+        10.859075826339218
+      ],
+      "p_observed": null,
+      "extrapolated": null,
+      "GCI_fine": 0.0067238542442839035,
+      "change_L2_to_L3_rel": -0.0053503036658178295,
+      "change_L1_to_L2_rel": 0.006997397583382947
+    },
+    "p_total_inlet_Pa": {
+      "values_coarse_to_fine": [
+        97.4044812136581,
+        99.6320108427523,
+        99.04816466045132
+      ],
+      "p_observed": null,
+      "extrapolated": null,
+      "GCI_fine": 0.007368210510291466,
+      "change_L2_to_L3_rel": -0.005860026083609307,
+      "change_L1_to_L2_rel": 0.022868861897719826
+    },
+    "dp_total_inlet_to_slot_Pa": {
+      "values_coarse_to_fine": [
+        3.289977725992685,
+        2.79986585891524,
+        4.945137609935628
+      ],
+      "p_observed": null,
+      "extrapolated": null,
+      "GCI_fine": 0.5422679610346358,
+      "change_L2_to_L3_rel": 0.7662051895055919,
+      "change_L1_to_L2_rel": -0.1489711809308872
+    }
+  },
+  "r21": 1.2245664366174298,
+  "r32": 1.1958668623994453
+}

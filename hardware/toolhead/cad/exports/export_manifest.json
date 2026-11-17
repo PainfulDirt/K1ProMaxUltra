@@ -1,0 +1,428 @@
+{
+ "cooling_source": "/home/user/K1ProMaxUltra/hardware/toolhead/cad/source/ducts/duct_interface.json",
+ "is_stub": false,
+ "tolerances": {
+  "step_dv": 1e-06,
+  "step_bb": 0.001,
+  "mesh_dv": 0.005,
+  "mesh_bb": 0.05
+ },
+ "parts": {
+  "cooling_module_frame": {
+   "material": "ASA",
+   "material_note": "lead-specified; typical ASA TDS 1.05-1.10",
+   "category": "printed",
+   "volume_mm3": 6209.855,
+   "mass_g_solid": 6.64,
+   "density_g_cm3": "1.07 (ESTIMATED)",
+   "print_rot_deg": [
+    180,
+    0,
+    0
+   ],
+   "notes": "ASA (DD-07): nearest point 13.7 mm from the sock = the PCB boss columns at Z 34.3 (heatsink level, which DD-07 names as acceptable in ASA; their lower edge reaches Z 30.55, 1.4 mm below the heatsink bottom Z 31.9). Everything else below the heatsink (plate edge, duct lugs) is 22.9 mm from the sock, outside DD-07's 15 mm hot zone. PCB screws M3x30 (stock + 11.2 mm).",
+   "bbox_print": [
+    -25.375,
+    -12.975,
+    0.0,
+    25.375,
+    12.975,
+    67.05
+   ],
+   "size_print_mm": [
+    50.75,
+    25.95,
+    67.05
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/cooling_module_frame.step",
+     "sha256_16": "c6035656a6b16d5d",
+     "solids": 1,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 4.1301688120983915e-14,
+     "dBB_mm": 1.4210854715202004e-14,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/cooling_module_frame.3mf",
+     "sha256_16": "b319049ebf8c2d1a",
+     "objects": 1,
+     "dV_rel": 3.2424092308408394e-05,
+     "dBB_mm": 0.0006351470947265625,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/cooling_module_frame.stl",
+     "sha256_16": "0cc41dc4140644f6",
+     "watertight": true,
+     "winding_consistent": true,
+     "triangles": 13772,
+     "dV_rel": 3.242317886152704e-05,
+     "dBB_mm": 0.0006351470947265625,
+     "pass": 1.0
+    }
+   }
+  },
+  "cover": {
+   "material": "ASA",
+   "material_note": "lead-specified; typical ASA TDS 1.05-1.10",
+   "category": "printed",
+   "volume_mm3": 5922.454,
+   "mass_g_solid": 6.34,
+   "density_g_cm3": "1.07 (ESTIMATED)",
+   "print_rot_deg": [
+    90,
+    0,
+    0
+   ],
+   "notes": "2 screws from the top; slides forward without unplugging LiDAR / probe / fan",
+   "bbox_print": [
+    -24.0,
+    -24.5,
+    0.0,
+    24.0,
+    24.5,
+    29.1
+   ],
+   "size_print_mm": [
+    48.0,
+    49.0,
+    29.1
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/cover.step",
+     "sha256_16": "20d850d131018a48",
+     "solids": 1,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 6.1426876949759556e-15,
+     "dBB_mm": 1.4210854715202004e-14,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/cover.3mf",
+     "sha256_16": "5a7168a85e866da7",
+     "objects": 1,
+     "dV_rel": 6.57644822855127e-05,
+     "dBB_mm": 3.8146970737784613e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/cover.stl",
+     "sha256_16": "5602c9fde2bc8eb8",
+     "watertight": true,
+     "winding_consistent": true,
+     "triangles": 2560,
+     "dV_rel": 6.57668526147836e-05,
+     "dBB_mm": 3.8146970737784613e-07,
+     "pass": 1.0
+    }
+   }
+  },
+  "probe_mount": {
+   "material": "PA-CF",
+   "material_note": "lead-specified ~1.15; PA12-CF TDS 1.06-1.20",
+   "category": "printed",
+   "volume_mm3": 9955.259,
+   "mass_g_solid": 11.45,
+   "density_g_cm3": "1.15 (ESTIMATED)",
+   "print_rot_deg": [
+    180,
+    0,
+    0
+   ],
+   "notes": "NOT RELEASED until M8 confirms the 785004 anchor (photo + calipers)",
+   "bbox_print": [
+    -17.0,
+    -7.85,
+    -0.0,
+    17.0,
+    7.85,
+    33.3
+   ],
+   "size_print_mm": [
+    34.0,
+    15.7,
+    33.3
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/probe_mount.step",
+     "sha256_16": "af74792a13b63886",
+     "solids": 1,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 0.0,
+     "dBB_mm": 7.105427357601002e-15,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/probe_mount.3mf",
+     "sha256_16": "8df9d8f97b3b0047",
+     "objects": 1,
+     "dV_rel": 8.522872665498465e-06,
+     "dBB_mm": 7.629394573882564e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/probe_mount.stl",
+     "sha256_16": "3904f00e63eafc96",
+     "watertight": true,
+     "winding_consistent": true,
+     "triangles": 3192,
+     "dV_rel": 8.522521089670712e-06,
+     "dBB_mm": 7.629394573882564e-07,
+     "pass": 1.0
+    }
+   }
+  },
+  "fitcheck_coupon": {
+   "material": "ASA",
+   "material_note": "lead-specified; typical ASA TDS 1.05-1.10",
+   "category": "fitcheck",
+   "volume_mm3": 2791.502,
+   "mass_g_solid": 2.99,
+   "density_g_cm3": "1.07 (ESTIMATED)",
+   "print_rot_deg": [
+    90,
+    0,
+    0
+   ],
+   "notes": "PRINT FIRST. Same material as the frame so shrinkage matches.",
+   "bbox_print": [
+    -16.0,
+    -25.895,
+    0.0,
+    16.0,
+    25.895,
+    10.8
+   ],
+   "size_print_mm": [
+    32.0,
+    51.79,
+    10.8
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/fitcheck_coupon.step",
+     "sha256_16": "4a02e60c29b364a2",
+     "solids": 1,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 1.4661373881946006e-14,
+     "dBB_mm": 7.105427357601002e-15,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/fitcheck_coupon.3mf",
+     "sha256_16": "8560608a5bd9055b",
+     "objects": 1,
+     "dV_rel": 3.380347872802776e-05,
+     "dBB_mm": 4.5776367230132564e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/fitcheck_coupon.stl",
+     "sha256_16": "64420a1c36c0b6a9",
+     "watertight": true,
+     "winding_consistent": true,
+     "triangles": 8452,
+     "dV_rel": 3.379392148600346e-05,
+     "dBB_mm": 4.5776367230132564e-07,
+     "pass": 1.0
+    }
+   }
+  },
+  "duct_body": {
+   "material": "HT-resin",
+   "material_note": "PLACEHOLDER = PC 1.20 g/cm3; take the real value from the HT resin TDS (DD-07a)",
+   "category": "printed",
+   "volume_mm3": 7823.68,
+   "mass_g_solid": 9.39,
+   "density_g_cm3": "1.2 (ESTIMATED)",
+   "print_rot_deg": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "notes": "owned by the Duct/CFD agent (cad/source/ducts, param set S8); status FINAL. Material (DD-07a, user decision): HT resin, 238 C class (HDT at 0.45 MPa after the FULL thermal post-cure per the TDS), from a print service, order two; fallbacks PC or MJF PA12. Ask for: channels flushed and drained, no support contact on the outlet lips, inside the ports or on the socket faces. Mass uses the PC density as a placeholder: the real value comes from the resin TDS. Brittle: M3 washer under each tab head, tighten only until the tab seats. Exported upright on its flat base (nozzle-frame +Z = print Z); the orientation is the service's choice.",
+   "bbox_print": [
+    -23.797,
+    -33.124,
+    -0.0,
+    23.797,
+    33.124,
+    24.15
+   ],
+   "size_print_mm": [
+    47.59,
+    66.25,
+    24.15
+   ],
+   "files": {
+    "step": {
+     "path": "exports/step/duct_body.step",
+     "sha256_16": "29b8babe05dc8ee8",
+     "solids": 1,
+     "is_valid": true,
+     "closed": true,
+     "dV_rel": 4.997542833111012e-13,
+     "dBB_mm": 3.9257486150745535e-12,
+     "pass": true
+    },
+    "3mf": {
+     "path": "exports/3mf/duct_body.3mf",
+     "sha256_16": "4014d240bd468ae1",
+     "objects": 1,
+     "dV_rel": 2.5867693700962763e-06,
+     "dBB_mm": 4.814697263100243e-07,
+     "pass": true
+    },
+    "stl": {
+     "path": "exports/stl/duct_body.stl",
+     "sha256_16": "9e7f0ff1843fa48b",
+     "watertight": true,
+     "winding_consistent": true,
+     "triangles": 2646,
+     "dV_rel": 2.614160203708302e-06,
+     "dBB_mm": 4.814697263100243e-07,
+     "pass": 1.0
+    }
+   }
+  }
+ },
+ "assembly": {
+  "path": "exports/step/k1max_toolhead_assembly.step",
+  "sha256_16": "60d97f6121dd84bd",
+  "leaves": 29,
+  "groups": [
+   "keepout_volumes",
+   "printed_parts",
+   "reference_stock_parts",
+   "replaced_stock_parts"
+  ],
+  "parts": {
+   "cooling_module_frame": {
+    "group": "printed_parts",
+    "volume_mm3": 6209.855
+   },
+   "cover": {
+    "group": "printed_parts",
+    "volume_mm3": 5922.454
+   },
+   "probe_mount": {
+    "group": "printed_parts",
+    "volume_mm3": 9955.259
+   },
+   "duct_body": {
+    "group": "printed_parts",
+    "volume_mm3": 7823.68
+   },
+   "ref_nozzle": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 814.103
+   },
+   "ref_heater": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 3267.16
+   },
+   "ref_sock": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 10087.61
+   },
+   "ref_heatsink": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 13539.279
+   },
+   "ref_fan3010": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 8982.305
+   },
+   "ref_pcb": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 1778.117
+   },
+   "ref_pcb_plate2": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 2373.261
+   },
+   "ref_extruder_envelope": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 80849.232
+   },
+   "ref_extruder_top_cover": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 13982.844
+   },
+   "ref_belt_retainer_1": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 1567.8
+   },
+   "ref_belt_retainer_2": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 1567.8
+   },
+   "ref_x_rod_1": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 10995.574
+   },
+   "ref_x_rod_2": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 10995.574
+   },
+   "ref_microprobe_body": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 4790.315
+   },
+   "ref_probe_pin_extended": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 9.289
+   },
+   "ref_blower_1_BLOWER_4020_STOCK": {
+    "group": "reference_stock_parts",
+    "volume_mm3": 29348.069
+   },
+   "keepout_pcb_component_zone": {
+    "group": "keepout_volumes",
+    "volume_mm3": 19028.268
+   },
+   "keepout_lidar_reserved_optical": {
+    "group": "keepout_volumes",
+    "volume_mm3": 46552.0
+   },
+   "keepout_lidar_reserved_body": {
+    "group": "keepout_volumes",
+    "volume_mm3": 60490.0
+   },
+   "keepout_lidar_laser_sheet": {
+    "group": "keepout_volumes",
+    "volume_mm3": 2168.689
+   },
+   "envelope_xcarriage": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 185101.306
+   },
+   "ref_probe_adapter_785004_REPLACED": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 17399.525
+   },
+   "replaced_stock_cover": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 246782.88
+   },
+   "replaced_stock_duct": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 34974.72
+   },
+   "replaced_stock_4020_pos": {
+    "group": "replaced_stock_parts",
+    "volume_mm3": 33062.4
+   }
+  },
+  "pass": true
+ },
+ "failures": []
+}

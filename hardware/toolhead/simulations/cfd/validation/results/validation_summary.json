@@ -1,0 +1,82 @@
+{
+  "val_flowrate_L1": {
+    "cells": 352009,
+    "timing_s": {
+      "mesh": 45.7,
+      "solve": 202.6,
+      "post": 8.43,
+      "mesh_solve_post_total": 256.73
+    },
+    "converged": true,
+    "iterations": 304,
+    "Q_inlet_m3_s": 0.00045,
+    "p_total_inlet_Pa": 97.4044812136581,
+    "slot_U_mean_flux": 11.181084884939654,
+    "slot_Q": 0.00045561032939076424,
+    "annulus_Umag_mean": 10.841624543426247,
+    "annulus_symmetry_min_over_max": 0.6496843378153057,
+    "dp_total_inlet_to_slot_Pa": 3.289977725992685,
+    "nozzle_wss_mean_Pa": 0.06960678054645908,
+    "lidar_Umag": 0.1134607344865799
+  },
+  "val_flowrate_L2": {
+    "cells": 602008,
+    "timing_s": {
+      "mesh": 70.57,
+      "solve": 353.8,
+      "post": 8.79,
+      "mesh_solve_post_total": 433.16
+    },
+    "converged": true,
+    "iterations": 304,
+    "Q_inlet_m3_s": 0.00045,
+    "p_total_inlet_Pa": 99.6320108427523,
+    "slot_U_mean_flux": 10.99537146914931,
+    "slot_Q": 0.0004438968534898758,
+    "annulus_Umag_mean": 10.917487700806364,
+    "annulus_symmetry_min_over_max": 0.5657525695928071,
+    "dp_total_inlet_to_slot_Pa": 2.79986585891524,
+    "nozzle_wss_mean_Pa": 0.0839694288340737,
+    "lidar_Umag": 0.12062297016382217
+  },
+  "val_flowrate_L3": {
+    "cells": 1105476,
+    "timing_s": {
+      "mesh": 122.16,
+      "solve": 696.48,
+      "post": 11.01,
+      "mesh_solve_post_total": 829.65
+    },
+    "converged": true,
+    "iterations": 312,
+    "Q_inlet_m3_s": 0.00045,
+    "p_total_inlet_Pa": 99.04816466045132,
+    "slot_U_mean_flux": 11.130490171713834,
+    "slot_Q": 0.00045072766391158104,
+    "annulus_Umag_mean": 10.859075826339218,
+    "annulus_symmetry_min_over_max": 0.5741882087366914,
+    "dp_total_inlet_to_slot_Pa": 4.945137609935628,
+    "nozzle_wss_mean_Pa": 0.09274988443032972,
+    "lidar_Umag": 0.11716971546411514
+  },
+  "val_fan_L2": {
+    "cells": 602008,
+    "timing_s": {
+      "mesh": 79.26,
+      "solve": 374.07,
+      "post": 7.92,
+      "mesh_solve_post_total": 461.25
+    },
+    "converged": true,
+    "iterations": 307,
+    "Q_inlet_m3_s": 0.000711842282,
+    "p_total_inlet_Pa": 246.61185022767697,
+    "slot_U_mean_flux": 17.332674948259523,
+    "slot_Q": 0.0007015716323196888,
+    "annulus_Umag_mean": 17.434813080082336,
+    "annulus_symmetry_min_over_max": 0.6175494443705204,
+    "dp_total_inlet_to_slot_Pa": 4.645703294192913,
+    "nozzle_wss_mean_Pa": 0.17548296164819616,
+    "lidar_Umag": 0.1905076503753662
+  }
+}

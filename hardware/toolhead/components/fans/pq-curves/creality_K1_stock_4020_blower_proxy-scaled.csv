@@ -1,0 +1,24 @@
+# nHeaderLine=12 (OpenFOAM csv: skip this many lines)
+# model: Creality K1/K1 Max stock 4020 part-cooling blower (24 V, 0.3 A, 12000 rpm, 4-pin) - no manufacturer data exists
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa)
+# status: ESTIMATED - shape DIGITIZED from Same Sky CBM-4020B-160-367 (6000 rpm), affinity-scaled to 12000 rpm: Q x 2, dP x 4 (power x 8: 0.96 W -> 7.7 W vs stock 24 V x 0.3 A = 7.2 W)
+# result: 5.3 CFM / 191 Pa. The earlier GDSTIME-based estimate (creality_K1_stock_4020_blower.csv) gave 6.4 CFM / 390 Pa; the true stock curve probably lies between the two. MEASURE IT.
+# source shape: https://www.sameskydevices.com/product/resource/cbm-40b.pdf ; stock ratings (SECONDARY): https://3dprintingcanada.com/products/official-creality-k1-k1-max-4020-blower-fan
+# derived end points: dP(Q=0) = 191.4 Pa (0.768 inH2O, 19.52 mmH2O); Q(dP=0) = 2.5067e-03 m3/s (5.31 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,191.40
+3.190988e-04,174.63
+5.283392e-04,155.47
+7.557950e-04,140.70
+1.004958e-03,119.13
+1.318017e-03,93.88
+1.514705e-03,83.44
+1.775477e-03,64.70
+2.086459e-03,39.79
+2.285034e-03,18.28
+2.502014e-03,0.39
+2.506722e-03,0.00

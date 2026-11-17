@@ -1,0 +1,44 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon MF40202VX-1000U-G99 (40x40x20 axial, 24 VDC, Vapo bearing, auto-restart + FG tach)
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa), rated voltage
+# status: DIGITIZED (manufacturer curve, vector-extracted) - table values VERIFIED: 10.8 CFM, 0.29 inH2O, 8000 rpm +-15 %, 39 mA / max 45 mA, 0.94 W / max 1.08 W, 27.5 dBA, 29 g
+# source: https://www.fansco.com/datasheets/sunon/MF40202VX-1000U-G99.pdf (Sunon spec D04115420G-01, rev 2021-05-18, page 5; distributor-hosted copy of the Sunon document)
+# method: the curve is a vector polyline in the PDF; its 93 vertices were read with PyMuPDF get_drawings() and mapped with the axis frame (x 0..12 CFM = pt 170.16..419.64, y 0..0.30 inH2O = pt 563.28..268.08); resampled to 31 uniform Q points
+# estimated digitizing error: < +-0.5 % of full scale (stroke width 1.08 pt on a 295 pt axis); check: vertices give exactly 0.290 inH2O at Q=0 and 10.80 CFM at dP=0
+# derived end points: dP(Q=0) = 72.1 Pa (0.289 inH2O, 7.35 mmH2O); Q(dP=0) = 5.0963e-03 m3/s (10.80 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,72.08
+1.698764e-04,68.32
+3.397529e-04,64.30
+5.096293e-04,60.28
+6.795058e-04,56.33
+8.493822e-04,52.50
+1.019259e-03,48.74
+1.189135e-03,45.11
+1.359012e-03,41.35
+1.528888e-03,37.62
+1.698764e-03,34.12
+1.868641e-03,30.92
+2.038517e-03,28.26
+2.208394e-03,26.37
+2.378270e-03,25.93
+2.548147e-03,26.22
+2.718023e-03,26.57
+2.887900e-03,26.57
+3.057776e-03,25.86
+3.227653e-03,24.36
+3.397529e-03,22.49
+3.567405e-03,20.49
+3.737282e-03,18.31
+3.907158e-03,16.07
+4.077035e-03,13.80
+4.246911e-03,11.50
+4.416788e-03,9.18
+4.586664e-03,6.82
+4.756541e-03,4.51
+4.926417e-03,2.26
+5.096293e-03,0.00

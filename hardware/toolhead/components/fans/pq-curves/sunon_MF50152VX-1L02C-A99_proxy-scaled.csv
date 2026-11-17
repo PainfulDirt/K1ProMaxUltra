@@ -1,0 +1,34 @@
+# nHeaderLine=13 (OpenFOAM csv: skip this many lines)
+# model: Sunon MF50152VX-1L02C-A99 (5015 blower, 24 VDC, 2-wire; the blower we own)
+# columns: Q_m3_per_s (volumetric flow), dP_Pa (static pressure, Pa)
+# status: ESTIMATED - shape DIGITIZED from the Sunon MF50151VX-1B00U-A99 sheet, scaled by fan affinity to the reseller end points (SECONDARY: 4.8 CFM, 0.76 inH2O, 6000 rpm, 1.95 W)
+# scaling: Q x 4.8/5.4 = 0.8889 (speed ratio n'/n); dP x 0.8889^2 = 0.7901 -> 0.766 inH2O, i.e. the reseller pressure 0.76 inH2O is affinity-consistent with the reseller flow to within 1 % (same impeller at ~89 % speed)
+# source shape: https://www.fansco.com/datasheets/sunon/MF50151VX-1B00U-A99.pdf ; end points: https://3dandy.com/product/1642/sunon-5015-195w-24v-blower-fan-2pin-mf50152vx-1l02c-a99
+# uncertainty: if the 24 V part actually matches the Sunon catalogue blower (5.4 CFM / 0.97 inH2O) use sunon_MF50151VX-1B00U-A99_digitized.csv instead (+12.5 % Q, +27 % dP)
+# derived end points: dP(Q=0) = 191.1 Pa (0.767 inH2O, 19.49 mmH2O); Q(dP=0) = 2.2665e-03 m3/s (4.80 CFM)
+# conversions: 1 CFM = 4.719e-4 m3/s; 1 m3/min = 1/60 m3/s; 1 inH2O = 249.09 Pa; 1 mmH2O = 9.80665 Pa
+# OpenFOAM: incompressible solvers use kinematic pressure -> divide dP_Pa by rho (1.20 at 20 C, 1.11 at 45 C)
+# PWM/speed scaling (affinity): Q ~ n, dP ~ n^2
+# generated for hardware/toolhead/documentation/research/03-fans-and-cooling.md section 10
+Q_m3_per_s,dP_Pa
+0.000000e+00,191.11
+1.133246e-04,178.27
+2.266493e-04,166.38
+3.399739e-04,158.76
+4.532986e-04,153.99
+5.666232e-04,147.96
+6.799479e-04,140.63
+7.932725e-04,133.45
+9.065971e-04,127.36
+1.019922e-03,120.50
+1.133246e-03,111.35
+1.246571e-03,101.13
+1.359896e-03,91.26
+1.473220e-03,81.64
+1.586545e-03,71.88
+1.699870e-03,62.08
+1.813194e-03,50.73
+1.926519e-03,38.36
+2.039844e-03,25.57
+2.153168e-03,12.82
+2.266493e-03,0.00
